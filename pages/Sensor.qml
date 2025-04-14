@@ -17,7 +17,7 @@ Rectangle {
 
         // Title
         Text {
-            text: "Test"
+            text: "Sensor"
             font.pixelSize: 24
             font.weight: Font.Bold
             color: "white"

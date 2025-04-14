@@ -38,10 +38,10 @@ Rectangle {
             }
         }
 
-        // Test Button
+        // Sensor Button
         IconButton {
             buttonIcon: "\ueab9"
-            buttonText: "Test"
+            buttonText: "Sensor"
             Layout.alignment: Qt.AlignHCenter
             backgroundColor: sidebarMenu.activeButtonIndex === 1 ? "white" : "transparent"
             iconColor: sidebarMenu.activeButtonIndex === 1 ? "#2C3E50" : "#BDC3C7"
