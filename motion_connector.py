@@ -210,7 +210,7 @@ class MOTIONConnector(QObject):
     def softResetSensor(self):
         """reset hardware Sensor device."""
         try:
-            if self.interface.hvcontroller.soft_reset():
+            if self.interface.sensor_module.soft_reset():
                 logger.info(f"Software Reset Sent")
             else:
                 logger.error(f"Failed to send Software Reset")
