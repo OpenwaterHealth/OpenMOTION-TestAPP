@@ -2,13 +2,84 @@ import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
 
+import "../components"
+
 Rectangle {
     id: page1
     width: parent.width
     height: parent.height
-    color: "#29292B" // Background color for Page 1
+    color: "#29292B"
     radius: 20
-    opacity: 0.95 // Slight transparency for the content area
+    opacity: 0.95
+
+    // Properties for dynamic data
+    property string firmwareVersion: "N/A"
+    property string deviceId: "N/A"
+    property real sensor_temperature: 0.0
+    property real amb_temperature: 0.0
+
+    function updateStates() {
+        console.log("Updating all states...")
+        MOTIONConnector.querySensorInfo()
+        // MOTIONConnector.querySensorTemperature()
+        // MOTIONConnector.queryTriggerInfo()
+    }
+
+    // Run refresh logic immediately on page load if Sensor is already connected
+    Component.onCompleted: {
+        if (MOTIONConnector.sensorConnected) {
+            console.log("Page Loaded - Sensor Already Connected. Fetching Info...")
+            updateStates()
+        }
+    }
+
+    Timer {
+        id: infoTimer
+        interval: 1500   // Delay to ensure Sensor is stable before fetching info
+        running: false
+        onTriggered: {
+            console.log("Fetching Firmware Version and Device ID...")
+            updateStates()
+        }
+    }
+
+    Connections {
+        target: MOTIONConnector
+
+        // Handle Sensor Connected state
+        function onSensorConnectedChanged() {
+            if (MOTIONConnector.sensorConnected) {
+                infoTimer.start()          // One-time info fetch
+            } else {
+                console.log("Sensor Disconnected - Clearing Data...")
+                firmwareVersion = "N/A"
+                deviceId = "N/A"
+                sensor_temperature = 0.0
+                amb_temperature = 0.0
+                
+                pingResult.text = ""
+                echoResult.text = ""
+                toggleLedResult.text = ""
+            }
+        }
+
+        // Handle device info response
+        function onSensorDeviceInfoReceived(fwVersion, devId) {
+            firmwareVersion = fwVersion
+            deviceId = devId
+        }
+
+        // Handle temperature updates
+        function onTemperatureUpdated(sensor_temp, amb_temp) {
+            sensor_temperature = sensor_temp
+            amb_temperature = amb_temp
+        }
+
+        function onTriggerStateChanged(state) {
+            triggerStatus.text = state ? "On" : "Off";
+            triggerStatus.color = state ? "green" : "red";
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -17,15 +88,14 @@ Rectangle {
 
         // Title
         Text {
-            text: "Sensor"
-            font.pixelSize: 24
+            text: "LIFU Transmitter Unit Tests"
+            font.pixelSize: 18
             font.weight: Font.Bold
             color: "white"
             horizontalAlignment: Text.AlignHCenter
             Layout.alignment: Qt.AlignHCenter
         }
 
-        // Content Section
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -34,34 +104,541 @@ Rectangle {
             border.color: "#3E4E6F"
             border.width: 2
 
-            Text {
-                text: "Test"
-                font.pixelSize: 16
-                color: "#BDC3C7"
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                anchors.centerIn: parent
-            }
-        }
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 20
+                spacing: 10
 
-        // Buttons or Actions
-        RowLayout {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 20
+                // Vertical Stack Section
+                ColumnLayout {
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: parent.width * 0.65
+                    spacing: 10
+                    
+                    // Communication Tests Box
+                    Rectangle {
+                        width: 650
+                        height: 195
+                        radius: 6
+                        color: "#1E1E20"
+                        border.color: "#3E4E6F"
+                        border.width: 2
 
-            Button {
-                text: "Action 1"
-                onClicked: {
-                    console.log("Action 1 clicked");
+                        // Title at Top-Center with 5px Spacing
+                        Text {
+                            text: "Communication Tests"
+                            color: "#BDC3C7"
+                            font.pixelSize: 18
+                            anchors.top: parent.top
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.topMargin: 5  // 5px spacing from the top
+                        }
+
+                        // Content for comms tests
+                        GridLayout {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.leftMargin: 20   
+                            anchors.topMargin: 60    
+                            columns: 5
+                            rowSpacing: 10
+                            columnSpacing: 10
+
+                            // Row 1
+                            // Ping Button and Result
+                            Button {
+                                id: pingButton
+                                text: "Ping"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.sensorConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: pingButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    if(MOTIONConnector.sendPingCommand("SENSOR")){                                        
+                                        pingResult.text = "Ping SUCCESS"
+                                        pingResult.color = "green"
+                                    }else{
+                                        pingResult.text = "Ping FAILED"
+                                        pingResult.color = "red"
+                                    }
+                                }
+                            }
+                            Text {
+                                id: pingResult
+                                Layout.preferredWidth: 80
+                                text: ""
+                                color: "#BDC3C7"
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 200 
+                            }
+
+                            Button {
+                                id: ledButton
+                                text: "Toggle LED"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.sensorConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: ledButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    if(MOTIONConnector.sendLedToggleCommand("SENSOR"))
+                                    {
+                                        toggleLedResult.text = "LED Toggled"
+                                        toggleLedResult.color = "green"
+                                    }
+                                    else{
+                                        toggleLedResult.text = "LED Toggle FAILED"
+                                        toggleLedResult.color = "red"
+                                    }
+                                }
+                            }
+                            Text {
+                                id: toggleLedResult
+                                Layout.preferredWidth: 80
+                                color: "#BDC3C7"
+                                text: ""
+                            }
+
+                            // Row 2
+                            // Echo Button and Result
+                            Button {
+                                id: echoButton
+                                text: "Echo"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.sensorConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: echoButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+
+                                    if(MOTIONConnector.sendEchoCommand("SENSOR"))
+                                    {
+                                        echoResult.text = "Echo SUCCESS"
+                                        echoResult.color = "green"
+                                    }
+                                    else{
+                                        echoResult.text = "Echo FAILED"
+                                        echoResult.color = "red"
+                                    }
+                                } 
+                            }
+                            Text {
+                                id: echoResult
+                                Layout.preferredWidth: 80
+                                text: ""
+                                color: "#BDC3C7"
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 200 
+                            }
+
+                            Item {
+                                
+                            }
+                            
+
+                            Item {
+                                
+                            }
+                        }
+                    }
+                    
+                    // Trigger Tests
+                    Rectangle {
+                        width: 650
+                        height: 390
+                        radius: 6
+                        color: "#1E1E20"
+                        border.color: "#3E4E6F"
+                        border.width: 2
+
+                        // Title at Top-Center with 5px Spacing
+                        Text {
+                            text: "Trigger and Sensor Output Tests"
+                            color: "#BDC3C7"
+                            font.pixelSize: 18
+                            anchors.top: parent.top
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.topMargin: 5  // 5px spacing from the top
+                        }
+                        
+
+                        // Content for comms tests
+                        GridLayout {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.leftMargin: 20
+                            anchors.topMargin: 60
+                            columns: 5
+                            rowSpacing: 10
+                            columnSpacing: 10
+
+                            Text {
+                                Layout.preferredWidth: 100
+                                font.pixelSize: 16
+                                text: "Trigger Pulse"
+                                color: "#BDC3C7"
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            ComboBox {
+                                id: triggerDropdown
+                                Layout.preferredWidth: 200
+                                Layout.preferredHeight: 40
+                                model: ["10Hz 20ms Pulse", "20Hz 10ms Pulse", "40Hz 5ms Pulse"]
+                                enabled: MOTIONConnector.sensorConnected
+
+                                onActivated: {
+                                    var selectedIndex = triggerDropdown.currentIndex;
+
+                                    // Define the JSON object
+                                    var json_trigger_data = {
+                                        "TriggerFrequencyHz": 0, // Will be updated based on the index
+                                        "TriggerPulseCount": 0,
+                                        "TriggerPulseWidthUsec": 0, // Will be updated based on the index
+                                        "TriggerPulseTrainInterval": 0,
+                                        "TriggerPulseTrainCount": 0,
+                                        "TriggerMode": 1,
+                                        "ProfileIndex": 0,
+                                        "ProfileIncrement": 0
+                                    };
+
+                                    // Update frequency and pulse width based on the selected index
+                                    switch (selectedIndex) {
+                                        case 0: // 10Hz 20ms Pulse
+                                            json_trigger_data.TriggerFrequencyHz = 10;
+                                            json_trigger_data.TriggerPulseWidthUsec = 20000;
+                                            break;
+                                        case 1: // 20Hz 10ms Pulse
+                                            json_trigger_data.TriggerFrequencyHz = 20;
+                                            json_trigger_data.TriggerPulseWidthUsec = 10000;
+                                            break;
+                                        case 2: // 40Hz 5ms Pulse
+                                            json_trigger_data.TriggerFrequencyHz = 40;
+                                            json_trigger_data.TriggerPulseWidthUsec = 5000;
+                                            break;
+                                        default:
+                                            console.log("Invalid selection");
+                                            return;
+                                    }
+
+                                    // Convert the object to a JSON string
+                                    var jsonString = JSON.stringify(json_trigger_data);
+
+                                    // Call your function with the selected index
+                                    var success = MOTIONConnector.setTrigger(jsonString);
+                                    if (success) {
+                                        console.log("JSON data sent successfully");
+                                    } else {
+                                        console.log("Failed to send JSON data");
+                                    }
+
+                                }
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 100
+                            }
+
+
+                            Button {
+                                id: triggerEnable
+                                text: "Toggle Trigger"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.sensorConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: triggerButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    // Toggle the trigger state
+                                    var success = MOTIONConnector.toggleTrigger();
+                                    if (success) {
+                                        console.log("Trigger toggled successfully.");
+                                    } else {
+                                        console.log("Failed to toggle trigger.");
+                                    }
+                                }
+
+                            }
+
+                            Text {
+                                id: triggerStatus
+                                Layout.preferredWidth: 80
+                                text: ""
+                                color: "#BDC3C7"
+                            }
+                            
+                        }
+
+                    }                    
+                }
+
+                // Large Third Column
+                Rectangle {
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+                    color: "#1E1E20"
+                    radius: 10
+                    border.color: "#3E4E6F"
+                    border.width: 2
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 20
+                        spacing: 10
+
+                        // Sensor Status Indicator
+                        RowLayout {
+                            spacing: 8
+
+                            Text { text: "Sensor"; font.pixelSize: 16; color: "#BDC3C7" }
+                        
+                            Rectangle {
+                                width: 20
+                                height: 20
+                                radius: 10
+                                color: MOTIONConnector.sensorConnected ? "green" : "red"
+                                border.color: "black"
+                                border.width: 1
+                            }
+
+                            Text {
+                                text: MOTIONConnector.sensorConnected ? "Connected" : "Not Connected"
+                                font.pixelSize: 16
+                                color: "#BDC3C7"
+                            }
+                        
+                        // Spacer to push the Refresh Button to the right
+                            Item {
+                                Layout.fillWidth: true
+                            }
+
+                            
+                            // Refresh Button
+                            Rectangle {
+                                width: 30
+                                height: 30
+                                radius: 15
+                                color: enabled ? "#2C3E50" : "#7F8C8D"  // Dim when disabled
+                                Layout.alignment: Qt.AlignRight  
+                                enabled: MOTIONConnector.sensorConnected
+
+                                // Icon Text
+                                Text {
+                                    text: "\u21BB"  // Unicode for the refresh icon
+                                    anchors.centerIn: parent
+                                    font.pixelSize: 20
+                                    font.family: iconFont.name  // Use the loaded custom font
+                                    color: enabled ? "white" : "#BDC3C7"  // Dim icon text when disabled
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    enabled: parent.enabled  // MouseArea also disabled when button is disabled
+                                    onClicked: {
+                                        console.log("Manual Refresh Triggered")
+                                        updateStates();
+                                    }
+
+                                    onEntered: if (parent.enabled) parent.color = "#34495E"  // Highlight only when enabled
+                                    onExited: parent.color = enabled ? "#2C3E50" : "#7F8C8D"
+                                }
+                            }
+                        }
+                        // Divider Line
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 2
+                            color: "#3E4E6F"
+                        }
+
+                        // Display Device ID (Smaller Text)
+                        RowLayout {
+                            spacing: 8
+                            Text { text: "Device ID:"; color: "#BDC3C7"; font.pixelSize: 14 }
+                            Text { text: deviceId; color: "#3498DB"; font.pixelSize: 14 }
+                        }
+
+                        // Display Firmware Version (Smaller Text)
+                        RowLayout {
+                            spacing: 8
+                            Text { text: "Firmware Version:"; color: "#BDC3C7"; font.pixelSize: 14 }
+                            Text { text: firmwareVersion; color: "#2ECC71"; font.pixelSize: 14 }
+                        }
+
+
+                        ColumnLayout {
+                            Layout.alignment: Qt.AlignHCenter 
+                            spacing: 25  
+
+                            // TEMP #1 Widget
+                            TemperatureWidget {
+                                id: tempWidget1
+                                temperature: sensor_temperature
+                                tempName: "Sensor Temperature"
+                                Layout.alignment: Qt.AlignHCenter
+                            }
+
+                            // TEMP #2 Widget
+                            TemperatureWidget {
+                                id: tempWidget2
+                                temperature: amb_temperature
+                                tempName: "Amb Temperature"
+                                Layout.alignment: Qt.AlignHCenter
+                            }
+                        }
+
+
+                        // Soft Reset Button
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 40
+                            radius: 10
+                            color: enabled ? "#E74C3C" : "#7F8C8D"  // Red when enabled, gray when disabled
+                            enabled: MOTIONConnector.sensorConnected
+
+                            Text {
+                                text: "Soft Reset"
+                                anchors.centerIn: parent
+                                color: parent.enabled ? "white" : "#BDC3C7"  // White when enabled, light gray when disabled
+                                font.pixelSize: 18
+                                font.weight: Font.Bold
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: parent.enabled  // Disable MouseArea when the button is disabled
+                                onClicked: {
+                                    console.log("Soft Reset Triggered")
+                                    MOTIONConnector.softResetSensor()
+                                }
+
+                                onEntered: {
+                                    if (parent.enabled) {
+                                        parent.color = "#C0392B"  // Darker red on hover (only when enabled)
+                                    }
+                                }
+                                onExited: {
+                                    if (parent.enabled) {
+                                        parent.color = "#E74C3C"  // Restore original color (only when enabled)
+                                    }
+                                }
+                            }
+
+                            Behavior on color {
+                                ColorAnimation { duration: 200 }
+                            }
+                        }
+                    }
                 }
             }
-
-            Button {
-                text: "Action 2"
-                onClicked: {
-                    console.log("Action 2 clicked");
-                }
-            }
         }
+    }
+
+    FontLoader {
+        id: iconFont
+        source: "../assets/fonts/keenicons-outline.ttf"
     }
 }

@@ -1,5 +1,6 @@
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot
 import logging
+import base58
 
 from omotion.Interface import MOTIONInterface
 
@@ -20,6 +21,8 @@ class MOTIONConnector(QObject):
 
     consoleDeviceInfoReceived = pyqtSignal(str, str)  
     sensorDeviceInfoReceived = pyqtSignal(str, str)
+    temperatureUpdated = pyqtSignal(float, float)  # (sensor_temp, amb_temp)
+    triggerStateChanged = pyqtSignal(bool)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
 
@@ -104,6 +107,116 @@ class MOTIONConnector(QObject):
         logger.info(f"Data received from {descriptor}: {message}")
         self.signalDataReceived.emit(descriptor, message)
 
+    @pyqtSlot()
+    def querySensorInfo(self):
+        """Fetch and emit device information."""
+        try:
+            fw_version = self.interface.sensor_module.get_version()
+            logger.info(f"Version: {fw_version}")
+            hw_id = self.interface.sensor_module.get_hardware_id()
+            device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
+            self.sensorDeviceInfoReceived.emit(fw_version, device_id)
+            logger.info(f"Device Info - Firmware: {fw_version}, Device ID: {device_id}")
+        except Exception as e:
+            logger.error(f"Error querying device info: {e}")
+
+    @pyqtSlot()
+    def querySensorTemperature(self):
+        """Fetch and emit temperature data."""
+        try:
+            sensor_temp = 32.0 # self.interface.sensor_module.get_temperature()  
+            amb_temp = 29.0 # self.interface.sensor_module.get_ambient_temperature()  
+
+            self.temperatureSensorUpdated.emit(sensor_temp, amb_temp)
+            logger.info(f"Temperature Data - Temp1: {sensor_temp}, Temp2: {amb_temp}")
+        except Exception as e:
+            logger.error(f"Error querying temperature data: {e}")
+
+    @pyqtSlot(str, result=bool)
+    def sendPingCommand(self, target: str):
+        """Send a ping command to HV device."""
+        try:
+            if target == "CONSOLE":
+                if self.interface.console.ping():
+                    logger.info(f"Ping command sent successfully")
+                    return True
+                else:
+                    logger.error(f"Failed to send ping command")
+                    return False
+            elif target == "SENSOR":
+                if self.interface.sensor_module.ping():
+                    logger.info(f"Ping command sent successfully")
+                    return True
+                else:
+                    logger.error(f"Failed to send ping command")
+                    return False
+            else:
+                logger.error(f"Invalid target for ping command")
+                return False
+        except Exception as e:
+            logger.error(f"Error sending ping command: {e}")
+            return False
+        
+    @pyqtSlot(str, result=bool)
+    def sendLedToggleCommand(self, target: str):
+        """Send a LED Toggle command to device."""
+        try:
+            if target == "CONSOLE":
+                if self.interface.console.toggle_led():
+                    logger.info(f"Toggle command sent successfully")
+                    return True
+                else:
+                    logger.error(f"Failed to Toggle command")
+                    return False
+            elif target == "SENSOR":
+                if self.interface.sensor_module.toggle_led():
+                    logger.info(f"Toggle command sent successfully")
+                    return True
+                else:
+                    logger.error(f"Failed to send Toggle command")
+                    return False
+            else:
+                logger.error(f"Invalid target for Toggle command")
+                return False
+        except Exception as e:
+            logger.error(f"Error sending Toggle command: {e}")
+            return False
+        
+    @pyqtSlot(str, result=bool)
+    def sendEchoCommand(self, target: str):
+        """Send Echo command to device."""
+        try:
+            expected_data = b"Hello FROM Test Application!"
+            if target == "CONSOLE":
+                echoed_data, data_len = self.interface.console.echo(echo_data=expected_data)
+            elif target == "SENSOR":
+                echoed_data, data_len = self.interface.sensor_module.echo(echo_data=expected_data)
+            else:
+                logger.error(f"Invalid target for Echo command")
+                return False
+
+            if echoed_data == expected_data and data_len == len(expected_data):
+                logger.info(f"Echo command successful - Data matched")
+                return True
+            else:
+                logger.error(f"Echo command failed - Data mismatch")
+                return False
+            
+        except Exception as e:
+            logger.error(f"Error sending Echo command: {e}")
+            return False
+        
+    @pyqtSlot()
+    def softResetSensor(self):
+        """reset hardware Sensor device."""
+        try:
+            if self.interface.hvcontroller.soft_reset():
+                logger.info(f"Software Reset Sent")
+            else:
+                logger.error(f"Failed to send Software Reset")
+        except Exception as e:
+            logger.error(f"Error Sending Software Reset: {e}")
+
     @pyqtProperty(bool, notify=connectionStatusChanged)
     def sensorConnected(self):
         """Expose Sensor connection status to QML."""
@@ -118,3 +231,4 @@ class MOTIONConnector(QObject):
     def state(self):
         """Expose state as a QML property."""
         return self._state
+    
