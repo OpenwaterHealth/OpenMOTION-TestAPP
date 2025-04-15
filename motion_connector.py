@@ -116,7 +116,20 @@ class MOTIONConnector(QObject):
             hw_id = self.interface.sensor_module.get_hardware_id()
             device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
             self.sensorDeviceInfoReceived.emit(fw_version, device_id)
-            logger.info(f"Device Info - Firmware: {fw_version}, Device ID: {device_id}")
+            logger.info(f"Sensor Device Info - Firmware: {fw_version}, Device ID: {device_id}")
+        except Exception as e:
+            logger.error(f"Error querying device info: {e}")
+
+    @pyqtSlot()
+    def queryConsoleInfo(self):
+        """Fetch and emit device information."""
+        try:
+            fw_version = self.interface.console_module.get_version()
+            logger.info(f"Version: {fw_version}")
+            hw_id = self.interface.console_module.get_hardware_id()
+            device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
+            self.consoleDeviceInfoReceived.emit(fw_version, device_id)
+            logger.info(f"Console Device Info - Firmware: {fw_version}, Device ID: {device_id}")
         except Exception as e:
             logger.error(f"Error querying device info: {e}")
 
@@ -137,7 +150,7 @@ class MOTIONConnector(QObject):
         """Send a ping command to HV device."""
         try:
             if target == "CONSOLE":
-                if self.interface.console.ping():
+                if self.interface.console_module.ping():
                     logger.info(f"Ping command sent successfully")
                     return True
                 else:
@@ -162,7 +175,7 @@ class MOTIONConnector(QObject):
         """Send a LED Toggle command to device."""
         try:
             if target == "CONSOLE":
-                if self.interface.console.toggle_led():
+                if self.interface.console_module.toggle_led():
                     logger.info(f"Toggle command sent successfully")
                     return True
                 else:
@@ -188,7 +201,7 @@ class MOTIONConnector(QObject):
         try:
             expected_data = b"Hello FROM Test Application!"
             if target == "CONSOLE":
-                echoed_data, data_len = self.interface.console.echo(echo_data=expected_data)
+                echoed_data, data_len = self.interface.console_module.echo(echo_data=expected_data)
             elif target == "SENSOR":
                 echoed_data, data_len = self.interface.sensor_module.echo(echo_data=expected_data)
             else:
@@ -207,13 +220,20 @@ class MOTIONConnector(QObject):
             return False
         
     @pyqtSlot()
-    def softResetSensor(self):
+    def softResetSensor(self, target: str):
         """reset hardware Sensor device."""
         try:
-            if self.interface.sensor_module.soft_reset():
-                logger.info(f"Software Reset Sent")
-            else:
-                logger.error(f"Failed to send Software Reset")
+            
+            if target == "CONSOLE":
+                if self.interface.console_module.soft_reset():
+                    logger.info(f"Software Reset Sent")
+                else:
+                    logger.error(f"Failed to send Software Reset")
+            elif target == "SENSOR":                    
+                if self.interface.sensor_module.soft_reset():
+                    logger.info(f"Software Reset Sent")
+                else:
+                    logger.error(f"Failed to send Software Reset")
         except Exception as e:
             logger.error(f"Error Sending Software Reset: {e}")
 

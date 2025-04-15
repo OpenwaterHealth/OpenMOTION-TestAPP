@@ -88,8 +88,8 @@ Rectangle {
 
         // Title
         Text {
-            text: "LIFU Transmitter Unit Tests"
-            font.pixelSize: 18
+            text: "Sensor Module Unit Tests"
+            font.pixelSize: 20
             font.weight: Font.Bold
             color: "white"
             horizontalAlignment: Text.AlignHCenter
@@ -612,7 +612,7 @@ Rectangle {
                                 enabled: parent.enabled  // Disable MouseArea when the button is disabled
                                 onClicked: {
                                     console.log("Soft Reset Triggered")
-                                    MOTIONConnector.softResetSensor()
+                                    MOTIONConnector.softResetSensor("SENSOR")
                                 }
 
                                 onEntered: {

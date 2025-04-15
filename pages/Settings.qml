@@ -18,7 +18,7 @@ Rectangle {
         // Title
         Text {
             text: "Settings"
-            font.pixelSize: 24
+            font.pixelSize: 20
             font.weight: Font.Bold
             color: "white"
             horizontalAlignment: Text.AlignHCenter
