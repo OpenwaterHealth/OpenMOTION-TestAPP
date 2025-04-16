@@ -332,7 +332,7 @@ Rectangle {
 
                         // Title at Top-Center with 5px Spacing
                         Text {
-                            text: "Trigger and Sensor Output Tests"
+                            text: "Camera Output Tests"
                             color: "#BDC3C7"
                             font.pixelSize: 18
                             anchors.top: parent.top
@@ -340,8 +340,7 @@ Rectangle {
                             anchors.topMargin: 5  // 5px spacing from the top
                         }
                         
-
-                        // Content for comms tests
+                        // Content for Camera Tests
                         GridLayout {
                             anchors.left: parent.left
                             anchors.top: parent.top
@@ -354,7 +353,7 @@ Rectangle {
                             Text {
                                 Layout.preferredWidth: 100
                                 font.pixelSize: 16
-                                text: "Trigger Pulse"
+                                text: "Camera Select"
                                 color: "#BDC3C7"
                                 Layout.alignment: Qt.AlignVCenter
                             }
@@ -363,7 +362,7 @@ Rectangle {
                                 id: triggerDropdown
                                 Layout.preferredWidth: 200
                                 Layout.preferredHeight: 40
-                                model: ["10Hz 20ms Pulse", "20Hz 10ms Pulse", "40Hz 5ms Pulse"]
+                                model: ["Camera 0", "Camera 1", "Camera 2"]
                                 enabled: MOTIONConnector.sensorConnected
 
                                 onActivated: {
@@ -421,7 +420,7 @@ Rectangle {
 
                             Button {
                                 id: triggerEnable
-                                text: "Toggle Trigger"
+                                text: "Test"
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
@@ -452,7 +451,7 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    // Toggle the trigger state
+                                    // Test Camera
                                     var success = MOTIONConnector.toggleTrigger();
                                     if (success) {
                                         console.log("Trigger toggled successfully.");
