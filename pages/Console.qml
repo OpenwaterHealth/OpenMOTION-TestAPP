@@ -19,7 +19,7 @@ Rectangle {
     property real amb_temperature: 0.0
 
     function updateStates() {
-        console.log("Updating all states...")
+        console.log("Console Updating all states...")
         MOTIONConnector.queryConsoleInfo()
         // MOTIONConnector.queryConsoleTemperature()
     }

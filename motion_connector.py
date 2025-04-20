@@ -22,6 +22,9 @@ class MOTIONConnector(QObject):
     consoleDeviceInfoReceived = pyqtSignal(str, str)  
     sensorDeviceInfoReceived = pyqtSignal(str, str)
     temperatureSensorUpdated = pyqtSignal(float)  # (imu_temp)
+    accelerometerSensorUpdated = pyqtSignal(int, int, int) # (imu_accel)
+    gyroscopeSensorUpdated = pyqtSignal(int, int, int)  # (imu_accel)
+
     triggerStateChanged = pyqtSignal(bool)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
@@ -135,13 +138,33 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot()
     def querySensorTemperature(self):
-        """Fetch and emit temperature data."""
+        """Fetch and emit Temperature data."""
         try:
             imu_temp = self.interface.sensor_module.imu_get_temperature()  
             logger.info(f"Temperature Data - IMU Temp: {imu_temp}")
             self.temperatureSensorUpdated.emit(imu_temp)
         except Exception as e:
-            logger.error(f"Error querying temperature data: {e}")
+            logger.error(f"Error querying Temperature data: {e}")
+
+    @pyqtSlot()
+    def querySensorAccelerometer (self):
+        """Fetch and emit Accelerometer data."""
+        try:
+            accel = self.interface.sensor_module.imu_get_accelerometer()
+            logger.info(f"Accel (raw): X={accel[0]}, Y={accel[1]}, Z={accel[2]}")
+            self.accelerometerSensorUpdated.emit(accel[0], accel[1], accel[2])
+        except Exception as e:
+            logger.error(f"Error querying Accelerometer data: {e}")
+
+    @pyqtSlot()
+    def querySensorGyroscope (self):
+        """Fetch and emit Gyroscope data."""
+        try:
+            gyro  = self.interface.sensor_module.imu_get_gyroscope()
+            logger.info(f"Gyro  (raw): X={gyro[0]}, Y={gyro[1]}, Z={gyro[2]}")
+            self.gyroscopeSensorUpdated.emit(gyro[0], gyro[1], gyro[2])
+        except Exception as e:
+            logger.error(f"Error querying Gyroscope data: {e}")
 
     @pyqtSlot(str, result=bool)
     def sendPingCommand(self, target: str):

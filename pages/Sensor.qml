@@ -17,12 +17,19 @@ Rectangle {
     property string deviceId: "N/A"
     property real sensor_temperature: 0.0
     property real amb_temperature: 0.0
+    property int accel_x: 0.0
+    property int accel_y: 0.0
+    property int accel_z: 0.0
+    property int gyro_x: 0.0
+    property int gyro_y: 0.0
+    property int gyro_z: 0.0
 
     function updateStates() {
-        console.log("Updating all states...")
+        console.log("Sensor Updating all states...")
         MOTIONConnector.querySensorInfo()
         MOTIONConnector.querySensorTemperature()
-        // MOTIONConnector.queryTriggerInfo()
+        MOTIONConnector.querySensorAccelerometer()
+        //MOTIONConnector.queryTriggerInfo()
     }
 
     // Run refresh logic immediately on page load if Sensor is already connected
@@ -73,6 +80,18 @@ Rectangle {
         function onTemperatureSensorUpdated(imu_temp) {
             sensor_temperature = imu_temp
             amb_temperature = 0
+        }
+ 
+        function onAccelerometerSensorUpdated(x, y, z) {
+            accel_x = x
+            accel_y = y
+            accel_z = z
+        }
+ 
+        function onGyroscopeSensorUpdated(x, y, z) {
+            gyro_x = x
+            gyro_y = y
+            gyro_z = z
         }
 
         function onTriggerStateChanged(state) {
@@ -572,7 +591,7 @@ Rectangle {
                             Layout.alignment: Qt.AlignHCenter 
                             spacing: 25  
 
-                            // TEMP #1 Widget
+                            // TEMP Widget
                             TemperatureWidget {
                                 id: tempWidget1
                                 temperature: sensor_temperature
@@ -580,12 +599,13 @@ Rectangle {
                                 Layout.alignment: Qt.AlignHCenter
                             }
 
-                            // TEMP #2 Widget
-                            TemperatureWidget {
-                                id: tempWidget2
-                                temperature: amb_temperature
-                                tempName: "Amb Temperature"
-                                Layout.alignment: Qt.AlignHCenter
+                            // IMU Widget
+                            IMUWidget {
+                                mode: "Accel"
+                                imuLabel: "IMU Data"
+                                xVal: accel_x
+                                yVal: accel_y
+                                zVal: accel_z
                             }
                         }
 
