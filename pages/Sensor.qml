@@ -553,8 +553,11 @@ Rectangle {
                                 }
 
                                 MouseArea {
+                                    id: refreshMouseArea
                                     anchors.fill: parent
                                     enabled: parent.enabled  // MouseArea also disabled when button is disabled
+                                    hoverEnabled: true
+
                                     onClicked: {
                                         console.log("Manual Refresh Triggered")
                                         updateStates();
@@ -563,6 +566,11 @@ Rectangle {
                                     onEntered: if (parent.enabled) parent.color = "#34495E"  // Highlight only when enabled
                                     onExited: parent.color = enabled ? "#2C3E50" : "#7F8C8D"
                                 }
+
+                                // Tooltip
+                                ToolTip.visible: refreshMouseArea.containsMouse
+                                ToolTip.text: "Refresh"
+                                ToolTip.delay: 400  // Optional: delay before tooltip shows
                             }
                         }
                         // Divider Line
