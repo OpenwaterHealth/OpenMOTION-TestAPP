@@ -21,7 +21,7 @@ class MOTIONConnector(QObject):
 
     consoleDeviceInfoReceived = pyqtSignal(str, str)  
     sensorDeviceInfoReceived = pyqtSignal(str, str)
-    temperatureUpdated = pyqtSignal(float, float)  # (sensor_temp, amb_temp)
+    temperatureSensorUpdated = pyqtSignal(float)  # (imu_temp)
     triggerStateChanged = pyqtSignal(bool)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
@@ -137,11 +137,9 @@ class MOTIONConnector(QObject):
     def querySensorTemperature(self):
         """Fetch and emit temperature data."""
         try:
-            sensor_temp = 32.0 # self.interface.sensor_module.get_temperature()  
-            amb_temp = 29.0 # self.interface.sensor_module.get_ambient_temperature()  
-
-            self.temperatureSensorUpdated.emit(sensor_temp, amb_temp)
-            logger.info(f"Temperature Data - Temp1: {sensor_temp}, Temp2: {amb_temp}")
+            imu_temp = self.interface.sensor_module.imu_get_temperature()  
+            logger.info(f"Temperature Data - IMU Temp: {imu_temp}")
+            self.temperatureSensorUpdated.emit(imu_temp)
         except Exception as e:
             logger.error(f"Error querying temperature data: {e}")
 

@@ -21,7 +21,7 @@ Rectangle {
     function updateStates() {
         console.log("Updating all states...")
         MOTIONConnector.querySensorInfo()
-        // MOTIONConnector.querySensorTemperature()
+        MOTIONConnector.querySensorTemperature()
         // MOTIONConnector.queryTriggerInfo()
     }
 
@@ -70,9 +70,9 @@ Rectangle {
         }
 
         // Handle temperature updates
-        function onTemperatureUpdated(sensor_temp, amb_temp) {
-            sensor_temperature = sensor_temp
-            amb_temperature = amb_temp
+        function onTemperatureSensorUpdated(imu_temp) {
+            sensor_temperature = imu_temp
+            amb_temperature = 0
         }
 
         function onTriggerStateChanged(state) {
