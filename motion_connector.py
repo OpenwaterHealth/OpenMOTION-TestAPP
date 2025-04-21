@@ -25,6 +25,8 @@ class MOTIONConnector(QObject):
     accelerometerSensorUpdated = pyqtSignal(int, int, int) # (imu_accel)
     gyroscopeSensorUpdated = pyqtSignal(int, int, int)  # (imu_accel)
 
+    cameraConfigUpdated = pyqtSignal(int, bool)  # camera_mask, passed=True/False
+
     triggerStateChanged = pyqtSignal(bool)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
@@ -166,6 +168,26 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error querying Gyroscope data: {e}")
 
+    @pyqtSlot(int)
+    def configureCamera(self, cam_mask: int):
+        try:
+            passed = self.interface.sensor_module.program_fpga(camera_position=cam_mask, manual_process=False)
+            self.cameraConfigUpdated.emit(cam_mask, passed)
+        except Exception as e:
+            logger.error(f"Error configuring Camera {cam_mask}: {e}")
+            self.cameraConfigUpdated.emit(cam_mask, False)
+        
+    @pyqtSlot()
+    def configureAllCameras(self):
+        for i in range(8):
+            bitmask = 1 << i  # 0x01, 0x02, 0x04, ..., 0x80
+            try:
+                passed = self.interface.sensor_module.program_fpga(camera_position=bitmask, manual_process=False)
+                self.cameraConfigUpdated.emit(bitmask, passed)
+            except Exception as e:
+                logger.error(f"Camera {bitmask} failed: {e}")
+                self.cameraConfigUpdated.emit(bitmask, False)
+
     @pyqtSlot(str, result=bool)
     def sendPingCommand(self, target: str):
         """Send a ping command to HV device."""
@@ -240,7 +262,7 @@ class MOTIONConnector(QObject):
             logger.error(f"Error sending Echo command: {e}")
             return False
         
-    @pyqtSlot()
+    @pyqtSlot(str)
     def softResetSensor(self, target: str):
         """reset hardware Sensor device."""
         try:

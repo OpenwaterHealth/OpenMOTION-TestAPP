@@ -24,6 +24,18 @@ Rectangle {
     property int gyro_y: 0.0
     property int gyro_z: 0.0
 
+    ListModel {
+        id: cameraStatusModel
+        ListElement { label: "Camera 0"; status: "Not Tested"; color: "gray" }
+        ListElement { label: "Camera 1"; status: "Not Tested"; color: "gray" }
+        ListElement { label: "Camera 2"; status: "Not Tested"; color: "gray" }
+        ListElement { label: "Camera 3"; status: "Not Tested"; color: "gray" }
+        ListElement { label: "Camera 4"; status: "Not Tested"; color: "gray" }
+        ListElement { label: "Camera 5"; status: "Not Tested"; color: "gray" }
+        ListElement { label: "Camera 6"; status: "Not Tested"; color: "gray" }
+        ListElement { label: "Camera 7"; status: "Not Tested"; color: "gray" }
+    }
+
     function updateStates() {
         console.log("Sensor Updating all states...")
         MOTIONConnector.querySensorInfo()
@@ -94,9 +106,16 @@ Rectangle {
             gyro_z = z
         }
 
-        function onTriggerStateChanged(state) {
-            triggerStatus.text = state ? "On" : "Off";
-            triggerStatus.color = state ? "green" : "red";
+        function onCameraConfigUpdated(bitmask, passed) {
+            for (let i = 0; i < 8; i++) {
+                if ((bitmask & (1 << i)) !== 0) {
+                    cameraStatusModel.set(i, {
+                        label: "Camera " + i,
+                        status: passed ? "Pass" : "Fail",
+                        color: passed ? "green" : "red"
+                    });
+                }
+            }
         }
     }
 
@@ -340,7 +359,7 @@ Rectangle {
                         }
                     }
                     
-                    // Trigger Tests
+                    // Camera Tests
                     Rectangle {
                         width: 650
                         height: 390
@@ -378,55 +397,30 @@ Rectangle {
                             }
 
                             ComboBox {
-                                id: triggerDropdown
+                                id: cameraDropdown
                                 Layout.preferredWidth: 200
                                 Layout.preferredHeight: 40
-                                model: ["Camera 0", "Camera 1", "Camera 2"]
+                                model: ["Camera 0", "Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "All Cameras"]
+                                currentIndex: 8  // Default to "All Cameras"
                                 enabled: MOTIONConnector.sensorConnected
 
                                 onActivated: {
-                                    var selectedIndex = triggerDropdown.currentIndex;
-
-                                    // Define the JSON object
-                                    var json_trigger_data = {
-                                        "TriggerFrequencyHz": 0, // Will be updated based on the index
-                                        "TriggerPulseCount": 0,
-                                        "TriggerPulseWidthUsec": 0, // Will be updated based on the index
-                                        "TriggerPulseTrainInterval": 0,
-                                        "TriggerPulseTrainCount": 0,
-                                        "TriggerMode": 1,
-                                        "ProfileIndex": 0,
-                                        "ProfileIncrement": 0
-                                    };
+                                    var selectedIndex = cameraDropdown.currentIndex;
 
                                     // Update frequency and pulse width based on the selected index
                                     switch (selectedIndex) {
-                                        case 0: // 10Hz 20ms Pulse
-                                            json_trigger_data.TriggerFrequencyHz = 10;
-                                            json_trigger_data.TriggerPulseWidthUsec = 20000;
-                                            break;
-                                        case 1: // 20Hz 10ms Pulse
-                                            json_trigger_data.TriggerFrequencyHz = 20;
-                                            json_trigger_data.TriggerPulseWidthUsec = 10000;
-                                            break;
-                                        case 2: // 40Hz 5ms Pulse
-                                            json_trigger_data.TriggerFrequencyHz = 40;
-                                            json_trigger_data.TriggerPulseWidthUsec = 5000;
-                                            break;
+                                        case 0: 
+                                        case 1: 
+                                        case 2: 
+                                        case 3: 
+                                        case 4: 
+                                        case 5: 
+                                        case 6: 
+                                        case 7:
+                                            break; 
                                         default:
-                                            console.log("Invalid selection");
-                                            return;
-                                    }
-
-                                    // Convert the object to a JSON string
-                                    var jsonString = JSON.stringify(json_trigger_data);
-
-                                    // Call your function with the selected index
-                                    var success = MOTIONConnector.setTrigger(jsonString);
-                                    if (success) {
-                                        console.log("JSON data sent successfully");
-                                    } else {
-                                        console.log("Failed to send JSON data");
+                                            console.log("All Cameras");
+                                            break;
                                     }
 
                                 }
@@ -438,7 +432,7 @@ Rectangle {
 
 
                             Button {
-                                id: triggerEnable
+                                id: testCameraButton
                                 text: "Test"
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
@@ -470,22 +464,57 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    // Test Camera
-                                    var success = MOTIONConnector.toggleTrigger();
-                                    if (success) {
-                                        console.log("Trigger toggled successfully.");
-                                    } else {
-                                        console.log("Failed to toggle trigger.");
+                                    let selectedIndex = cameraDropdown.currentIndex;
+                                    let cameraMask = 0x01 << selectedIndex;
+
+                                    if (selectedIndex === 8) {
+                                        cameraMask = 0xFF;  // All Cameras
                                     }
+    
+                                    console.log("Test Camera Mask: " + cameraMask.toString(16));
+                                    if(cameraMask == 0xFF){
+                                        MOTIONConnector.configureAllCameras();
+                                    }else{
+                                        MOTIONConnector.configureCamera(cameraMask);
+                                    }
+
                                 }
 
                             }
 
-                            Text {
-                                id: triggerStatus
-                                Layout.preferredWidth: 80
-                                text: ""
-                                color: "#BDC3C7"
+                            // Spacer Row
+                            Item {
+                                Layout.columnSpan: 5
+                                height: 10
+                            }
+
+                            // Camera Test Status Table
+                            GridLayout {
+                                columns: 2
+                                columnSpacing: 10
+                                rowSpacing: 6
+                                Layout.columnSpan: 5
+
+                                Repeater {
+                                    model: cameraStatusModel
+                                    delegate: RowLayout {
+                                        spacing: 10
+
+                                        Text {
+                                            text: model.label
+                                            font.pixelSize: 14
+                                            color: "#BDC3C7"
+                                            Layout.preferredWidth: 100
+                                        }
+
+                                        Text {
+                                            text: model.status
+                                            color: model.color
+                                            font.pixelSize: 14
+                                            Layout.preferredWidth: 120
+                                        }
+                                    }
+                                }
                             }
                             
                         }
