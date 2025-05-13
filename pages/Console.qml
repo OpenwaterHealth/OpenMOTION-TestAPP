@@ -341,6 +341,331 @@ Rectangle {
                                 color: "#BDC3C7"
                                 text: "Off"
                             }
+
+                            // Row 3
+                            // PDU Button and Result
+                            Button {
+                                id: pduButton
+                                text: "PDU"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: pduButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    var devices = MOTIONConnector.scanI2C(1, 0)
+                                    if (devices && devices.includes("0x20") && devices.includes("0x48")  && devices.includes("0x4b")) {
+                                        pduResult.text = "PDU SUCCESS"
+                                        pduResult.color = "green"
+                                    } else {
+                                        pduResult.text = "PDU FAILED"
+                                        pduResult.color = "red"
+                                    }
+                                }
+                            }
+                            Text {
+                                id: pduResult
+                                Layout.preferredWidth: 80
+                                text: ""
+                                color: "#BDC3C7"
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 200 
+                            }
+
+                            Button {
+                                id: seedButton
+                                text: "Seed"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: seedButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    var devices = MOTIONConnector.scanI2C(1, 5)
+                                    if (devices && devices.includes("0x41")) {
+                                        seedResult.text = "Seed SUCCESS"
+                                        seedResult.color = "green"
+                                    } else {
+                                        seedResult.text = "Seed FAILED"
+                                        seedResult.color = "red"
+                                    }
+                                }
+                            }
+                            Text {
+                                id: seedResult
+                                Layout.preferredWidth: 80
+                                color: "#BDC3C7"
+                                text: ""
+                            }
+
+                            // Row 4
+                            // TA Button and Result
+                            Button {
+                                id: taButton
+                                text: "TA"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: taButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    var devices = MOTIONConnector.scanI2C(1, 4)
+                                    if (devices && devices.includes("0x41")) {
+                                        taResult.text = "TA SUCCESS"
+                                        taResult.color = "green"
+                                    } else {
+                                        taResult.text = "TA FAILED"
+                                        taResult.color = "red"
+                                    }
+                                }
+                            }
+                            Text {
+                                id: taResult
+                                Layout.preferredWidth: 80
+                                text: ""
+                                color: "#BDC3C7"
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 200 
+                            }
+
+                            Button {
+                                id: safetyButton
+                                text: "Safety EE"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: safetyButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    
+                                    var devices = MOTIONConnector.scanI2C(1, 6)
+                                    if (devices && devices.includes("0x41")) {
+                                        safetyResult.text = "Safety EE SUCCESS"
+                                        safetyResult.color = "green"
+                                    } else {
+                                        safetyResult.text = "Safety EE FAILED"
+                                        safetyResult.color = "red"
+                                    }
+                                }
+                            }
+                            Text {
+                                id: safetyResult
+                                Layout.preferredWidth: 80
+                                color: "#BDC3C7"
+                                text: ""
+                            }
+
+                            
+
+                            // Row 5
+                            // TEC Button and Result
+                            Button {
+                                id: tecButton
+                                text: "TEC"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: tecButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    var devices = MOTIONConnector.scanI2C(1, 3)
+                                    if (devices && devices.includes("0x49") && devices.includes("0x4c")) {
+                                        tecResult.text = "TEC SUCCESS"
+                                        tecResult.color = "green"
+                                    } else {
+                                        tecResult.text = "TEC FAILED"
+                                        tecResult.color = "red"
+                                    }
+                                }
+                            }
+                            Text {
+                                id: tecResult
+                                Layout.preferredWidth: 80
+                                text: ""
+                                color: "#BDC3C7"
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 200 
+                            }
+
+                            Button {
+                                id: safety2Button
+                                text: "Safety OPT"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    id: safety2ButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    
+                                    var devices = MOTIONConnector.scanI2C(1, 7)
+                                    if (devices && devices.includes("0x41")) {
+                                        safety2Result.text = "Safety OPT SUCCESS"
+                                        safety2Result.color = "green"
+                                    } else {
+                                        safety2Result.text = "Safety OPT FAILED"
+                                        safety2Result.color = "red"
+                                    }
+                                }
+                            }
+                            Text {
+                                id: safety2Result
+                                Layout.preferredWidth: 80
+                                color: "#BDC3C7"
+                                text: ""
+                            }
                         }
                     }
                                         

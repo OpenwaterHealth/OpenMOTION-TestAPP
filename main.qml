@@ -34,8 +34,8 @@ ApplicationWindow {
             // Set title and logo dynamically
             titleText: "Open-MOTION Engineering App"
             logoSource: "../assets/images/OpenwaterLogo.png" // Correct relative path
-            appVerText: appVersion
-            sdkVerText: MOTIONConnector.sdkVersion
+            appVerText: "v" + appVersion
+            sdkVerText: "v" + MOTIONConnector.sdkVersion
         }
 
         // Layout for Sidebar and Main Content

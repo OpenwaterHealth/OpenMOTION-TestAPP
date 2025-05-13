@@ -1,4 +1,5 @@
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot
+from typing import List
 import logging
 import base58
 
@@ -321,8 +322,14 @@ class MOTIONConnector(QObject):
                     logger.error(f"Failed to send Software Reset")
         except Exception as e:
             logger.error(f"Error Sending Software Reset: {e}")
-
     
+    @pyqtSlot(int, int, result='QStringList')
+    def scanI2C(self, mux: int, chan: int) -> list[str]:
+        addresses = self.interface.console_module.scan_i2c_mux_channel(mux, chan)
+        hex_addresses = [hex(addr) for addr in addresses]
+        print(f"Devices found on MUX {mux} channel {chan}: {hex_addresses}")
+        return hex_addresses
+
     @pyqtSlot(int, int, result=bool)
     def setFanLevel(self, fid: int, speed: int):
         """Set Fan Level to device."""
