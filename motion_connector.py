@@ -33,7 +33,7 @@ class MOTIONConnector(QObject):
 
     stateChanged = pyqtSignal()  # Notifies QML when state changes
     rgbStateReceived = pyqtSignal(int, str)  # Emit both integer value and text
-
+    fanSpeedsReceived = pyqtSignal(int, int)  # Emit both integers
     
     def __init__(self):
         super().__init__()
@@ -179,6 +179,18 @@ class MOTIONConnector(QObject):
             logger.error(f"Error querying RGB state: {e}")
 
     @pyqtSlot()
+    def queryFans(self):
+        """Fetch and emit Fan Speed."""
+        try:
+            fan1_speed = self.interface.console_module.get_fan_speed(0)
+            fan2_speed = self.interface.console_module.get_fan_speed(1)
+
+            logger.info(f"Fan Speeds: {fan1_speed} {fan2_speed}")
+            self.fanSpeedsReceived.emit(fan1_speed, fan2_speed)  # Emit both values
+        except Exception as e:
+            logger.error(f"Error querying Fan Speeds: {e}")
+
+    @pyqtSlot()
     def querySensorAccelerometer (self):
         """Fetch and emit Accelerometer data."""
         try:
@@ -310,6 +322,23 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error Sending Software Reset: {e}")
 
+    
+    @pyqtSlot(int, int, result=bool)
+    def setFanLevel(self, fid: int, speed: int):
+        """Set Fan Level to device."""
+        try:
+            
+            if self.interface.console_module.set_fan_speed(fan_id=fid, fan_speed=speed) == speed:
+                logger.info(f"Fan set successfully")
+                return True
+            else:   
+                logger.error(f"Failed to set Fan Speed")
+                return False    
+                        
+        except Exception as e:
+            logger.error(f"Error setting Fan Speed: {e}")
+            return False
+        
     @pyqtProperty(bool, notify=connectionStatusChanged)
     def sensorConnected(self):
         """Expose Sensor connection status to QML."""

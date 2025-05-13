@@ -16,11 +16,14 @@ Rectangle {
     property string firmwareVersion: "N/A"
     property string deviceId: "N/A"
     property string rgbState: "Off" // Add property for Indicator state
+    property int fan1_speed: 0
+    property int fan2_speed: 0
 
     function updateStates() {
         console.log("Console Updating all states...")
         MOTIONConnector.queryConsoleInfo()
         MOTIONConnector.queryRGBState() // Query Indicator state
+        MOTIONConnector.queryFans() // Query Indicator state
         
     }
 
@@ -55,6 +58,8 @@ Rectangle {
                 firmwareVersion = "N/A"
                 deviceId = "N/A"
                 rgbState = "Off" // Indicator off
+                fan1_speed = 0
+                fan2_speed = 0
                 
                 pingResult.text = ""
                 echoResult.text = ""
@@ -77,6 +82,13 @@ Rectangle {
             rgbState = stateText
             rgbLedResult.text = stateText  // Display the state as text
             rgbLedDropdown.currentIndex = stateValue  // Sync ComboBox to received state
+        }
+
+        function onFanSpeedsReceived(fan1Val, fan2Val) {
+            fan1_speed = fan1Val
+            fan2_speed = fan2Val
+            bottomFanSlider.value = fan1Val;    
+            topFanSlider.value = fan2Val;        
         }
     }
 
@@ -118,7 +130,7 @@ Rectangle {
                     // Communication Tests Box
                     Rectangle {
                         width: 650
-                        height: 195
+                        height: 390
                         radius: 6
                         color: "#1E1E20"
                         border.color: "#3E4E6F"
@@ -331,16 +343,120 @@ Rectangle {
                             }
                         }
                     }
-                    
-                    // Other Tests
+                                        
+
+                    // Fan Tests Box
                     Rectangle {
                         width: 650
-                        height: 390
-                        radius: 6
+                        height: 190
+                        radius: 8
                         color: "#1E1E20"
                         border.color: "#3E4E6F"
-                        border.width: 2                      
-                    }  
+                        border.width: 2
+
+                        // Title at Top-Center with 5px Spacing
+                        Text {
+                            text: "Fan Tests"
+                            color: "#BDC3C7"
+                            font.pixelSize: 18
+                            anchors.top: parent.top
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.topMargin: 5  // 5px spacing from the top
+                        }
+
+                        // Slider for Top Fan
+                        Column {
+                            anchors.top: parent.top
+                            anchors.topMargin: 40  // Adjust spacing as needed
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 5
+
+                            Text {
+                                text: "Top Fan: " + (topFanSlider.value === 0 ? "OFF" : topFanSlider.value.toFixed(0) + "%")
+                                color: "#BDC3C7"
+                                font.pixelSize: 14
+                            }
+
+                            Slider {
+                                id: topFanSlider
+                                width: 600  // Adjust width as needed
+                                from: 0
+                                to: 100
+                                stepSize: 10   // Snap to increments of 10
+                                value: 0  // Default value is 0 (OFF)
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                property bool userIsSliding: false
+
+                                onPressedChanged: {
+                                    if (pressed) {
+                                        userIsSliding = true
+                                    } else if (!pressed && userIsSliding) {
+                                        // User has finished sliding
+                                        let snappedValue = Math.round(value / 10) * 10
+                                        value = snappedValue
+                                        console.log("Slider released at:", snappedValue)
+                                        userIsSliding = false
+                                        // Call the backend method with fan_id and speed
+                                        let fanId = 1; // Example fan ID (adjust as needed) TOP
+                                        let success = MOTIONConnector.setFanLevel(fanId, snappedValue);
+                                        if (success) {
+                                            console.log("Fan speed set successfully");
+                                        } else {
+                                            console.log("Failed to set fan speed");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Slider for Bottom Fan
+                        Column {
+                            anchors.top: parent.top
+                            anchors.topMargin: 110  // Adjust spacing as needed
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 5
+                            enabled: MOTIONConnector.consoleConnected 
+
+                            Text {
+                                text: "Bottom Fan: " + (bottomFanSlider.value === 0 ? "OFF" : bottomFanSlider.value.toFixed(0) + "%")
+                                color: "#BDC3C7"
+                                font.pixelSize: 14
+                            }
+
+                            Slider {
+                                id: bottomFanSlider
+                                width: 600  // Adjust width as needed
+                                from: 0
+                                to: 100
+                                stepSize: 10   // Snap to increments of 10
+                                value: 0  // Default value is 0 (OFF)
+
+
+                                property bool userIsSliding: false
+
+                                onPressedChanged: {
+                                    if (pressed) {
+                                        userIsSliding = true
+                                    } else if (!pressed && userIsSliding) {
+                                        // User has finished sliding
+                                        let snappedValue = Math.round(value / 10) * 10
+                                        value = snappedValue
+                                        console.log("Slider released at:", snappedValue)
+                                        userIsSliding = false
+                                        // Call the backend method with fan_id and speed
+                                        let fanId = 0; // Example fan ID (adjust as needed) Bottom
+                                        let success = MOTIONConnector.setFanLevel(fanId, snappedValue);
+                                        if (success) {
+                                            console.log("Fan speed set successfully");
+                                        } else {
+                                            console.log("Failed to set fan speed");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Large Third Column
