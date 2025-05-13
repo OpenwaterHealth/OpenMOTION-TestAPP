@@ -9,6 +9,9 @@ from qasync import QEventLoop
 
 from motion_connector import MOTIONConnector
 
+# set PYTHONPATH=%cd%\..\OpenMOTION-PyLib;%PYTHONPATH%
+# python main.py
+
 logger = logging.getLogger(__name__)
 
 # Suppress PyQt6 DeprecationWarnings related to SIP
@@ -29,6 +32,7 @@ def main():
 
     # Expose to QML
     engine.rootContext().setContextProperty("MOTIONConnector", motion_connector)
+    engine.rootContext().setContextProperty("appVersion", "1.0.6")
 
     # Load the QML file
     engine.load("main.qml")

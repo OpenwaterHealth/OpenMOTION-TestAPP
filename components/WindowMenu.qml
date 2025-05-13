@@ -12,6 +12,8 @@ Rectangle {
     // Properties to configure the title and logo
     property string titleText: "Default Title" // Default title
     property string logoSource: "" // Default to no logo
+    property string appVerText: "v0.0.0" // Default
+    property string sdkVerText: "v0.0.0" // Default
 
     // Drag functionality
     MouseArea {
@@ -51,14 +53,44 @@ Rectangle {
             Layout.fillWidth: true
         }
 
-        // Title
-        Text {
-            text: windowMenu.titleText // Use the configurable title text
-            color: "white"
-            font.pixelSize: 24
-            font.weight: Font.Bold // Make the text bold
-            verticalAlignment: Text.AlignVCenter
-            horizontalAlignment: Text.AlignHCenter
+        // Title and Version Container
+        RowLayout {
+            spacing: 8
+            Layout.alignment: Qt.AlignHCenter
+
+            // Title
+            Text {
+                text: windowMenu.titleText // Use the configurable title text
+                color: "white"
+                font.pixelSize: 24
+                font.weight: Font.Bold // Make the text bold
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            // Version Info (App + SDK stacked vertically)
+            ColumnLayout {
+                spacing: 2
+                Layout.alignment: Qt.AlignVCenter
+
+                // App Version
+                Text {
+                    text: "APP: "+windowMenu.appVerText
+                    color: "#AAAAAA"
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                    horizontalAlignment: Text.AlignRight
+                }
+
+                // SDK Version
+                Text {
+                    text: "SDK: "+windowMenu.sdkVerText
+                    color: "#AAAAAA"
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                    horizontalAlignment: Text.AlignRight
+                }
+            }
         }
 
         // Spacer after title
@@ -79,7 +111,7 @@ Rectangle {
                     window.showMinimized(); // Minimize the window
                 }
             }
-
+/*
             // Maximize/Restore Button
             IconWindowButton {
                 buttonIcon: "\ueb18" // Maximize/restore icon
@@ -92,7 +124,7 @@ Rectangle {
                     }
                 }
             }
-
+*/
             // Exit Button
             IconWindowButton {
                 buttonIcon: "\ue9b3" // Exit (close) icon

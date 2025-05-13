@@ -15,8 +15,6 @@ Rectangle {
     // Properties for dynamic data
     property string firmwareVersion: "N/A"
     property string deviceId: "N/A"
-    property real console_temperature: 0.0
-    property real amb_temperature: 0.0
 
     function updateStates() {
         console.log("Console Updating all states...")
@@ -54,8 +52,6 @@ Rectangle {
                 console.log("Console Disconnected - Clearing Data...")
                 firmwareVersion = "N/A"
                 deviceId = "N/A"
-                console_temperature = 0.0
-                amb_temperature = 0.0
                 
                 pingResult.text = ""
                 echoResult.text = ""
@@ -67,12 +63,6 @@ Rectangle {
         function onConsoleDeviceInfoReceived(fwVersion, devId) {
             firmwareVersion = fwVersion
             deviceId = devId
-        }
-
-        // Handle temperature updates
-        function onTemperatureUpdated(console_temp, amb_temp) {
-            console_temperature = console_temp
-            amb_temperature = amb_temp
         }
 
         function onTriggerStateChanged(state) {
@@ -431,21 +421,6 @@ Rectangle {
                             Layout.alignment: Qt.AlignHCenter 
                             spacing: 25  
 
-                            // TEMP #1 Widget
-                            TemperatureWidget {
-                                id: tempWidget1
-                                temperature: console_temperature
-                                tempName: "Console Temperature"
-                                Layout.alignment: Qt.AlignHCenter
-                            }
-
-                            // TEMP #2 Widget
-                            TemperatureWidget {
-                                id: tempWidget2
-                                temperature: amb_temperature
-                                tempName: "Amb Temperature"
-                                Layout.alignment: Qt.AlignHCenter
-                            }
                         }
 
 

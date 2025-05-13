@@ -294,4 +294,8 @@ class MOTIONConnector(QObject):
     def state(self):
         """Expose state as a QML property."""
         return self._state
-    
+        
+    @pyqtProperty(str, constant=True)
+    def sdkVersion(self) -> str:
+        """Expose SDK version as a constant QML property."""
+        return MOTIONInterface.get_sdk_version()
