@@ -15,11 +15,13 @@ Rectangle {
     // Properties for dynamic data
     property string firmwareVersion: "N/A"
     property string deviceId: "N/A"
+    property string rgbState: "Off" // Add property for Indicator state
 
     function updateStates() {
         console.log("Console Updating all states...")
         MOTIONConnector.queryConsoleInfo()
-        // MOTIONConnector.queryConsoleTemperature()
+        MOTIONConnector.queryRGBState() // Query Indicator state
+        
     }
 
 
@@ -52,6 +54,7 @@ Rectangle {
                 console.log("Console Disconnected - Clearing Data...")
                 firmwareVersion = "N/A"
                 deviceId = "N/A"
+                rgbState = "Off" // Indicator off
                 
                 pingResult.text = ""
                 echoResult.text = ""
@@ -68,6 +71,12 @@ Rectangle {
         function onTriggerStateChanged(state) {
             triggerStatus.text = state ? "On" : "Off";
             triggerStatus.color = state ? "green" : "red";
+        }
+
+        function onRgbStateReceived(stateValue, stateText) {
+            rgbState = stateText
+            rgbLedResult.text = stateText  // Display the state as text
+            rgbLedDropdown.currentIndex = stateValue  // Sync ComboBox to received state
         }
     }
 
@@ -301,13 +310,24 @@ Rectangle {
                                 Layout.preferredWidth: 200 
                             }
 
-                            Item {
-                                
-                            }
-                            
+                            ComboBox {
+                                id: rgbLedDropdown
+                                Layout.preferredWidth: 120
+                                Layout.preferredHeight: 40
+                                model: ["Off", "IND1", "IND2", "IND3"]
+                                enabled: MOTIONConnector.consoleConnected  
 
-                            Item {
-                                
+                                onActivated: {
+                                    let rgbValue = rgbLedDropdown.currentIndex  // Directly map ComboBox index to integer value
+                                    MOTIONConnector.setRGBState(rgbValue)         // Assuming you implement this new method
+                                    rgbLedResult.text = rgbLedDropdown.currentText
+                                }
+                            }
+                            Text {
+                                id: rgbLedResult
+                                Layout.preferredWidth: 80
+                                color: "#BDC3C7"
+                                text: "Off"
                             }
                         }
                     }

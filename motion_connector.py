@@ -32,6 +32,8 @@ class MOTIONConnector(QObject):
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
 
     stateChanged = pyqtSignal()  # Notifies QML when state changes
+    rgbStateReceived = pyqtSignal(int, str)  # Emit both integer value and text
+
     
     def __init__(self):
         super().__init__()
@@ -147,6 +149,34 @@ class MOTIONConnector(QObject):
             self.temperatureSensorUpdated.emit(imu_temp)
         except Exception as e:
             logger.error(f"Error querying Temperature data: {e}")
+
+    @pyqtSlot(int)
+    def setRGBState(self, state):
+        """Set the RGB state using integer values."""
+        try:
+            valid_states = [0, 1, 2, 3]
+            if state not in valid_states:
+                logger.error(f"Invalid RGB state value: {state}")
+                return
+
+            if self.interface.console_module.set_rgb_led(state) == state:
+                logger.info(f"RGB state set to: {state}")
+            else:
+                logger.error(f"Failed to set RGB state to: {state}")
+        except Exception as e:
+            logger.error(f"Error setting RGB state: {e}")
+
+    @pyqtSlot()
+    def queryRGBState(self):
+        """Fetch and emit RGB state."""
+        try:
+            state = self.interface.console_module.get_rgb_led()
+            state_text = {0: "Off", 1: "IND1", 2: "IND2", 3: "IND3"}.get(state, "Unknown")
+
+            logger.info(f"RGB State: {state_text}")
+            self.rgbStateReceived.emit(state, state_text)  # Emit both values
+        except Exception as e:
+            logger.error(f"Error querying RGB state: {e}")
 
     @pyqtSlot()
     def querySensorAccelerometer (self):
