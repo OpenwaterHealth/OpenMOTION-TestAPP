@@ -10,6 +10,14 @@ Rectangle {
     radius: 20
     opacity: 0.95 // Slight transparency for the content area
 
+    ListModel {
+        id: fpgaAddressModel
+        ListElement { label: "TA"; mux_idx: 1; channel: 4; i2c_addr: 0x41 }
+        ListElement { label: "Seed"; mux_idx: 1; channel: 5; i2c_addr: 0x41 }
+        ListElement { label: "Safety EE"; mux_idx: 1; channel: 6; i2c_addr: 0x41 }
+        ListElement { label: "Safety OPT"; mux_idx: 1; channel: 7; i2c_addr: 0x41 }
+    }
+
     // HEADER
     Text {
         text: "MOTION Blood Flow Demo"
