@@ -32,17 +32,33 @@ Rectangle {
         spacing: 20
 
         // Left Column (Input Panel)
-        Rectangle {
-            id: inputContainer
-            width: 500
-            height: 620
-            color: "#1E1E20"
-            radius: 10
-            border.color: "#3E4E6F"
-            border.width: 2
+        ColumnLayout {
+            spacing: 20
+
+            // Trigger
+            Rectangle {
+                id: inputContainer
+                width: 500
+                height: 200
+                color: "#1E1E20"
+                radius: 10
+                border.color: "#3E4E6F"
+                border.width: 2
+            }
+
+            // FPGA RW
+            Rectangle {
+                id: inputContainer2
+                width: 500
+                height: 400
+                color: "#1E1E20"
+                radius: 10
+                border.color: "#3E4E6F"
+                border.width: 2
+            }
         }
 
-        // RIGHT COLUMN (Status Panel + Graph)
+        // RIGHT COLUMN (Status Panel + Histogram)
         ColumnLayout {
             spacing: 20
 			            
@@ -50,23 +66,11 @@ Rectangle {
             Rectangle {
                 id: graphContainer
                 width: 500
-                height: 300
+                height: 470
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
-            }
-
-			// Message Panel
-            Rectangle {
-                id: messagePanel
-                width: 500
-                height: 150
-                color: "#1E1E20"
-                radius: 10
-                border.color: "#3E4E6F"
-                border.width: 2
-
             }
 
 			// Status Panel (Connection Indicators)
