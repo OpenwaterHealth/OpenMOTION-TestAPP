@@ -1,6 +1,7 @@
 import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
+import QtQml 2.15 
 
 Rectangle {
     id: page1
@@ -54,7 +55,6 @@ Rectangle {
                 border.width: 2
             }
 
-            // FPGA RW
             Rectangle {
                 id: inputContainer2
                 width: 500
@@ -63,6 +63,223 @@ Rectangle {
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 4
+
+                    // Title
+                    Text {
+                        text: "FPGA I2C Utility"
+                        color: "#BDC3C7"
+                        font.pixelSize: 14
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        Layout.fillWidth: true
+                    }
+
+                    // Spacer between title and dropdowns
+                    Rectangle {
+                        color: "transparent"
+                        height: 6
+                        Layout.fillWidth: true
+                    }
+
+                    // Row: Dropdown + Offset + Byte Count
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 20
+                        Layout.preferredHeight: 36
+
+                        ComboBox {
+                            id: fpgaSelector
+                            model: fpgaAddressModel
+                            textRole: "label"
+                            Layout.preferredWidth: 200
+                            Layout.preferredHeight: 32
+                            enabled: MOTIONConnector.consoleConnected
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 5
+                        }
+
+                        TextField {
+                            id: offsetField
+                            placeholderText: "Offset"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 32
+                            validator: RegularExpressionValidator { regularExpression: /[0-9A-Fa-f]{1,2}/ }
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 5
+                        }
+
+                        TextField {
+                            id: byteCountField
+                            placeholderText: "Bytes"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 32
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            validator: IntValidator { bottom: 1; top: 256 }
+                        }
+                    }
+
+                    // Row: Read + Write Buttons
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 20
+
+
+                        Button {
+                            id: readButton
+                            text: "Read"
+                            Layout.preferredWidth: 140
+                            Layout.preferredHeight: 50
+                            hoverEnabled: true  // Enable hover detection
+                            enabled: MOTIONConnector.consoleConnected 
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                id: readButtonBackground
+                                color: {
+                                    if (!parent.enabled) {
+                                        return "#3A3F4B";  // Disabled color
+                                    }
+                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                }
+                                radius: 4
+                                border.color: {
+                                    if (!parent.enabled) {
+                                        return "#7F8C8D";  // Disabled border color
+                                    }
+                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                }
+                            }
+
+                            onClicked: {
+                                console.log("Read " + byteCountField.text + " bytes from offset " + offsetField.text);                                
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 140
+                        }
+
+                        Button {
+                            id: writeButton
+                            text: "Write"
+                            Layout.preferredWidth: 140
+                            Layout.preferredHeight: 50
+                            hoverEnabled: true  // Enable hover detection
+                            enabled: MOTIONConnector.consoleConnected 
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                id: writeButtonBackground
+                                color: {
+                                    if (!parent.enabled) {
+                                        return "#3A3F4B";  // Disabled color
+                                    }
+                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                }
+                                radius: 4
+                                border.color: {
+                                    if (!parent.enabled) {
+                                        return "#7F8C8D";  // Disabled border color
+                                    }
+                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                }
+                            }
+
+                            onClicked: {
+                                console.log("Write " + byteCountField.text + " bytes to offset " + offsetField.text);                              
+                            }
+                        }
+                    }
+
+                    // Spacer
+                    Rectangle {
+                        color: "transparent"
+                        height: 3
+                        Layout.fillWidth: true
+                    }
+
+                    // Hex Grid
+                    RowLayout {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.leftMargin: 10
+                        Rectangle {
+                            id: hexGrid
+                            color: "transparent"
+                            Layout.alignment: Qt.AlignHCenter
+                            width: 16 * 28 + 40
+                            height: 8 * 24 + 30
+
+                            Column {
+                                id: contentRepeater
+                                spacing: 2
+                                Repeater {
+                                    model: 8
+                                    delegate: Row {
+                                        spacing: 4
+
+                                        Text {
+                                            text: (index * 16).toString(16).toUpperCase().padStart(2, "0")
+                                            width: 30
+                                            height: 24
+                                            color: "white"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.family: "monospace"
+                                            font.pixelSize: 14
+                                        }
+
+                                        Repeater {
+                                            model: 16
+                                            delegate: Rectangle {
+                                                width: 22
+                                                height: 22
+                                                radius: 3
+                                                color: "#2C2C2E"
+                                                border.color: "#5D5D60"
+                                                border.width: 1
+
+                                                TextInput {
+                                                    anchors.centerIn: parent
+                                                    width: parent.width
+                                                    height: parent.height
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    text: "00"
+                                                    font.family: "monospace"
+                                                    color: "white"
+                                                    maximumLength: 2
+                                                    inputMask: "HH"
+                                                    font.pixelSize: 12
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
