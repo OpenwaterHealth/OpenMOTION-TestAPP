@@ -1,8 +1,6 @@
 import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
-import QtQml 2.15 
-import QtQuick 2.15
 
 Rectangle {
     id: page1
@@ -13,6 +11,8 @@ Rectangle {
     opacity: 0.95 // Slight transparency for the content area
 
     property var inputRefs: []
+    property int displayByteCount: 0
+    property int startOffset: 0
 
     ListModel {
         id: fpgaAddressModel
@@ -374,7 +374,7 @@ Rectangle {
                                                             selectAll()
                                                         }
                                                     }
-                                                    
+
                                                     Component.onCompleted: {
                                                         page1.inputRefs[indexInModel] = hexInput
                                                     }
