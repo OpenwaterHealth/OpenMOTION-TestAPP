@@ -305,6 +305,40 @@ class MOTIONConnector(QObject):
             logger.error(f"Error sending Echo command: {e}")
             return False
         
+    @pyqtSlot(str, int, int, int, int, list, result=bool)
+    def i2cWriteBites(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data: list[int]) -> bool:
+        """Send i2c write to device"""
+        try:
+            print(
+                f"I2C Write Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
+                f"i2c_addr=0x{int(i2c_addr):02X}, offset=0x{int(offset):02X}, data={[f'0x{int(b):02X}' for b in data]}"
+            )            
+
+            sanitized_data = []
+            for b in data:
+                try:
+                    value = int(b) & 0xFF  # convert to int and clip to byte
+                    sanitized_data.append(value)
+                except Exception as e:
+                    logger.error(f"Invalid byte value: {b} ({e})")
+                    return False
+
+            byte_data = bytes(sanitized_data)
+
+            if target == "CONSOLE":
+                if self.interface.console_module.write_i2c_packet(mux_index=mux_idx, channel=channel, device_addr=i2c_addr, reg_addr=offset, data=byte_data):
+                    logger.info(f"Write I2C Success")
+                    return True
+                else:
+                    logger.error(f"Write I2C Failed")
+                    return False
+            elif target == "SENSOR":
+                logger.info(f"I2C Write Not Implemented")
+                return True
+        except Exception as e:
+            logger.error(f"Error sending i2c write command: {e}")
+            return False
+        
     @pyqtSlot(str)
     def softResetSensor(self, target: str):
         """reset hardware Sensor device."""

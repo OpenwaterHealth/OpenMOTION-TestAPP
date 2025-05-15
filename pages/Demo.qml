@@ -2,6 +2,7 @@ import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
 import QtQml 2.15 
+import QtQuick 2.15
 
 Rectangle {
     id: page1
@@ -17,6 +18,11 @@ Rectangle {
         ListElement { label: "Seed"; mux_idx: 1; channel: 5; i2c_addr: 0x41 }
         ListElement { label: "Safety EE"; mux_idx: 1; channel: 6; i2c_addr: 0x41 }
         ListElement { label: "Safety OPT"; mux_idx: 1; channel: 7; i2c_addr: 0x41 }
+    }
+
+    ListModel {
+        id: byteModel
+        // Will be populated by the read function
     }
 
     // HEADER
@@ -207,9 +213,47 @@ Rectangle {
                             }
 
                             onClicked: {
-                                console.log("Write " + byteCountField.text + " bytes to offset " + offsetField.text);                              
+                                console.log("Write " + byteCountField.text + " bytes to offset " + offsetField.text);    
+                                let addr = fpgaAddressModel.get(fpgaSelector.currentIndex)
+                                let offset = parseInt(offsetField.text, 16)
+                                let length = parseInt(byteCountField.text)
+
+                                let dataToSend = []
+                                for (let i = 0; i < length; i++) {
+                                    if (i < byteModel.count) {
+                                        let byteStr = byteModel.get(i).value
+                                        dataToSend.push(parseInt(byteStr, 16))
+                                    }
+                                }
+                                let success = MOTIONConnector.i2cWriteBites("CONSOLE", addr.mux_idx, addr.channel, addr.i2c_addr, offset, dataToSend)                         
+                                
+                                if (success) {
+                                    writeStatus.text = "Write successful"
+                                    writeStatus.color = "lightgreen"
+                                } else {
+                                    writeStatus.text = "Write failed"
+                                    writeStatus.color = "red"
+                                }
+                                clearWriteStatusTimer.start()
                             }
                         }
+                    }
+                        
+                    Text {
+                        id: writeStatus
+                        text: ""
+                        color: "#BDC3C7"
+                        font.pixelSize: 12
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    Timer {
+                        id: clearWriteStatusTimer
+                        interval: 2000
+                        running: false
+                        repeat: false
+                        onTriggered: writeStatus.text = ""
                     }
 
                     // Spacer
@@ -236,15 +280,14 @@ Rectangle {
                                 Repeater {
                                     model: 8
                                     delegate: Row {
+                                        property int rowIndex: index
                                         spacing: 4
 
                                         Text {
-                                            text: (index * 16).toString(16).toUpperCase().padStart(2, "0")
+                                            text: (rowIndex * 16).toString(16).toUpperCase().padStart(2, "0")
                                             width: 30
                                             height: 24
                                             color: "white"
-                                            horizontalAlignment: Text.AlignHCenter
-                                            verticalAlignment: Text.AlignVCenter
                                             font.family: "monospace"
                                             font.pixelSize: 14
                                         }
@@ -265,12 +308,21 @@ Rectangle {
                                                     height: parent.height
                                                     horizontalAlignment: Text.AlignHCenter
                                                     verticalAlignment: Text.AlignVCenter
-                                                    text: "00"
                                                     font.family: "monospace"
                                                     color: "white"
                                                     maximumLength: 2
                                                     inputMask: "HH"
                                                     font.pixelSize: 12
+
+                                                    property int indexInModel: rowIndex * 16 + index
+
+                                                    text: byteModel.get(indexInModel) ? byteModel.get(indexInModel).value : "00"
+
+                                                    onTextChanged: {
+                                                        if (indexInModel < byteModel.count) {
+                                                            byteModel.set(indexInModel, { "value": text.toUpperCase() })
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -398,7 +450,15 @@ Rectangle {
             console.log("Data from " + descriptor + ": " + message);
         }
     }
-    
+
+
+    Component.onCompleted: {
+        byteModel.clear()
+        for (let i = 0; i < 128; i++) {
+            byteModel.append({ "value": "00" })
+        }
+    }
+
     Component.onDestruction: {
         console.log("Closing UI, clearing MOTIONConnector...");
         MOTIONConnector.stop_monitoring();
