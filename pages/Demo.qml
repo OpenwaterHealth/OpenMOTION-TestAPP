@@ -172,7 +172,35 @@ Rectangle {
                             }
 
                             onClicked: {
-                                console.log("Read " + byteCountField.text + " bytes from offset " + offsetField.text);                                
+                                console.log("Read " + byteCountField.text + " bytes from offset " + offsetField.text);          
+                                let addr = fpgaAddressModel.get(fpgaSelector.currentIndex)
+                                let offset = parseInt(offsetField.text, 16)
+                                let length = parseInt(byteCountField.text)
+                      
+                                // Call read function
+                                let result = MOTIONConnector.i2cReadBytes("CONSOLE", addr.mux_idx, addr.channel, addr.i2c_addr, offset, length)
+
+                                if (result.length === 0) {
+                                    console.log("Read failed or returned empty array.")
+                                    i2cStatus.text = "Read failed"
+                                    i2cStatus.color = "red"                                    
+                                }else{
+                                    i2cStatus.text = "Read successful"
+                                    i2cStatus.color = "lightgreen"
+                                    for (let i = 0; i < byteModel.count; i++) {
+                                        byteModel.setProperty(i, "value", "00")
+                                    }
+                                                                        
+                                    // Update byteModel
+                                    for (let i = 0; i < result.length; i++) {
+                                        let hexByte = result[i].toString(16).toUpperCase().padStart(2, "0")
+                                        if (i < byteModel.count) {
+                                            byteModel.setProperty(i, "value", hexByte)
+                                        }
+                                    }
+                                }
+                                                                    
+                                cleari2cStatusTimer.start()
                             }
                         }
 
@@ -225,22 +253,22 @@ Rectangle {
                                         dataToSend.push(parseInt(byteStr, 16))
                                     }
                                 }
-                                let success = MOTIONConnector.i2cWriteBites("CONSOLE", addr.mux_idx, addr.channel, addr.i2c_addr, offset, dataToSend)                         
+                                let success = MOTIONConnector.i2cWriteBytes("CONSOLE", addr.mux_idx, addr.channel, addr.i2c_addr, offset, dataToSend)                         
                                 
                                 if (success) {
-                                    writeStatus.text = "Write successful"
-                                    writeStatus.color = "lightgreen"
+                                    i2cStatus.text = "Write successful"
+                                    i2cStatus.color = "lightgreen"
                                 } else {
-                                    writeStatus.text = "Write failed"
-                                    writeStatus.color = "red"
+                                    i2cStatus.text = "Write failed"
+                                    i2cStatus.color = "red"
                                 }
-                                clearWriteStatusTimer.start()
+                                cleari2cStatusTimer.start()
                             }
                         }
                     }
                         
                     Text {
-                        id: writeStatus
+                        id: i2cStatus
                         text: ""
                         color: "#BDC3C7"
                         font.pixelSize: 12
@@ -249,11 +277,11 @@ Rectangle {
                     }
 
                     Timer {
-                        id: clearWriteStatusTimer
+                        id: cleari2cStatusTimer
                         interval: 2000
                         running: false
                         repeat: false
-                        onTriggered: writeStatus.text = ""
+                        onTriggered: i2cStatus.text = ""
                     }
 
                     // Spacer
@@ -316,16 +344,20 @@ Rectangle {
 
                                                     property int indexInModel: rowIndex * 16 + index
 
-                                                    text: byteModel.get(indexInModel) ? byteModel.get(indexInModel).value : "00"
+                                                    // NEW: Ensure correct initial value with modelData binding
+                                                    text: (indexInModel < byteModel.count && byteModel.get(indexInModel)) ? byteModel.get(indexInModel).value : "00"
 
+                                                    // Ensure model stays updated
                                                     onTextChanged: {
                                                         if (indexInModel < byteModel.count) {
-                                                            byteModel.set(indexInModel, { "value": text.toUpperCase() })
+                                                            byteModel.setProperty(indexInModel, "value", text.toUpperCase())
                                                         }
                                                     }
+
                                                 }
                                             }
                                         }
+
                                     }
                                 }
                             }

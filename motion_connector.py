@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant
 from typing import List
 import logging
 import base58
@@ -305,8 +305,34 @@ class MOTIONConnector(QObject):
             logger.error(f"Error sending Echo command: {e}")
             return False
         
+    @pyqtSlot(str, int, int, int, int, int, result=QVariant)
+    def i2cReadBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data_len: int):
+        """Send i2c read to device"""
+        try:
+            print(
+                f"I2C Read Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
+                f"i2c_addr=0x{int(i2c_addr):02X}, offset=0x{int(offset):02X}, read_len={int(data_len)}"
+            )            
+
+            if target == "CONSOLE":                
+                fpga_data, fpga_data_len = self.interface.console_module.read_i2c_packet(mux_index=1, channel=5, device_addr=0x41, reg_addr=0x00, read_len=2)
+                if fpga_data is None or fpga_data_len == 0:
+                    logger.error(f"Read I2C Failed")
+                    return []
+                else:
+                    logger.info(f"Read I2C Success")
+                    logger.info(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
+                    return list(fpga_data[:fpga_data_len]) 
+                
+            elif target == "SENSOR":
+                logger.info(f"I2C Read Not Implemented")
+                return []
+        except Exception as e:
+            logger.error(f"Error sending i2c read command: {e}")
+            return []
+        
     @pyqtSlot(str, int, int, int, int, list, result=bool)
-    def i2cWriteBites(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data: list[int]) -> bool:
+    def i2cWriteBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data: list[int]) -> bool:
         """Send i2c write to device"""
         try:
             print(
