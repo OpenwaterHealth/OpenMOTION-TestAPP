@@ -12,6 +12,8 @@ Rectangle {
     radius: 20
     opacity: 0.95 // Slight transparency for the content area
 
+    property var inputRefs: []
+
     ListModel {
         id: fpgaAddressModel
         ListElement { label: "TA"; mux_idx: 1; channel: 4; i2c_addr: 0x41 }
@@ -331,6 +333,9 @@ Rectangle {
                                                 border.width: 1
 
                                                 TextInput {
+                                                    id: hexInput
+                                                    objectName: "hexInput_" + indexInModel
+                                                    focus: false
                                                     anchors.centerIn: parent
                                                     width: parent.width
                                                     height: parent.height
@@ -344,18 +349,37 @@ Rectangle {
 
                                                     property int indexInModel: rowIndex * 16 + index
 
-                                                    // NEW: Ensure correct initial value with modelData binding
                                                     text: (indexInModel < byteModel.count && byteModel.get(indexInModel)) ? byteModel.get(indexInModel).value : "00"
 
-                                                    // Ensure model stays updated
                                                     onTextChanged: {
                                                         if (indexInModel < byteModel.count) {
                                                             byteModel.setProperty(indexInModel, "value", text.toUpperCase())
                                                         }
                                                     }
 
+                                                    Keys.onPressed: (event) => {
+                                                        if (event.key === Qt.Key_Tab) {
+                                                            event.accepted = true
+                                                            let next = page1.inputRefs[indexInModel + 1]
+                                                            if (next) next.forceActiveFocus()
+                                                        } else if (event.key === Qt.Key_Backtab) {
+                                                            event.accepted = true
+                                                            let prev = page1.inputRefs[indexInModel - 1]
+                                                            if (prev) prev.forceActiveFocus()
+                                                        }
+                                                    }
+
+                                                    onActiveFocusChanged: {
+                                                        if (activeFocus) {
+                                                            selectAll()
+                                                        }
+                                                    }
+                                                    
+                                                    Component.onCompleted: {
+                                                        page1.inputRefs[indexInModel] = hexInput
+                                                    }
                                                 }
-                                            }
+                                                                                            }
                                         }
 
                                     }
