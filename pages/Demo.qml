@@ -54,221 +54,219 @@ Rectangle {
 
             // Trigger
             Rectangle {
-    id: inputContainer
-    width: 500
-    height: 200
-    color: "#1E1E20"
-    radius: 10
-    border.color: "#3E4E6F"
-    border.width: 2
+                id: inputContainer
+                width: 500
+                height: 200
+                color: "#1E1E20"
+                radius: 10
+                border.color: "#3E4E6F"
+                border.width: 2
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 4
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 4
 
-        Text {
-            text: "PWM Control"
-            color: "#BDC3C7"
-            font.pixelSize: 16
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            Layout.alignment: Qt.AlignHCenter
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.alignment: Qt.AlignLeft
-
-            Text {
-                text: "Frame Sync"
-                color: "#BDC3C7"
-                font.pixelSize: 14
-                Layout.preferredWidth: 80
-                verticalAlignment: Text.AlignVCenter
-            }
-
-            TextField {
-                id: fsFrequency
-                placeholderText: "Freq"
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 40
-                enabled: MOTIONConnector.sensorConnected
-                font.pixelSize: 12
-                background: Rectangle {
-                    radius: 6
-                    color: "#2B2B2E"
-                    border.color: "#555"
-                }
-                validator: IntValidator { bottom: 1; top: 240 }
-            }
-
-            TextField {
-                id: fsPulseWidth
-                placeholderText: "PulseWidth"
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 40
-                font.pixelSize: 12
-                enabled: MOTIONConnector.sensorConnected 
-                inputMethodHints: Qt.ImhDigitsOnly
-                background: Rectangle {
-                    radius: 6
-                    color: "#2B2B2E"
-                    border.color: "#555"
-                }
-                validator: IntValidator { bottom: 1; top: 100 }
-            }
-            Item {
-                Layout.preferredWidth: 10
-            }
-            Button {
-                id: fsButton
-                text: "Trigger"
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 50
-                hoverEnabled: true  // Enable hover detection
-                enabled: MOTIONConnector.sensorConnected 
-
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                background: Rectangle {
-                    id: fsButtonBackground
-                    color: {
-                        if (!parent.enabled) {
-                            return "#3A3F4B";  // Disabled color
-                        }
-                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                    Text {
+                        text: "PWM Control"
+                        color: "#BDC3C7"
+                        font.pixelSize: 16
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        Layout.alignment: Qt.AlignHCenter
                     }
-                    radius: 4
-                    border.color: {
-                        if (!parent.enabled) {
-                            return "#7F8C8D";  // Disabled border color
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignLeft
+
+                        Text {
+                            text: "Frame Sync"
+                            color: "#BDC3C7"
+                            font.pixelSize: 14
+                            Layout.preferredWidth: 80
+                            verticalAlignment: Text.AlignVCenter
                         }
-                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+
+                        TextField {
+                            id: fsFrequency
+                            placeholderText: "Freq"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 40
+                            enabled: MOTIONConnector.sensorConnected
+                            font.pixelSize: 12
+                            background: Rectangle {
+                                radius: 6
+                                color: "#2B2B2E"
+                                border.color: "#555"
+                            }
+                            validator: IntValidator { bottom: 1; top: 240 }
+                        }
+
+                        TextField {
+                            id: fsPulseWidth
+                            placeholderText: "PulseWidth"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 40
+                            font.pixelSize: 12
+                            enabled: MOTIONConnector.sensorConnected 
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            background: Rectangle {
+                                radius: 6
+                                color: "#2B2B2E"
+                                border.color: "#555"
+                            }
+                            validator: IntValidator { bottom: 1; top: 100 }
+                        }
+                        Item {
+                            Layout.preferredWidth: 10
+                        }
+                        Button {
+                            id: fsButton
+                            text: "Trigger"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 50
+                            hoverEnabled: true  // Enable hover detection
+                            enabled: MOTIONConnector.sensorConnected 
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                id: fsButtonBackground
+                                color: {
+                                    if (!parent.enabled) {
+                                        return "#3A3F4B";  // Disabled color
+                                    }
+                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                }
+                                radius: 4
+                                border.color: {
+                                    if (!parent.enabled) {
+                                        return "#7F8C8D";  // Disabled border color
+                                    }
+                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                }
+                            }
+
+                            onClicked: {
+                                console.log("Frame Sync Trigger");          
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 5
+                        }
+
+                        Text {
+                            id: fsState
+                            text: "OFF"
+                            color: "red"
+                            font.pixelSize: 14
+                            Layout.preferredWidth: 40
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignLeft
+
+                        Text {
+                            text: "Laser Sync"
+                            color: "#BDC3C7"
+                            font.pixelSize: 14
+                            Layout.preferredWidth: 80
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        TextField {
+                            id: lsFrequency
+                            placeholderText: "Freq"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 40
+                            font.pixelSize: 12
+                            background: Rectangle {
+                                radius: 6
+                                color: "#2B2B2E"
+                                border.color: "#555"
+                            }
+                            validator: IntValidator { bottom: 1; top: 240 }
+                        }
+
+                        TextField {
+                            id: lsPulseWidth
+                            placeholderText: "PulseWidth"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 40
+                            font.pixelSize: 12
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            background: Rectangle {
+                                radius: 6
+                                color: "#2B2B2E"
+                                border.color: "#555"
+                            }
+                            validator: IntValidator { bottom: 1; top: 100 }
+                        }
+                        Item {
+                            Layout.preferredWidth: 10
+                        }
+                        Button {
+                            id: lsButton
+                            text: "Trigger"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 50
+                            hoverEnabled: true  // Enable hover detection
+                            enabled: MOTIONConnector.sensorConnected 
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                id: lsButtonBackground
+                                color: {
+                                    if (!parent.enabled) {
+                                        return "#3A3F4B";  // Disabled color
+                                    }
+                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                }
+                                radius: 4
+                                border.color: {
+                                    if (!parent.enabled) {
+                                        return "#7F8C8D";  // Disabled border color
+                                    }
+                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                }
+                            }
+
+                            onClicked: {
+                                console.log("Laser Sync Trigger");          
+                            }
+                        }
+                        
+
+                        Item {
+                            Layout.preferredWidth: 5
+                        }
+
+                        Text {
+                            id: lsState
+                            text: "OFF"
+                            color: "red"
+                            font.pixelSize: 14
+                            Layout.preferredWidth: 40
+                            verticalAlignment: Text.AlignVCenter
+                        }
                     }
                 }
-
-                onClicked: {
-                    console.log("Frame Sync Trigger");          
-                }
-            }
-
-            Item {
-                Layout.preferredWidth: 5
-            }
-
-            Text {
-                id: fsState
-                text: "OFF"
-                color: "red"
-                font.pixelSize: 14
-                Layout.preferredWidth: 40
-                verticalAlignment: Text.AlignVCenter
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.alignment: Qt.AlignLeft
-
-            Text {
-                text: "Laser Sync"
-                color: "#BDC3C7"
-                font.pixelSize: 14
-                Layout.preferredWidth: 80
-                verticalAlignment: Text.AlignVCenter
-            }
-
-            TextField {
-                id: lsFrequency
-                placeholderText: "Freq"
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 40
-                font.pixelSize: 12
-                background: Rectangle {
-                    radius: 6
-                    color: "#2B2B2E"
-                    border.color: "#555"
-                }
-                validator: IntValidator { bottom: 1; top: 240 }
-            }
-
-            TextField {
-                id: lsPulseWidth
-                placeholderText: "PulseWidth"
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 40
-                font.pixelSize: 12
-                inputMethodHints: Qt.ImhDigitsOnly
-                background: Rectangle {
-                    radius: 6
-                    color: "#2B2B2E"
-                    border.color: "#555"
-                }
-                validator: IntValidator { bottom: 1; top: 100 }
-            }
-            Item {
-                Layout.preferredWidth: 10
-            }
-            Button {
-                id: lsButton
-                text: "Trigger"
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 50
-                hoverEnabled: true  // Enable hover detection
-                enabled: MOTIONConnector.sensorConnected 
-
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                background: Rectangle {
-                    id: lsButtonBackground
-                    color: {
-                        if (!parent.enabled) {
-                            return "#3A3F4B";  // Disabled color
-                        }
-                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
-                    }
-                    radius: 4
-                    border.color: {
-                        if (!parent.enabled) {
-                            return "#7F8C8D";  // Disabled border color
-                        }
-                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
-                    }
-                }
-
-                onClicked: {
-                    console.log("Laser Sync Trigger");          
-                }
-            }
-            
-
-            Item {
-                Layout.preferredWidth: 5
-            }
-
-            Text {
-                id: lsState
-                text: "OFF"
-                color: "red"
-                font.pixelSize: 14
-                Layout.preferredWidth: 40
-                verticalAlignment: Text.AlignVCenter
-            }
-
-        }
-    }
-
             }
 
             Rectangle {
