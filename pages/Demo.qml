@@ -15,6 +15,19 @@ Rectangle {
     property int startOffset: 0
 
     ListModel {
+        id: cameraModel
+        ListElement { label: "All Cameras"; cam_mask: 0xFF; channel: 0; i2c_addr: 0x41 }
+        ListElement { label: "Camera 1"; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
+        ListElement { label: "Camera 2"; cam_mask: 0x02; channel: 1; i2c_addr: 0x41 }
+        ListElement { label: "Camera 3"; cam_mask: 0x04; channel: 2; i2c_addr: 0x41 }
+        ListElement { label: "Camera 4"; cam_mask: 0x08; channel: 3; i2c_addr: 0x41 }
+        ListElement { label: "Camera 5"; cam_mask: 0x10; channel: 4; i2c_addr: 0x41 }
+        ListElement { label: "Camera 6"; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
+        ListElement { label: "Camera 7"; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
+        ListElement { label: "Camera 8"; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
+    }
+
+    ListModel {
         id: fpgaAddressModel
         ListElement { label: "TA"; mux_idx: 1; channel: 4; i2c_addr: 0x41 }
         ListElement { label: "Seed"; mux_idx: 1; channel: 5; i2c_addr: 0x41 }
@@ -54,7 +67,7 @@ Rectangle {
 
             // Trigger
             Rectangle {
-                id: inputContainer
+                id: triggerContainer
                 width: 500
                 height: 200
                 color: "#1E1E20"
@@ -270,7 +283,7 @@ Rectangle {
             }
 
             Rectangle {
-                id: inputContainer2
+                id: fpgaContainer
                 width: 500
                 height: 400
                 color: "#1E1E20"
@@ -603,13 +616,56 @@ Rectangle {
 			            
 			// Histogram Panel
             Rectangle {
-                id: graphContainer
+                id: camerahContainer
                 width: 500
                 height: 470
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
+                
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 4
+
+                    Text {
+                        text: "Camera Control"
+                        color: "#BDC3C7"
+                        font.pixelSize: 16
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+
+                    // Spacer between title and dropdowns
+                    Rectangle {
+                        color: "transparent"
+                        height: 6
+                        Layout.fillWidth: true
+                    }
+
+                    // Row: Dropdown + Offset + Byte Count
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 20
+                        Layout.preferredHeight: 36
+
+                        ComboBox {
+                            id: cameraSelector
+                            model: cameraModel
+                            textRole: "label"
+                            Layout.preferredWidth: 200
+                            Layout.preferredHeight: 32
+                            enabled: MOTIONConnector.sensorConnected
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 5
+                        }
+                    }
+                }
             }
 
 			// Status Panel (Connection Indicators)
