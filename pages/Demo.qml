@@ -2,6 +2,8 @@ import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
 
+import "../components"
+
 Rectangle {
     id: page1
     width: parent.width
@@ -645,7 +647,15 @@ Rectangle {
                         height: 6
                         Layout.fillWidth: true
                     }
-
+                    
+                    // Live Histogram Viewer
+                    HistogramView {
+                        id: histogramWidget
+                        Layout.preferredWidth: 380
+                        Layout.preferredHeight: 250
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+                    
                     // Row: Dropdown + Offset + Byte Count
                     RowLayout {
                         Layout.fillWidth: true
