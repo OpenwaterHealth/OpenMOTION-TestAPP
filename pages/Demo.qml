@@ -16,6 +16,34 @@ Rectangle {
     property var inputRefs: []
     property int displayByteCount: 0
     property int startOffset: 0
+    property var fn: null
+    readonly property int dataSize: {
+        if (fn && fn.data_size) {
+            const match = fn.data_size.match(/^(\d+)B$/);
+            return match ? parseInt(match[1]) : 8;
+        }
+        return 8;
+    }
+    
+    readonly property string placeholderHex: {
+        switch (dataSize) {
+            case 8: return "0x00";
+            case 16: return "0x0000";
+            case 24: return "0x000000";
+            case 32: return "0x00000000";
+            default: return "0x00";
+        }
+    }
+
+    readonly property var hexValidator: {
+        switch (dataSize) {
+            case 8: return /0x[0-9a-fA-F]{1,2}/;
+            case 16: return /0x[0-9a-fA-F]{1,4}/;
+            case 24: return /0x[0-9a-fA-F]{1,6}/;
+            case 32: return /0x[0-9a-fA-F]{1,8}/;
+            default: return /0x[0-9a-fA-F]{1,2}/;
+        }
+    }
 
     ListModel {
         id: cameraModel
@@ -291,37 +319,43 @@ Rectangle {
                 border.color: "#3E4E6F"
                 border.width: 2
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 4
+                // Title
+                Text {
+                    id: fpgaTitle
+                    text: "FPGA I2C Utility"
+                    color: "#BDC3C7"
+                    font.pixelSize: 16
+                    font.bold: true
+                    anchors.top: parent.top
+                    anchors.topMargin: 12
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
 
-                    // Title
-                    Text {
-                        text: "FPGA I2C Utility"
-                        color: "#BDC3C7"
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        Layout.fillWidth: true
-                    }
-                    
-                    // FPGA Selector Row
+                ColumnLayout {
+                    id: fpgaLayout
+                    anchors.top: fpgaTitle.bottom
+                    anchors.topMargin: 12
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 12
+                    spacing: 10
+
+                    // FPGA + Function Combo Row
                     RowLayout {
-                        spacing: 10
+                        Layout.fillWidth: true
+                        spacing: 12
 
                         ComboBox {
                             id: fpgaSelector
                             model: FpgaData.fpgaAddressModel
                             textRole: "label"
-                            Layout.preferredWidth: 150
+                            Layout.fillWidth: true
                             Layout.preferredHeight: 32
-                            
                         }
 
                         ComboBox {
                             id: functionSelector
-                            Layout.preferredWidth: 200
+                            Layout.fillWidth: true
                             Layout.preferredHeight: 32
                             model: fpgaSelector.currentIndex >= 0 ? FpgaData.fpgaAddressModel[fpgaSelector.currentIndex].functions : []
                             textRole: "name"
@@ -331,8 +365,8 @@ Rectangle {
                                 accessModeModel.clear()
                                 if (currentIndex < 0) return
 
-                                const fn = model[currentIndex]
-                                const dir = fn.direction
+                                fn = model[currentIndex];
+                                const dir = fn.direction;
 
                                 if (dir === "RD") {
                                     accessModeModel.append({ text: "Read" })
@@ -344,12 +378,13 @@ Rectangle {
                                 }
                             }
                         }
-
                     }
 
-                    // FPGA Selector Row
+                    // Access + Input + Execute Row
                     RowLayout {
-                        spacing: 10
+                        Layout.fillWidth: true
+                        spacing: 12
+
                         ComboBox {
                             id: accessSelector
                             Layout.preferredWidth: 100
@@ -360,45 +395,33 @@ Rectangle {
 
                         TextField {
                             id: hexInput
-                            Layout.preferredWidth: 120
+                            Layout.fillWidth: true
                             Layout.preferredHeight: 32
-                            placeholderText: "0x00"
+                            placeholderText: placeholderHex
                             enabled: accessSelector.currentText === "Write"
-                            validator: RegularExpressionValidator {
-                                regularExpression: /0x[0-9a-fA-F]{1,8}/
-                            }
+                            validator: RegularExpressionValidator { regularExpression: hexValidator }
                         }
 
                         Button {
                             id: exeButton
                             text: "Execute"
                             Layout.preferredWidth: 100
-                            Layout.preferredHeight: 50
-                            hoverEnabled: true  // Enable hover detection
-                            enabled: functionSelector.currentIndex >= 0 && (accessSelector.currentText === "Read" || (hexInput.acceptableInput && hexInput.text.length > 0))
+                            Layout.preferredHeight: 40
+                            hoverEnabled: true
+                            enabled: functionSelector.currentIndex >= 0 &&
+                                    (accessSelector.currentText === "Read" || (hexInput.acceptableInput && hexInput.text.length > 0))
 
                             contentItem: Text {
                                 text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
 
                             background: Rectangle {
-                                id: exeButtonBackground
-                                color: {
-                                    if (!parent.enabled) {
-                                        return "#3A3F4B";  // Disabled color
-                                    }
-                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
-                                }
+                                color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
                                 radius: 4
-                                border.color: {
-                                    if (!parent.enabled) {
-                                        return "#7F8C8D";  // Disabled border color
-                                    }
-                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
-                                }
                             }
 
                             onClicked: {
@@ -410,10 +433,8 @@ Rectangle {
 
                                 if (dir === "Read") {
                                     console.log(`READ from ${fpga.label} @ 0x${addr.toString(16)}`);
-                                    // call your read function here
                                 } else {
                                     console.log(`WRITE to ${fpga.label} @ 0x${addr.toString(16)} = ${data}`);
-                                    // call your write function here
                                 }
                             }
                         }
