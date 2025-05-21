@@ -2,6 +2,9 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant
 from typing import List
 import logging
 import base58
+import csv
+import os
+import datetime
 
 from omotion.Interface import MOTIONInterface
 
@@ -407,6 +410,20 @@ class MOTIONConnector(QObject):
             logger.error(f"Error setting Fan Speed: {e}")
             return False
     
+    @pyqtSlot("QVariantList")
+    def saveHistogramToCSV(self, data):
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            path = os.path.expanduser(f"~/histogram_{timestamp}.csv")
+            with open(path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Bin", "Value"])
+                for i, value in enumerate(data):
+                    writer.writerow([i, value])
+            print(f"Histogram saved to {path}")
+        except Exception as e:
+            print(f"Failed to save histogram: {e}")
+
     @pyqtSlot(int, int)
     def getCameraHistogram(self, camera_index: int, test_pattern_id: int = 4):
         print(f"Getting histogram for camera {camera_index + 1}")

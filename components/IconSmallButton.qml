@@ -31,7 +31,7 @@ Item {
     Rectangle {
         id: bg
         anchors.fill: parent
-        radius: 8
+        radius: 4
         color: mouseArea.containsMouse ? hoverBackgroundColor : backgroundColor
         border.color: mouseArea.containsMouse ? hoverBorderColor : borderColor
         border.width: 1

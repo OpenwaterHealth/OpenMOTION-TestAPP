@@ -170,7 +170,7 @@ Rectangle {
                             placeholderText: "Freq"
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
-                            enabled: MOTIONConnector.sensorConnected
+                            enabled: MOTIONConnector.consoleConnected 
                             font.pixelSize: 12
                             background: Rectangle {
                                 radius: 6
@@ -186,7 +186,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
                             font.pixelSize: 12
-                            enabled: MOTIONConnector.sensorConnected 
+                            enabled: MOTIONConnector.consoleConnected 
                             inputMethodHints: Qt.ImhDigitsOnly
                             background: Rectangle {
                                 radius: 6
@@ -204,7 +204,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 50
                             hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONConnector.sensorConnected 
+                            enabled: MOTIONConnector.consoleConnected 
 
                             contentItem: Text {
                                 text: parent.text
@@ -267,6 +267,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
                             font.pixelSize: 12
+                            enabled: MOTIONConnector.consoleConnected 
                             background: Rectangle {
                                 radius: 6
                                 color: "#2B2B2E"
@@ -281,6 +282,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
                             font.pixelSize: 12
+                            enabled: MOTIONConnector.consoleConnected 
                             inputMethodHints: Qt.ImhDigitsOnly
                             background: Rectangle {
                                 radius: 6
@@ -299,7 +301,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 50
                             hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONConnector.sensorConnected 
+                            enabled: MOTIONConnector.consoleConnected 
 
                             contentItem: Text {
                                 text: parent.text
@@ -355,6 +357,7 @@ Rectangle {
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
+                enabled: MOTIONConnector.consoleConnected
 
                 // Title
                 Text {
@@ -376,7 +379,6 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.margins: 12
                     spacing: 10
-                    enabled: MOTIONConnector.consoleConnected 
 
                     // FPGA + Function Combo Row
                     RowLayout {
@@ -443,7 +445,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
                             hoverEnabled: true
-                            enabled: functionSelector.currentIndex >= 0 &&
+                            enabled: MOTIONConnector.consoleConnected && functionSelector.currentIndex >= 0 &&
                                     (accessSelector.currentText === "Read" || (hexInput.acceptableInput && hexInput.text.length > 0))
 
                             contentItem: Text {
