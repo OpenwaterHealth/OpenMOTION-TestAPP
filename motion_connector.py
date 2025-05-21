@@ -34,7 +34,7 @@ class MOTIONConnector(QObject):
 
     stateChanged = pyqtSignal()  # Notifies QML when state changes
     rgbStateReceived = pyqtSignal(int, str)  # Emit both integer value and text
-    fanSpeedsReceived = pyqtSignal(int, int)  # Emit both integers
+    fanSpeedsReceived = pyqtSignal(int)  # Emit both integers
     
     def __init__(self):
         super().__init__()
@@ -183,11 +183,10 @@ class MOTIONConnector(QObject):
     def queryFans(self):
         """Fetch and emit Fan Speed."""
         try:
-            fan1_speed = self.interface.console_module.get_fan_speed(0)
-            fan2_speed = self.interface.console_module.get_fan_speed(1)
+            fan_speed = self.interface.console_module.get_fan_speed()
 
-            logger.info(f"Fan Speeds: {fan1_speed} {fan2_speed}")
-            self.fanSpeedsReceived.emit(fan1_speed, fan2_speed)  # Emit both values
+            logger.info(f"Fan Speed: {fan_speed}")
+            self.fanSpeedsReceived.emit(fan_speed)  # Emit both values
         except Exception as e:
             logger.error(f"Error querying Fan Speeds: {e}")
 
@@ -315,7 +314,7 @@ class MOTIONConnector(QObject):
             )            
 
             if target == "CONSOLE":                
-                fpga_data, fpga_data_len = self.interface.console_module.read_i2c_packet(mux_index=1, channel=5, device_addr=0x41, reg_addr=0x00, read_len=2)
+                fpga_data, fpga_data_len = self.interface.console_module.read_i2c_packet(mux_index=mux_idx, channel=channel, device_addr=i2c_addr, reg_addr=offset, read_len=data_len)
                 if fpga_data is None or fpga_data_len == 0:
                     logger.error(f"Read I2C Failed")
                     return []
@@ -390,12 +389,12 @@ class MOTIONConnector(QObject):
         print(f"Devices found on MUX {mux} channel {chan}: {hex_addresses}")
         return hex_addresses
 
-    @pyqtSlot(int, int, result=bool)
-    def setFanLevel(self, fid: int, speed: int):
+    @pyqtSlot(int, result=bool)
+    def setFanLevel(self, speed: int):
         """Set Fan Level to device."""
         try:
             
-            if self.interface.console_module.set_fan_speed(fan_id=fid, fan_speed=speed) == speed:
+            if self.interface.console_module.set_fan_speed(fan_speed=speed) == speed:
                 logger.info(f"Fan set successfully")
                 return True
             else:   

@@ -56,16 +56,53 @@ Rectangle {
         ListElement { label: "Camera 7"; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
         ListElement { label: "Camera 8"; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
     }
+    
+    ListModel {
+        id: cameraModeModel
+        ListElement { label: "Bars"; tp_id: 0x00}
+        ListElement { label: "Solid"; tp_id: 0x01}
+        ListElement { label: "Squares"; tp_id: 0x02}
+        ListElement { label: "Continuous"; tp_id: 0x03}
+        ListElement { label: "Live"; tp_id: 0x04}
+    }
 
     // Define the model for accessSelector
     ListModel {
         id: accessModeModel
     }
 
-    ListModel {
-        id: byteModel
-        // Will be populated by the read function
+    function updateFunctionUI(index) {
+        accessModeModel.clear()
+
+        // Defensive check: valid index and model element
+        if (index < 0 || !functionSelector.model || index >= functionSelector.model.length) {
+            fn = null
+            hexInput.text = ""
+            return
+        }
+
+        fn = functionSelector.model[index]
+        if (!fn || !fn.direction) {
+            console.warn("Function data is invalid")
+            hexInput.text = ""
+            return
+        }
+
+        const dir = fn.direction
+
+        if (dir === "RD") {
+            accessModeModel.append({ text: "Read" })
+        } else if (dir === "WR") {
+            accessModeModel.append({ text: "Write" })
+        } else if (dir === "RW") {
+            accessModeModel.append({ text: "Read" })
+            accessModeModel.append({ text: "Write" })
+        }
+
+        accessSelector.currentIndex = 0
+        hexInput.text = ""
     }
+
 
     // HEADER
     Text {
@@ -339,6 +376,7 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.margins: 12
                     spacing: 10
+                    enabled: MOTIONConnector.consoleConnected 
 
                     // FPGA + Function Combo Row
                     RowLayout {
@@ -351,6 +389,12 @@ Rectangle {
                             textRole: "label"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
+
+                            onCurrentIndexChanged: {
+                                accessModeModel.clear()
+                                functionSelector.currentIndex = 0;
+                                updateFunctionUI(0)
+                            }
                         }
 
                         ComboBox {
@@ -361,20 +405,11 @@ Rectangle {
                             textRole: "name"
                             enabled: fpgaSelector.currentIndex >= 0
 
-                            onCurrentIndexChanged: {
-                                accessModeModel.clear()
-                                if (currentIndex < 0) return
-
-                                fn = model[currentIndex];
-                                const dir = fn.direction;
-
-                                if (dir === "RD") {
-                                    accessModeModel.append({ text: "Read" })
-                                } else if (dir === "WR") {
-                                    accessModeModel.append({ text: "Write" })
-                                } else if (dir === "RW") {
-                                    accessModeModel.append({ text: "Read" })
-                                    accessModeModel.append({ text: "Write" })
+                            onCurrentIndexChanged: updateFunctionUI(currentIndex)
+                            onModelChanged: {
+                                if (functionSelector.model.length > 0) {
+                                    functionSelector.currentIndex = 0;
+                                    updateFunctionUI(0);
                                 }
                             }
                         }
@@ -426,18 +461,91 @@ Rectangle {
 
                             onClicked: {
                                 const fpga = FpgaData.fpgaAddressModel[fpgaSelector.currentIndex];
+                                const i2cAddr = fpga.i2c_addr;
+                                const muxIdx = fpga.mux_idx;
+                                const channel = fpga.channel;
+
                                 const fn = functionSelector.model[functionSelector.currentIndex];
-                                const addr = fn.start_address;
+                                const offset = fn.start_address;
                                 const dir = accessSelector.currentText;
+                                const length = parseInt(fn.data_size.replace("B", "")) / 8;
                                 const data = hexInput.text;
 
                                 if (dir === "Read") {
-                                    console.log(`READ from ${fpga.label} @ 0x${addr.toString(16)}`);
-                                } else {
-                                    console.log(`WRITE to ${fpga.label} @ 0x${addr.toString(16)} = ${data}`);
+                                    console.log(`READ from ${fpga.label} @ 0x${offset.toString(16)}`);
+                                    let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, length)
+                                    if (result.length === 0) {
+                                        console.log("Read failed or returned empty array.")     
+                                        i2cStatus.text = "Read failed"
+                                        i2cStatus.color = "red"                              
+                                    }else{
+                                        console.log("Read Success:")
+                                        let hexStr = "0x";
+                                        for (let i = 0; i < result.length; i++) {
+                                            let hexByte = result[i].toString(16).toUpperCase().padStart(2, "0");
+                                            hexStr += hexByte;
+                                            console.log(hexByte);
+                                        }
+                                        hexInput.text = hexStr;
+                                        i2cStatus.text = "Read successful"
+                                        i2cStatus.color = "lightgreen"
+                                    }
+                                    cleari2cStatusTimer.start()
+                                } else {                                    
+                                    console.log(`WRITE to ${fpga.label} @ 0x${offset.toString(16)} = ${data}`);
+
+                                    let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
+                                    let dataToSend = [];
+
+                                    if (sanitized.length > length * 2) {
+                                        console.warn("Input too long, trimming.");
+                                        sanitized = sanitized.slice(-length * 2);
+                                    } else if (sanitized.length < length * 2) {
+                                        sanitized = sanitized.padStart(length * 2, "0");
+                                    }
+
+                                    let fullValue = parseInt(sanitized, 16);
+
+                                    var i;
+                                    for (i = length - 1; i >= 0; i--) {
+                                        let b = (fullValue >> (i * 8)) & 0xFF;
+                                        dataToSend.push(b);
+                                    }
+
+                                    console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
+
+                                    let success = MOTIONConnector.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
+
+                                    if (success) {
+                                        console.log("Write successful.");
+                                        i2cStatus.text = "Write successful"
+                                        i2cStatus.color = "lightgreen"
+                                    } else {
+                                        console.log("Write failed.");
+                                        i2cStatus.text = "Write failed"
+                                        i2cStatus.color = "red"
+                                    }
+                                    cleari2cStatusTimer.start()
                                 }
                             }
                         }
+                    }
+
+                    Text {
+                        id: i2cStatus
+                        text: ""
+                        color: "#BDC3C7"
+                        font.pixelSize: 12
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    Timer {
+                        id: cleari2cStatusTimer
+                        interval: 2000
+                        running: false
+                        repeat: false
+                        onTriggered: i2cStatus.text = ""
                     }
                 }
             }
@@ -496,13 +604,18 @@ Rectangle {
                             id: cameraSelector
                             model: cameraModel
                             textRole: "label"
-                            Layout.preferredWidth: 200
+                            Layout.preferredWidth: 120
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
                         }
 
-                        Item {
-                            Layout.preferredWidth: 5
+                        ComboBox {
+                            id: patternSelector
+                            model: cameraModeModel
+                            textRole: "label"
+                            Layout.preferredWidth: 120
+                            Layout.preferredHeight: 32
+                            enabled: MOTIONConnector.sensorConnected
                         }
 
                         Button {
@@ -665,10 +778,7 @@ Rectangle {
 
 
     Component.onCompleted: {
-        byteModel.clear()
-        for (let i = 0; i < 128; i++) {
-            byteModel.append({ "value": "00" })
-        }
+        
     }
 
     Component.onDestruction: {
