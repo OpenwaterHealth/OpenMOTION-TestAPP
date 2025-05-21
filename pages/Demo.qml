@@ -47,14 +47,14 @@ Rectangle {
 
     ListModel {
         id: cameraModel
-        ListElement { label: "Camera 1"; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
-        ListElement { label: "Camera 2"; cam_mask: 0x02; channel: 1; i2c_addr: 0x41 }
-        ListElement { label: "Camera 3"; cam_mask: 0x04; channel: 2; i2c_addr: 0x41 }
-        ListElement { label: "Camera 4"; cam_mask: 0x08; channel: 3; i2c_addr: 0x41 }
-        ListElement { label: "Camera 5"; cam_mask: 0x10; channel: 4; i2c_addr: 0x41 }
-        ListElement { label: "Camera 6"; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
-        ListElement { label: "Camera 7"; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
-        ListElement { label: "Camera 8"; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
+        ListElement { label: "Camera 1"; cam_num: 1; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
+        ListElement { label: "Camera 2"; cam_num: 2; cam_mask: 0x02; channel: 1; i2c_addr: 0x41 }
+        ListElement { label: "Camera 3"; cam_num: 3; cam_mask: 0x04; channel: 2; i2c_addr: 0x41 }
+        ListElement { label: "Camera 4"; cam_num: 4; cam_mask: 0x08; channel: 3; i2c_addr: 0x41 }
+        ListElement { label: "Camera 5"; cam_num: 5; cam_mask: 0x10; channel: 4; i2c_addr: 0x41 }
+        ListElement { label: "Camera 6"; cam_num: 6; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
+        ListElement { label: "Camera 7"; cam_num: 7; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
+        ListElement { label: "Camera 8"; cam_num: 8; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
     }
     
     ListModel {
@@ -554,7 +554,7 @@ Rectangle {
         // RIGHT COLUMN (Status Panel + Histogram)
         ColumnLayout {
             spacing: 20
-			            
+                                
 			// Histogram Panel
             Rectangle {
                 id: camerahContainer
@@ -604,7 +604,7 @@ Rectangle {
                             id: cameraSelector
                             model: cameraModel
                             textRole: "label"
-                            Layout.preferredWidth: 120
+                            Layout.preferredWidth: 130
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
                         }
@@ -613,7 +613,7 @@ Rectangle {
                             id: patternSelector
                             model: cameraModeModel
                             textRole: "label"
-                            Layout.preferredWidth: 120
+                            Layout.preferredWidth: 110
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
                         }
@@ -621,7 +621,7 @@ Rectangle {
                         Button {
                             id: idCameraCapButton
                             text: "Capture"
-                            Layout.preferredWidth: 110
+                            Layout.preferredWidth: 100
                             Layout.preferredHeight: 45
                             hoverEnabled: true  // Enable hover detection
                             enabled: MOTIONConnector.sensorConnected 
@@ -651,10 +651,15 @@ Rectangle {
                             }
 
                             onClicked: {
-                                let addr = cameraModel.get(cameraSelector.currentIndex)
-                                console.log("Capture Histogram from " + addr.label);          
+                                let cam = cameraModel.get(cameraSelector.currentIndex)
+                                let tp = cameraModeModel.get(patternSelector.currentIndex)
+                                console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id);          
                                                       
                                 // Call get single frame
+                                MOTIONConnector.getCameraHistogram(cam.cam_num, tp.tp_id)
+                                
+                                cameraCapStatus.text = "Capturing..."
+                                cameraCapStatus.color = "orange"
                             }
                         }
 
@@ -670,7 +675,6 @@ Rectangle {
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
-
                     }
                 }
             }
@@ -774,6 +778,20 @@ Rectangle {
         function onSignalDataReceived(descriptor, message) {
             console.log("Data from " + descriptor + ": " + message);
         }
+        
+        function onHistogramReady(bins) {
+            console.log("Histogram received, bins: " + bins.length)
+            histogramWidget.histogramData = bins
+            histogramWidget.maxValue = Math.max(...bins)
+            histogramWidget.forceRepaint?.()
+
+            console.log("Update status");
+            Qt.callLater(() => {
+                cameraCapStatus.text = "Ready"
+                cameraCapStatus.color = "lightgreen"
+            });                     
+        }
+
     }
 
 

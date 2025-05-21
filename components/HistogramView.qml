@@ -14,6 +14,10 @@ Item {
     signal saveRequested()
     signal exportCSVRequested()
 
+    function forceRepaint() {
+        histogramCanvas.requestPaint()
+    }
+
     Rectangle {
         anchors.fill: parent
         color: "#1E1E20"

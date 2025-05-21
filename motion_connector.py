@@ -36,6 +36,8 @@ class MOTIONConnector(QObject):
     rgbStateReceived = pyqtSignal(int, str)  # Emit both integer value and text
     fanSpeedsReceived = pyqtSignal(int)  # Emit both integers
     
+    histogramReady = pyqtSignal(list)  # Emit 1024 bins to QML
+
     def __init__(self):
         super().__init__()
         self.interface = MOTIONInterface(run_async=True)
@@ -404,7 +406,22 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error setting Fan Speed: {e}")
             return False
-        
+    
+    @pyqtSlot(int, int)
+    def getCameraHistogram(self, camera_index: int, test_pattern_id: int = 4):
+        print(f"Getting histogram for camera {camera_index + 1}")
+        bins, histo = self.interface.get_camera_histogram(
+            camera_id=camera_index,
+            test_pattern_id=test_pattern_id,
+            auto_upload=True
+        )
+
+        if bins:
+            self.histogramReady.emit(bins)
+        else:
+            print("Failed to retrieve histogram.")
+            self.histogramReady.emit([])  # Emit empty to clear
+
     @pyqtProperty(bool, notify=connectionStatusChanged)
     def sensorConnected(self):
         """Expose Sensor connection status to QML."""
