@@ -3,6 +3,7 @@ import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
 
 import "../components"
+import "../models/FpgaModel.js" as FpgaData
 
 Rectangle {
     id: page1
@@ -15,32 +16,93 @@ Rectangle {
     property var inputRefs: []
     property int displayByteCount: 0
     property int startOffset: 0
+    property var fn: null
+    readonly property int dataSize: {
+        if (fn && fn.data_size) {
+            const match = fn.data_size.match(/^(\d+)B$/);
+            return match ? parseInt(match[1]) : 8;
+        }
+        return 8;
+    }
+    
+    readonly property string placeholderHex: {
+        switch (dataSize) {
+            case 8: return "0x00";
+            case 16: return "0x0000";
+            case 24: return "0x000000";
+            case 32: return "0x00000000";
+            default: return "0x00";
+        }
+    }
+
+    readonly property var hexValidator: {
+        switch (dataSize) {
+            case 8: return /0x[0-9a-fA-F]{1,2}/;
+            case 16: return /0x[0-9a-fA-F]{1,4}/;
+            case 24: return /0x[0-9a-fA-F]{1,6}/;
+            case 32: return /0x[0-9a-fA-F]{1,8}/;
+            default: return /0x[0-9a-fA-F]{1,2}/;
+        }
+    }
 
     ListModel {
         id: cameraModel
-        ListElement { label: "All Cameras"; cam_mask: 0xFF; channel: 0; i2c_addr: 0x41 }
-        ListElement { label: "Camera 1"; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
-        ListElement { label: "Camera 2"; cam_mask: 0x02; channel: 1; i2c_addr: 0x41 }
-        ListElement { label: "Camera 3"; cam_mask: 0x04; channel: 2; i2c_addr: 0x41 }
-        ListElement { label: "Camera 4"; cam_mask: 0x08; channel: 3; i2c_addr: 0x41 }
-        ListElement { label: "Camera 5"; cam_mask: 0x10; channel: 4; i2c_addr: 0x41 }
-        ListElement { label: "Camera 6"; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
-        ListElement { label: "Camera 7"; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
-        ListElement { label: "Camera 8"; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
+        ListElement { label: "Camera 1"; cam_num: 1; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
+        ListElement { label: "Camera 2"; cam_num: 2; cam_mask: 0x02; channel: 1; i2c_addr: 0x41 }
+        ListElement { label: "Camera 3"; cam_num: 3; cam_mask: 0x04; channel: 2; i2c_addr: 0x41 }
+        ListElement { label: "Camera 4"; cam_num: 4; cam_mask: 0x08; channel: 3; i2c_addr: 0x41 }
+        ListElement { label: "Camera 5"; cam_num: 5; cam_mask: 0x10; channel: 4; i2c_addr: 0x41 }
+        ListElement { label: "Camera 6"; cam_num: 6; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
+        ListElement { label: "Camera 7"; cam_num: 7; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
+        ListElement { label: "Camera 8"; cam_num: 8; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
+    }
+    
+    ListModel {
+        id: cameraModeModel
+        ListElement { label: "Bars"; tp_id: 0x00}
+        ListElement { label: "Solid"; tp_id: 0x01}
+        ListElement { label: "Squares"; tp_id: 0x02}
+        ListElement { label: "Continuous"; tp_id: 0x03}
+        ListElement { label: "Live"; tp_id: 0x04}
     }
 
+    // Define the model for accessSelector
     ListModel {
-        id: fpgaAddressModel
-        ListElement { label: "TA"; mux_idx: 1; channel: 4; i2c_addr: 0x41 }
-        ListElement { label: "Seed"; mux_idx: 1; channel: 5; i2c_addr: 0x41 }
-        ListElement { label: "Safety EE"; mux_idx: 1; channel: 6; i2c_addr: 0x41 }
-        ListElement { label: "Safety OPT"; mux_idx: 1; channel: 7; i2c_addr: 0x41 }
+        id: accessModeModel
     }
 
-    ListModel {
-        id: byteModel
-        // Will be populated by the read function
+    function updateFunctionUI(index) {
+        accessModeModel.clear()
+
+        // Defensive check: valid index and model element
+        if (index < 0 || !functionSelector.model || index >= functionSelector.model.length) {
+            fn = null
+            hexInput.text = ""
+            return
+        }
+
+        fn = functionSelector.model[index]
+        if (!fn || !fn.direction) {
+            console.warn("Function data is invalid")
+            hexInput.text = ""
+            return
+        }
+
+        const dir = fn.direction
+
+        if (dir === "RD") {
+            accessModeModel.append({ text: "Read" })
+        } else if (dir === "WR") {
+            accessModeModel.append({ text: "Write" })
+        } else if (dir === "RW") {
+            accessModeModel.append({ text: "Read" })
+            accessModeModel.append({ text: "Write" })
+        }
+
+        accessSelector.currentIndex = 0
+        hexInput.text = ""
     }
+
 
     // HEADER
     Text {
@@ -108,7 +170,7 @@ Rectangle {
                             placeholderText: "Freq"
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
-                            enabled: MOTIONConnector.sensorConnected
+                            enabled: MOTIONConnector.consoleConnected 
                             font.pixelSize: 12
                             background: Rectangle {
                                 radius: 6
@@ -124,7 +186,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
                             font.pixelSize: 12
-                            enabled: MOTIONConnector.sensorConnected 
+                            enabled: MOTIONConnector.consoleConnected 
                             inputMethodHints: Qt.ImhDigitsOnly
                             background: Rectangle {
                                 radius: 6
@@ -142,7 +204,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 50
                             hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONConnector.sensorConnected 
+                            enabled: MOTIONConnector.consoleConnected 
 
                             contentItem: Text {
                                 text: parent.text
@@ -205,6 +267,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
                             font.pixelSize: 12
+                            enabled: MOTIONConnector.consoleConnected 
                             background: Rectangle {
                                 radius: 6
                                 color: "#2B2B2E"
@@ -219,6 +282,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 40
                             font.pixelSize: 12
+                            enabled: MOTIONConnector.consoleConnected 
                             inputMethodHints: Qt.ImhDigitsOnly
                             background: Rectangle {
                                 radius: 6
@@ -230,13 +294,14 @@ Rectangle {
                         Item {
                             Layout.preferredWidth: 10
                         }
+
                         Button {
                             id: lsButton
                             text: "Trigger"
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 50
                             hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONConnector.sensorConnected 
+                            enabled: MOTIONConnector.consoleConnected 
 
                             contentItem: Text {
                                 text: parent.text
@@ -292,204 +357,182 @@ Rectangle {
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
+                enabled: MOTIONConnector.consoleConnected
+
+                // Title
+                Text {
+                    id: fpgaTitle
+                    text: "FPGA I2C Utility"
+                    color: "#BDC3C7"
+                    font.pixelSize: 16
+                    font.bold: true
+                    anchors.top: parent.top
+                    anchors.topMargin: 12
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
 
                 ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 4
+                    id: fpgaLayout
+                    anchors.top: fpgaTitle.bottom
+                    anchors.topMargin: 12
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 12
+                    spacing: 10
 
-                    // Title
-                    Text {
-                        text: "FPGA I2C Utility"
-                        color: "#BDC3C7"
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        Layout.fillWidth: true
-                    }
-
-                    // Spacer between title and dropdowns
-                    Rectangle {
-                        color: "transparent"
-                        height: 6
-                        Layout.fillWidth: true
-                    }
-
-                    // Row: Dropdown + Offset + Byte Count
+                    // FPGA + Function Combo Row
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.leftMargin: 20
-                        Layout.preferredHeight: 36
+                        spacing: 12
 
                         ComboBox {
                             id: fpgaSelector
-                            model: fpgaAddressModel
+                            model: FpgaData.fpgaAddressModel
                             textRole: "label"
-                            Layout.preferredWidth: 200
+                            Layout.fillWidth: true
                             Layout.preferredHeight: 32
-                            enabled: MOTIONConnector.consoleConnected
+
+                            onCurrentIndexChanged: {
+                                accessModeModel.clear()
+                                functionSelector.currentIndex = 0;
+                                updateFunctionUI(0)
+                            }
                         }
 
-                        Item {
-                            Layout.preferredWidth: 5
-                        }
-
-                        TextField {
-                            id: offsetField
-                            placeholderText: "Offset"
-                            Layout.preferredWidth: 100
+                        ComboBox {
+                            id: functionSelector
+                            Layout.fillWidth: true
                             Layout.preferredHeight: 32
-                            validator: RegularExpressionValidator { regularExpression: /[0-9A-Fa-f]{1,2}/ }
-                        }
+                            model: fpgaSelector.currentIndex >= 0 ? FpgaData.fpgaAddressModel[fpgaSelector.currentIndex].functions : []
+                            textRole: "name"
+                            enabled: fpgaSelector.currentIndex >= 0
 
-                        Item {
-                            Layout.preferredWidth: 5
-                        }
-
-                        TextField {
-                            id: byteCountField
-                            placeholderText: "Bytes"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 32
-                            inputMethodHints: Qt.ImhDigitsOnly
-                            validator: IntValidator { bottom: 1; top: 256 }
+                            onCurrentIndexChanged: updateFunctionUI(currentIndex)
+                            onModelChanged: {
+                                if (functionSelector.model.length > 0) {
+                                    functionSelector.currentIndex = 0;
+                                    updateFunctionUI(0);
+                                }
+                            }
                         }
                     }
 
-                    // Row: Read + Write Buttons
+                    // Access + Input + Execute Row
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.leftMargin: 20
+                        spacing: 12
 
+                        ComboBox {
+                            id: accessSelector
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 32
+                            model: accessModeModel
+                            textRole: "text"
+                        }
+
+                        TextField {
+                            id: hexInput
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            placeholderText: placeholderHex
+                            enabled: accessSelector.currentText === "Write"
+                            validator: RegularExpressionValidator { regularExpression: hexValidator }
+                        }
 
                         Button {
-                            id: readButton
-                            text: "Read"
-                            Layout.preferredWidth: 140
-                            Layout.preferredHeight: 50
-                            hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONConnector.consoleConnected 
+                            id: exeButton
+                            text: "Execute"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 40
+                            hoverEnabled: true
+                            enabled: MOTIONConnector.consoleConnected && functionSelector.currentIndex >= 0 &&
+                                    (accessSelector.currentText === "Read" || (hexInput.acceptableInput && hexInput.text.length > 0))
 
                             contentItem: Text {
                                 text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
 
                             background: Rectangle {
-                                id: readButtonBackground
-                                color: {
-                                    if (!parent.enabled) {
-                                        return "#3A3F4B";  // Disabled color
-                                    }
-                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
-                                }
+                                color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
                                 radius: 4
-                                border.color: {
-                                    if (!parent.enabled) {
-                                        return "#7F8C8D";  // Disabled border color
-                                    }
-                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
-                                }
                             }
 
                             onClicked: {
-                                console.log("Read " + byteCountField.text + " bytes from offset " + offsetField.text);          
-                                let addr = fpgaAddressModel.get(fpgaSelector.currentIndex)
-                                let offset = parseInt(offsetField.text, 16)
-                                let length = parseInt(byteCountField.text)
-                      
-                                // Call read function
-                                let result = MOTIONConnector.i2cReadBytes("CONSOLE", addr.mux_idx, addr.channel, addr.i2c_addr, offset, length)
+                                const fpga = FpgaData.fpgaAddressModel[fpgaSelector.currentIndex];
+                                const i2cAddr = fpga.i2c_addr;
+                                const muxIdx = fpga.mux_idx;
+                                const channel = fpga.channel;
 
-                                if (result.length === 0) {
-                                    console.log("Read failed or returned empty array.")
-                                    i2cStatus.text = "Read failed"
-                                    i2cStatus.color = "red"                                    
-                                }else{
-                                    i2cStatus.text = "Read successful"
-                                    i2cStatus.color = "lightgreen"
-                                    for (let i = 0; i < byteModel.count; i++) {
-                                        byteModel.setProperty(i, "value", "00")
-                                    }
-                                                                        
-                                    // Update byteModel
-                                    for (let i = 0; i < result.length; i++) {
-                                        let hexByte = result[i].toString(16).toUpperCase().padStart(2, "0")
-                                        if (i < byteModel.count) {
-                                            byteModel.setProperty(i, "value", hexByte)
+                                const fn = functionSelector.model[functionSelector.currentIndex];
+                                const offset = fn.start_address;
+                                const dir = accessSelector.currentText;
+                                const length = parseInt(fn.data_size.replace("B", "")) / 8;
+                                const data = hexInput.text;
+
+                                if (dir === "Read") {
+                                    console.log(`READ from ${fpga.label} @ 0x${offset.toString(16)}`);
+                                    let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, length)
+                                    if (result.length === 0) {
+                                        console.log("Read failed or returned empty array.")     
+                                        i2cStatus.text = "Read failed"
+                                        i2cStatus.color = "red"                              
+                                    }else{
+                                        console.log("Read Success:")
+                                        let hexStr = "0x";
+                                        for (let i = 0; i < result.length; i++) {
+                                            let hexByte = result[i].toString(16).toUpperCase().padStart(2, "0");
+                                            hexStr += hexByte;
+                                            console.log(hexByte);
                                         }
+                                        hexInput.text = hexStr;
+                                        i2cStatus.text = "Read successful"
+                                        i2cStatus.color = "lightgreen"
                                     }
-                                }
-                                                                    
-                                cleari2cStatusTimer.start()
-                            }
-                        }
+                                    cleari2cStatusTimer.start()
+                                } else {                                    
+                                    console.log(`WRITE to ${fpga.label} @ 0x${offset.toString(16)} = ${data}`);
 
-                        Item {
-                            Layout.preferredWidth: 140
-                        }
+                                    let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
+                                    let dataToSend = [];
 
-                        Button {
-                            id: writeButton
-                            text: "Write"
-                            Layout.preferredWidth: 140
-                            Layout.preferredHeight: 50
-                            hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONConnector.consoleConnected 
-
-                            contentItem: Text {
-                                text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            background: Rectangle {
-                                id: writeButtonBackground
-                                color: {
-                                    if (!parent.enabled) {
-                                        return "#3A3F4B";  // Disabled color
+                                    if (sanitized.length > length * 2) {
+                                        console.warn("Input too long, trimming.");
+                                        sanitized = sanitized.slice(-length * 2);
+                                    } else if (sanitized.length < length * 2) {
+                                        sanitized = sanitized.padStart(length * 2, "0");
                                     }
-                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
-                                }
-                                radius: 4
-                                border.color: {
-                                    if (!parent.enabled) {
-                                        return "#7F8C8D";  // Disabled border color
-                                    }
-                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
-                                }
-                            }
 
-                            onClicked: {
-                                console.log("Write " + byteCountField.text + " bytes to offset " + offsetField.text);    
-                                let addr = fpgaAddressModel.get(fpgaSelector.currentIndex)
-                                let offset = parseInt(offsetField.text, 16)
-                                let length = parseInt(byteCountField.text)
+                                    let fullValue = parseInt(sanitized, 16);
 
-                                let dataToSend = []
-                                for (let i = 0; i < length; i++) {
-                                    if (i < byteModel.count) {
-                                        let byteStr = byteModel.get(i).value
-                                        dataToSend.push(parseInt(byteStr, 16))
+                                    var i;
+                                    for (i = length - 1; i >= 0; i--) {
+                                        let b = (fullValue >> (i * 8)) & 0xFF;
+                                        dataToSend.push(b);
                                     }
+
+                                    console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
+
+                                    let success = MOTIONConnector.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
+
+                                    if (success) {
+                                        console.log("Write successful.");
+                                        i2cStatus.text = "Write successful"
+                                        i2cStatus.color = "lightgreen"
+                                    } else {
+                                        console.log("Write failed.");
+                                        i2cStatus.text = "Write failed"
+                                        i2cStatus.color = "red"
+                                    }
+                                    cleari2cStatusTimer.start()
                                 }
-                                let success = MOTIONConnector.i2cWriteBytes("CONSOLE", addr.mux_idx, addr.channel, addr.i2c_addr, offset, dataToSend)                         
-                                
-                                if (success) {
-                                    i2cStatus.text = "Write successful"
-                                    i2cStatus.color = "lightgreen"
-                                } else {
-                                    i2cStatus.text = "Write failed"
-                                    i2cStatus.color = "red"
-                                }
-                                cleari2cStatusTimer.start()
                             }
                         }
                     }
-                        
+
                     Text {
                         id: i2cStatus
                         text: ""
@@ -506,108 +549,6 @@ Rectangle {
                         repeat: false
                         onTriggered: i2cStatus.text = ""
                     }
-
-                    // Spacer
-                    Rectangle {
-                        color: "transparent"
-                        height: 3
-                        Layout.fillWidth: true
-                    }
-
-                    // Hex Grid
-                    RowLayout {
-                        Layout.alignment: Qt.AlignHCenter
-                        Layout.leftMargin: 10
-                        Rectangle {
-                            id: hexGrid
-                            color: "transparent"
-                            Layout.alignment: Qt.AlignHCenter
-                            width: 16 * 28 + 40
-                            height: 8 * 24 + 30
-
-                            Column {
-                                id: contentRepeater
-                                spacing: 2
-                                Repeater {
-                                    model: 8
-                                    delegate: Row {
-                                        property int rowIndex: index
-                                        spacing: 4
-
-                                        Text {
-                                            text: (rowIndex * 16).toString(16).toUpperCase().padStart(2, "0")
-                                            width: 30
-                                            height: 24
-                                            color: "white"
-                                            font.family: "monospace"
-                                            font.pixelSize: 14
-                                        }
-
-                                        Repeater {
-                                            model: 16
-                                            delegate: Rectangle {
-                                                width: 22
-                                                height: 22
-                                                radius: 3
-                                                color: "#2C2C2E"
-                                                border.color: "#5D5D60"
-                                                border.width: 1
-
-                                                TextInput {
-                                                    id: hexInput
-                                                    objectName: "hexInput_" + indexInModel
-                                                    focus: false
-                                                    anchors.centerIn: parent
-                                                    width: parent.width
-                                                    height: parent.height
-                                                    horizontalAlignment: Text.AlignHCenter
-                                                    verticalAlignment: Text.AlignVCenter
-                                                    font.family: "monospace"
-                                                    color: "white"
-                                                    maximumLength: 2
-                                                    inputMask: "HH"
-                                                    font.pixelSize: 12
-
-                                                    property int indexInModel: rowIndex * 16 + index
-
-                                                    text: (indexInModel < byteModel.count && byteModel.get(indexInModel)) ? byteModel.get(indexInModel).value : "00"
-
-                                                    onTextChanged: {
-                                                        if (indexInModel < byteModel.count) {
-                                                            byteModel.setProperty(indexInModel, "value", text.toUpperCase())
-                                                        }
-                                                    }
-
-                                                    Keys.onPressed: (event) => {
-                                                        if (event.key === Qt.Key_Tab) {
-                                                            event.accepted = true
-                                                            let next = page1.inputRefs[indexInModel + 1]
-                                                            if (next) next.forceActiveFocus()
-                                                        } else if (event.key === Qt.Key_Backtab) {
-                                                            event.accepted = true
-                                                            let prev = page1.inputRefs[indexInModel - 1]
-                                                            if (prev) prev.forceActiveFocus()
-                                                        }
-                                                    }
-
-                                                    onActiveFocusChanged: {
-                                                        if (activeFocus) {
-                                                            selectAll()
-                                                        }
-                                                    }
-
-                                                    Component.onCompleted: {
-                                                        page1.inputRefs[indexInModel] = hexInput
-                                                    }
-                                                }
-                                                                                            }
-                                        }
-
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -615,7 +556,7 @@ Rectangle {
         // RIGHT COLUMN (Status Panel + Histogram)
         ColumnLayout {
             spacing: 20
-			            
+                                
 			// Histogram Panel
             Rectangle {
                 id: camerahContainer
@@ -626,7 +567,6 @@ Rectangle {
                 border.color: "#3E4E6F"
                 border.width: 2
                 
-
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 12
@@ -666,13 +606,76 @@ Rectangle {
                             id: cameraSelector
                             model: cameraModel
                             textRole: "label"
-                            Layout.preferredWidth: 200
+                            Layout.preferredWidth: 130
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
                         }
 
+                        ComboBox {
+                            id: patternSelector
+                            model: cameraModeModel
+                            textRole: "label"
+                            Layout.preferredWidth: 110
+                            Layout.preferredHeight: 32
+                            enabled: MOTIONConnector.sensorConnected
+                        }
+
+                        Button {
+                            id: idCameraCapButton
+                            text: "Capture"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 45
+                            hoverEnabled: true  // Enable hover detection
+                            enabled: MOTIONConnector.sensorConnected 
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                id: cameraCapButtonBackground
+                                color: {
+                                    if (!parent.enabled) {
+                                        return "#3A3F4B";  // Disabled color
+                                    }
+                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                }
+                                radius: 4
+                                border.color: {
+                                    if (!parent.enabled) {
+                                        return "#7F8C8D";  // Disabled border color
+                                    }
+                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                }
+                            }
+
+                            onClicked: {
+                                let cam = cameraModel.get(cameraSelector.currentIndex)
+                                let tp = cameraModeModel.get(patternSelector.currentIndex)
+                                console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id);          
+                                                      
+                                // Call get single frame
+                                MOTIONConnector.getCameraHistogram(cam.cam_num, tp.tp_id)
+                                
+                                cameraCapStatus.text = "Capturing..."
+                                cameraCapStatus.color = "orange"
+                            }
+                        }
+
                         Item {
                             Layout.preferredWidth: 5
+                        }
+                        
+                        Text {
+                            id: cameraCapStatus
+                            text: "Not Configured"
+                            color: "#BDC3C7"
+                            font.pixelSize: 12
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                     }
                 }
@@ -777,14 +780,25 @@ Rectangle {
         function onSignalDataReceived(descriptor, message) {
             console.log("Data from " + descriptor + ": " + message);
         }
+        
+        function onHistogramReady(bins) {
+            console.log("Histogram received, bins: " + bins.length)
+            histogramWidget.histogramData = bins
+            histogramWidget.maxValue = Math.max(...bins)
+            histogramWidget.forceRepaint?.()
+
+            console.log("Update status");
+            Qt.callLater(() => {
+                cameraCapStatus.text = "Ready"
+                cameraCapStatus.color = "lightgreen"
+            });                     
+        }
+
     }
 
 
     Component.onCompleted: {
-        byteModel.clear()
-        for (let i = 0; i < 128; i++) {
-            byteModel.append({ "value": "00" })
-        }
+        
     }
 
     Component.onDestruction: {

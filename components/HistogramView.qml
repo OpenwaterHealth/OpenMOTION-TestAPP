@@ -14,6 +14,10 @@ Item {
     signal saveRequested()
     signal exportCSVRequested()
 
+    function forceRepaint() {
+        histogramCanvas.requestPaint()
+    }
+
     Rectangle {
         anchors.fill: parent
         color: "#1E1E20"
@@ -30,22 +34,24 @@ Item {
                 spacing: 10
 
                 IconSmallButton {
-                    iconGlyph: "\ue9c4"  // Replace with your export icon glyph
+                    iconGlyph: "\uea1d"  
                     buttonText: "Export CSV"
                     onClicked: {
-                        let path = MOTIONConnector.ask_save_csv_filename()
-                        if (path && histogramWidget.histogramData.length > 0) {
-                            MOTIONConnector.export_histogram_csv(histogramWidget.histogramData, path)
+                        if (histogramWidget.histogramData.length > 0) {
+                            MOTIONConnector.saveHistogramToCSV(histogramWidget.histogramData)
                         }
                     }
                 }
 
                 IconSmallButton {
-                    iconGlyph: "\ue946"  // Replace with your save icon glyph
+                    iconGlyph: "\uea4a"  
                     buttonText: "Save PNG"
                     onClicked: {
+                        const timestamp = Qt.formatDateTime(new Date(), "yyyyMMdd_HHmmss");
+                        const fullPath = "histogram_" + timestamp + ".png";
                         histogramWidget.grabToImage(function(result) {
-                            result.saveToFile("histogram.png")
+                            result.saveToFile(fullPath);
+                            console.log("Saved to", fullPath);
                         })
                     }
                 }

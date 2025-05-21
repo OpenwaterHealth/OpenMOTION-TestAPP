@@ -16,8 +16,7 @@ Rectangle {
     property string firmwareVersion: "N/A"
     property string deviceId: "N/A"
     property string rgbState: "Off" // Add property for Indicator state
-    property int fan1_speed: 0
-    property int fan2_speed: 0
+    property int fan_speed: 0
 
     function updateStates() {
         console.log("Console Updating all states...")
@@ -58,12 +57,17 @@ Rectangle {
                 firmwareVersion = "N/A"
                 deviceId = "N/A"
                 rgbState = "Off" // Indicator off
-                fan1_speed = 0
-                fan2_speed = 0
+                fan_speed = 0
                 
                 pingResult.text = ""
                 echoResult.text = ""
                 toggleLedResult.text = ""
+                pduResult.text = ""
+                tecResult.text = ""
+                seedResult.text = ""
+                safetyResult.text = ""
+                safety2Result.text = ""
+                taResult.text = ""
             }
         }
 
@@ -84,11 +88,9 @@ Rectangle {
             rgbLedDropdown.currentIndex = stateValue  // Sync ComboBox to received state
         }
 
-        function onFanSpeedsReceived(fan1Val, fan2Val) {
-            fan1_speed = fan1Val
-            fan2_speed = fan2Val
-            bottomFanSlider.value = fan1Val;    
-            topFanSlider.value = fan2Val;        
+        function onFanSpeedsReceived(fanVal) {
+            fan_speed = fanVal
+            fanSlider.value = fanVal;
         }
     }
 
@@ -689,21 +691,28 @@ Rectangle {
                             anchors.topMargin: 5  // 5px spacing from the top
                         }
 
-                        // Slider for Top Fan
+                        // Slider for Fan
                         Column {
                             anchors.top: parent.top
                             anchors.topMargin: 40  // Adjust spacing as needed
                             anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 5
 
+
+                            Rectangle {  // Acts as a spacer
+                                height: 20
+                                width: 1
+                                color: "transparent"
+                            }
+                            
                             Text {
-                                text: "Top Fan: " + (topFanSlider.value === 0 ? "OFF" : topFanSlider.value.toFixed(0) + "%")
+                                text: "Console Fan: " + (fanSlider.value === 0 ? "OFF" : fanSlider.value.toFixed(0) + "%")
                                 color: "#BDC3C7"
                                 font.pixelSize: 14
                             }
 
                             Slider {
-                                id: topFanSlider
+                                id: fanSlider
                                 width: 600  // Adjust width as needed
                                 from: 0
                                 to: 100
@@ -722,56 +731,7 @@ Rectangle {
                                         value = snappedValue
                                         console.log("Slider released at:", snappedValue)
                                         userIsSliding = false
-                                        // Call the backend method with fan_id and speed
-                                        let fanId = 1; // Example fan ID (adjust as needed) TOP
-                                        let success = MOTIONConnector.setFanLevel(fanId, snappedValue);
-                                        if (success) {
-                                            console.log("Fan speed set successfully");
-                                        } else {
-                                            console.log("Failed to set fan speed");
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Slider for Bottom Fan
-                        Column {
-                            anchors.top: parent.top
-                            anchors.topMargin: 110  // Adjust spacing as needed
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 5
-                            enabled: MOTIONConnector.consoleConnected 
-
-                            Text {
-                                text: "Bottom Fan: " + (bottomFanSlider.value === 0 ? "OFF" : bottomFanSlider.value.toFixed(0) + "%")
-                                color: "#BDC3C7"
-                                font.pixelSize: 14
-                            }
-
-                            Slider {
-                                id: bottomFanSlider
-                                width: 600  // Adjust width as needed
-                                from: 0
-                                to: 100
-                                stepSize: 10   // Snap to increments of 10
-                                value: 0  // Default value is 0 (OFF)
-
-
-                                property bool userIsSliding: false
-
-                                onPressedChanged: {
-                                    if (pressed) {
-                                        userIsSliding = true
-                                    } else if (!pressed && userIsSliding) {
-                                        // User has finished sliding
-                                        let snappedValue = Math.round(value / 10) * 10
-                                        value = snappedValue
-                                        console.log("Slider released at:", snappedValue)
-                                        userIsSliding = false
-                                        // Call the backend method with fan_id and speed
-                                        let fanId = 0; // Example fan ID (adjust as needed) Bottom
-                                        let success = MOTIONConnector.setFanLevel(fanId, snappedValue);
+                                        let success = MOTIONConnector.setFanLevel(snappedValue);
                                         if (success) {
                                             console.log("Fan speed set successfully");
                                         } else {
