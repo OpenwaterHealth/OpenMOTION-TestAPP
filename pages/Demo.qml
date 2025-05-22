@@ -103,7 +103,6 @@ Rectangle {
         hexInput.text = ""
     }
 
-
     // HEADER
     Text {
         text: "MOTION Blood Flow Demo"
@@ -133,7 +132,7 @@ Rectangle {
             Rectangle {
                 id: triggerContainer
                 width: 500
-                height: 200
+                height: 260
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
@@ -142,217 +141,207 @@ Rectangle {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 12
-                    spacing: 4
+                    spacing: 8
 
                     Text {
-                        text: "PWM Control"
+                        text: "Trigger Configuration"
                         color: "#BDC3C7"
                         font.pixelSize: 16
                         font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
                         Layout.alignment: Qt.AlignHCenter
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignLeft
-
+                        Layout.alignment: Qt.AlignHCenter
                         Text {
-                            text: "Frame Sync"
-                            color: "#BDC3C7"
+                            id: triggerStatus
+                            text: MOTIONConnector.triggerState
+                            color: triggerStatus.text === "ON" ? "lightgreen" : "red"
                             font.pixelSize: 14
-                            Layout.preferredWidth: 80
-                            verticalAlignment: Text.AlignVCenter
+                            Layout.alignment: Qt.AlignVCenter
                         }
+                    }
+                    
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+                        Layout.alignment: Qt.AlignHCenter
 
-                        TextField {
-                            id: fsFrequency
-                            placeholderText: "Freq"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 40
-                            enabled: MOTIONConnector.consoleConnected 
-                            font.pixelSize: 12
-                            background: Rectangle {
-                                radius: 6
-                                color: "#2B2B2E"
-                                border.color: "#555"
-                            }
-                            validator: IntValidator { bottom: 1; top: 240 }
-                        }
-
-                        TextField {
-                            id: fsPulseWidth
-                            placeholderText: "PulseWidth"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 40
-                            font.pixelSize: 12
-                            enabled: MOTIONConnector.consoleConnected 
-                            inputMethodHints: Qt.ImhDigitsOnly
-                            background: Rectangle {
-                                radius: 6
-                                color: "#2B2B2E"
-                                border.color: "#555"
-                            }
-                            validator: IntValidator { bottom: 1; top: 100 }
-                        }
-                        Item {
-                            Layout.preferredWidth: 10
-                        }
-                        Button {
-                            id: fsButton
-                            text: "Trigger"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 50
-                            hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONConnector.consoleConnected 
-
-                            contentItem: Text {
-                                text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            background: Rectangle {
-                                id: fsButtonBackground
-                                color: {
-                                    if (!parent.enabled) {
-                                        return "#3A3F4B";  // Disabled color
-                                    }
-                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
-                                }
-                                radius: 4
-                                border.color: {
-                                    if (!parent.enabled) {
-                                        return "#7F8C8D";  // Disabled border color
-                                    }
-                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                        // Frequency
+                        ColumnLayout {
+                            spacing: 4
+                            Text { text: "Frequency (Hz)"; color: "#BDC3C7"; font.pixelSize: 12 }
+                            TextField {
+                                id: fsFrequency
+                                placeholderText: "1 - 100"
+                                Layout.preferredWidth: 100
+                                enabled: MOTIONConnector.consoleConnected
+                                font.pixelSize: 12
+                                validator: IntValidator { bottom: 1; top: 100 }
+                                background: Rectangle {
+                                    radius: 6
+                                    color: "#2B2B2E"
+                                    border.color: "#555"
                                 }
                             }
+                        }
 
-                            onClicked: {
-                                console.log("Frame Sync Trigger");          
+                        // Pulse Width
+                        ColumnLayout {
+                            spacing: 4
+                            Text { text: "Pulse Width (µs)"; color: "#BDC3C7"; font.pixelSize: 12 }
+                            TextField {
+                                id: fsPulseWidth
+                                placeholderText: "e.g. 500"
+                                Layout.preferredWidth: 100
+                                enabled: MOTIONConnector.consoleConnected
+                                font.pixelSize: 12
+                                validator: IntValidator { bottom: 1; top: 1000 }
+                                background: Rectangle {
+                                    radius: 6
+                                    color: "#2B2B2E"
+                                    border.color: "#555"
+                                }
                             }
-                        }
-
-                        Item {
-                            Layout.preferredWidth: 5
-                        }
-
-                        Text {
-                            id: fsState
-                            text: "OFF"
-                            color: "red"
-                            font.pixelSize: 14
-                            Layout.preferredWidth: 40
-                            verticalAlignment: Text.AlignVCenter
                         }
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignLeft
+                        anchors.margins: 12
+                        spacing: 8
+                        Layout.alignment: Qt.AlignHCenter
 
-                        Text {
-                            text: "Laser Sync"
-                            color: "#BDC3C7"
-                            font.pixelSize: 14
-                            Layout.preferredWidth: 80
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        TextField {
-                            id: lsFrequency
-                            placeholderText: "Freq"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 40
-                            font.pixelSize: 12
-                            enabled: MOTIONConnector.consoleConnected 
-                            background: Rectangle {
-                                radius: 6
-                                color: "#2B2B2E"
-                                border.color: "#555"
+                        // Laser Delay
+                        ColumnLayout {
+                            spacing: 4
+                            Text { text: "Laser Delay (µs)"; color: "#BDC3C7"; font.pixelSize: 12 }
+                            TextField {
+                                id: lsDelay
+                                placeholderText: "e.g. 100"
+                                Layout.preferredWidth: 100
+                                enabled: MOTIONConnector.consoleConnected
+                                font.pixelSize: 12
+                                validator: IntValidator { bottom: 0; top: 1000 }
+                                background: Rectangle {
+                                    radius: 6
+                                    color: "#2B2B2E"
+                                    border.color: "#555"
+                                }
                             }
-                            validator: IntValidator { bottom: 1; top: 240 }
                         }
 
-                        TextField {
-                            id: lsPulseWidth
-                            placeholderText: "PulseWidth"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 40
-                            font.pixelSize: 12
-                            enabled: MOTIONConnector.consoleConnected 
-                            inputMethodHints: Qt.ImhDigitsOnly
-                            background: Rectangle {
-                                radius: 6
-                                color: "#2B2B2E"
-                                border.color: "#555"
+                        // Laser Pulse Width
+                        ColumnLayout {
+                            spacing: 4
+                            Text { text: "Laser Width (µs)"; color: "#BDC3C7"; font.pixelSize: 12 }
+                            TextField {
+                                id: lsPulseWidth
+                                placeholderText: "e.g. 500"
+                                Layout.preferredWidth: 100
+                                enabled: MOTIONConnector.consoleConnected
+                                font.pixelSize: 12
+                                validator: IntValidator { bottom: 1; top: 1000 }
+                                background: Rectangle {
+                                    radius: 6
+                                    color: "#2B2B2E"
+                                    border.color: "#555"
+                                }
                             }
-                            validator: IntValidator { bottom: 1; top: 100 }
                         }
-                        Item {
-                            Layout.preferredWidth: 10
-                        }
+                    }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        anchors.topMargin: 10
+                        Layout.alignment: Qt.AlignHCenter
+                        
                         Button {
-                            id: lsButton
-                            text: "Trigger"
+                            id: btnStartTrigger
+                            text: "Start Trigger"
                             Layout.preferredWidth: 100
-                            Layout.preferredHeight: 50
-                            hoverEnabled: true  // Enable hover detection
+                            Layout.preferredHeight: 40
+                            hoverEnabled: true
                             enabled: MOTIONConnector.consoleConnected 
 
                             contentItem: Text {
                                 text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
 
                             background: Rectangle {
-                                id: lsButtonBackground
-                                color: {
-                                    if (!parent.enabled) {
-                                        return "#3A3F4B";  // Disabled color
-                                    }
-                                    return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
-                                }
+                                color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
                                 radius: 4
-                                border.color: {
-                                    if (!parent.enabled) {
-                                        return "#7F8C8D";  // Disabled border color
-                                    }
-                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
-                                }
                             }
 
                             onClicked: {
-                                console.log("Laser Sync Trigger");          
+                                var json_trigger_data = {
+                                    "TriggerFrequencyHz": parseInt(fsFrequency.text),
+                                    "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
+                                    "LaserPulseDelayUsec": parseInt(lsDelay.text),
+                                    "LaserPulseWidthUsec": parseInt(lsPulseWidth.text),
+                                    "EnableSyncOut": true,
+                                    "EnableTaTrigger": true
+                                }
+
+                                // Convert the object to a JSON string
+                                var jsonString = JSON.stringify(json_trigger_data);
+                                
+                                if (MOTIONConnector.setTrigger(jsonString)) {
+                                    MOTIONConnector.startTrigger()
+                                } else {
+                                    console.log("Failed to apply trigger config")
+                                }
+							}
+						}
+
+                        Button {
+                            id: btnStopTrigger
+                            text: "Stop Trigger"
+                            Layout.preferredWidth: 100
+                            Layout.preferredHeight: 40
+                            hoverEnabled: true
+                            enabled: MOTIONConnector.consoleConnected 
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
                             }
-                        }
-                        
 
-                        Item {
-                            Layout.preferredWidth: 5
-                        }
+                            background: Rectangle {
+                                color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                radius: 4
+                            }
 
-                        Text {
-                            id: lsState
-                            text: "OFF"
-                            color: "red"
-                            font.pixelSize: 14
-                            Layout.preferredWidth: 40
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                            onClicked: {
+								MOTIONConnector.stopTrigger()
+							}
+						}
+                    }
+                }
+
+                // Auto-refresh status
+                Connections {
+                    target: MOTIONConnector
+                    function onTriggerStateChanged(state) {
+                        triggerStatus.text = state
                     }
                 }
             }
 
+            // fpga container
             Rectangle {
                 id: fpgaContainer
                 width: 500
-                height: 400
+                height: 340
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
@@ -762,6 +751,23 @@ Rectangle {
         }
 
     }
+
+    Timer {
+        id: consoleUpdateTimer
+        interval: 1000
+        running: false
+        onTriggered: {            
+            if (MOTIONConnector.consoleConnected) {
+                const config = MOTIONConnector.queryTriggerConfig()
+                if (config) {
+                    fsFrequency.text = config.TriggerFrequencyHz.toString()
+                    fsPulseWidth.text = config.TriggerPulseWidthUsec.toString()
+                    lsDelay.text = config.LaserPulseDelayUsec.toString()
+                    lsPulseWidth.text = config.LaserPulseWidthUsec.toString()
+                }
+            }
+        }
+    }
     
     // **Connections for MOTIONConnector signals**
     Connections {
@@ -793,12 +799,13 @@ Rectangle {
                 cameraCapStatus.color = "lightgreen"
             });                     
         }
-
-    }
-
-
-    Component.onCompleted: {
         
+        function onConnectionStatusChanged() {            
+            if (MOTIONConnector.consoleConnected) {
+                consoleUpdateTimer.start()
+            }            
+        }
+
     }
 
     Component.onDestruction: {

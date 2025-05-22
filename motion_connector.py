@@ -2,6 +2,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant
 from typing import List
 import logging
 import base58
+import json
 import csv
 import os
 import datetime
@@ -31,7 +32,7 @@ class MOTIONConnector(QObject):
 
     cameraConfigUpdated = pyqtSignal(int, bool)  # camera_mask, passed=True/False
 
-    triggerStateChanged = pyqtSignal(bool)  # 🔹 New signal for trigger state change
+    triggerStateChanged = pyqtSignal(str)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
 
@@ -48,6 +49,7 @@ class MOTIONConnector(QObject):
         self._sensorConnected = False
         self._consoleConnected = False
         self._running = False
+        self._trigger_state = "OFF"
         self._state = DISCONNECTED
 
         self.connect_signals()
@@ -195,6 +197,68 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error querying Fan Speeds: {e}")
 
+    @pyqtSlot(result=QVariant)
+    def queryTriggerConfig(self):
+        trigger_setting = self.interface.console_module.get_trigger_json()
+        if trigger_setting:
+            if isinstance(trigger_setting, str):
+                updateTrigger = json.loads(trigger_setting)
+            else:
+                updateTrigger = trigger_setting
+            if updateTrigger["TriggerStatus"] == 2:               
+                self._trigger_state = "ON"
+                self.triggerStateChanged.emit("ON")            
+                return trigger_setting
+       
+        self._trigger_state = "OFF"
+        self.triggerStateChanged.emit("OFF")
+                
+        return trigger_setting
+    
+    @pyqtSlot(str, result=bool)
+    def setTrigger(self, triggerjson):
+        try:
+            json_trigger_data = json.loads(triggerjson)
+            
+            trigger_setting = self.interface.console_module.set_trigger_json(data=json_trigger_data)
+            if trigger_setting:
+                logger.info(f"Trigger Setting: {trigger_setting}")
+                return True
+            else:
+                logger.error("Failed to set trigger setting.")
+                return False
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON data: {e}")
+            return False
+
+        except AttributeError as e:
+            logger.error(f"Invalid interface or method: {e}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Unexpected error while setting trigger: {e}")
+            return False
+            
+    
+    @pyqtSlot(result=bool)
+    def startTrigger(self):
+        success = self.interface.console_module.start_trigger()
+        if success:
+            self._trigger_state = "ON"
+            self.triggerStateChanged.emit("ON")
+        return success
+        
+    @pyqtSlot()
+    def stopTrigger(self):
+        self.interface.console_module.stop_trigger()
+        self._trigger_state = "OFF"
+        self.triggerStateChanged.emit("OFF")
+
+    @pyqtProperty(str, notify=triggerStateChanged)
+    def triggerState(self):
+        return self._trigger_state
+    
     @pyqtSlot()
     def querySensorAccelerometer (self):
         """Fetch and emit Accelerometer data."""
