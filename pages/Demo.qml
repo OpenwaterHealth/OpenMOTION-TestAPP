@@ -17,6 +17,8 @@ Rectangle {
     property int displayByteCount: 0
     property int startOffset: 0
     property var fn: null
+    property int rawValue: 0 
+    
     readonly property int dataSize: {
         if (fn && fn.data_size) {
             const match = fn.data_size.match(/^(\d+)B$/);
@@ -419,13 +421,29 @@ Rectangle {
                             textRole: "text"
                         }
 
+                        DoubleValidator {
+                            id: doubleVal
+                            bottom: 0
+                        }
+
+                        RegularExpressionValidator {
+                            id: hexVal
+                            regularExpression: hexValidator
+                        }
+
                         TextField {
                             id: hexInput
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
-                            placeholderText: placeholderHex
+                            placeholderText: fn && fn.unit ? `e.g. 12.8 ${fn.unit}` : placeholderHex
                             enabled: accessSelector.currentText === "Write"
-                            validator: RegularExpressionValidator { regularExpression: hexValidator }
+                            validator: fn && fn.unit ? doubleVal : hexVal
+                            text: {
+                                if (!fn || rawValue === undefined) return "";
+                                if (fn.unit && fn.scale)
+                                    return (rawValue * fn.scale).toFixed(2);
+                                return "0x" + rawValue.toString(16).toUpperCase();
+                            }
                         }
 
                         Button {
@@ -460,47 +478,67 @@ Rectangle {
                                 const offset = fn.start_address;
                                 const dir = accessSelector.currentText;
                                 const length = parseInt(fn.data_size.replace("B", "")) / 8;
-                                const data = hexInput.text;
+                                let data = hexInput.text;
 
                                 if (dir === "Read") {
                                     console.log(`READ from ${fpga.label} @ 0x${offset.toString(16)}`);
-                                    let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, length)
+                                    let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, length);
+
                                     if (result.length === 0) {
-                                        console.log("Read failed or returned empty array.")     
-                                        i2cStatus.text = "Read failed"
-                                        i2cStatus.color = "red"                              
-                                    }else{
-                                        console.log("Read Success:")
-                                        let hexStr = "0x";
+                                        console.log("Read failed or returned empty array.");
+                                        i2cStatus.text = "Read failed";
+                                        i2cStatus.color = "red";
+                                    } else {
+                                        let fullValue = 0;
                                         for (let i = 0; i < result.length; i++) {
-                                            let hexByte = result[i].toString(16).toUpperCase().padStart(2, "0");
-                                            hexStr += hexByte;
-                                            console.log(hexByte);
+                                            fullValue = (fullValue << 8) | result[i];
                                         }
-                                        hexInput.text = hexStr;
-                                        i2cStatus.text = "Read successful"
-                                        i2cStatus.color = "lightgreen"
+
+                                        rawValue = fullValue;  // store globally
+
+                                        if (fn.unit && fn.scale) {
+                                            hexInput.text = (fullValue * fn.scale).toFixed(2);
+                                        } else {
+                                            let hexStr = "0x" + fullValue.toString(16).toUpperCase().padStart(length * 2, "0");
+                                            hexInput.text = hexStr;
+                                        }
+
+                                        console.log("Read success:", hexInput.text);
+                                        i2cStatus.text = "Read successful";
+                                        i2cStatus.color = "lightgreen";
                                     }
-                                    cleari2cStatusTimer.start()
-                                } else {                                    
+
+                                    cleari2cStatusTimer.start();
+                                } else {
                                     console.log(`WRITE to ${fpga.label} @ 0x${offset.toString(16)} = ${data}`);
 
-                                    let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
-                                    let dataToSend = [];
+                                    let fullValue = 0;
 
-                                    if (sanitized.length > length * 2) {
-                                        console.warn("Input too long, trimming.");
-                                        sanitized = sanitized.slice(-length * 2);
-                                    } else if (sanitized.length < length * 2) {
-                                        sanitized = sanitized.padStart(length * 2, "0");
+                                    if (fn.unit && fn.scale) {
+                                        const floatVal = parseFloat(data);
+                                        if (isNaN(floatVal)) {
+                                            console.warn("Invalid numeric input for unit conversion.");
+                                            return;
+                                        }
+                                        fullValue = Math.round(floatVal / fn.scale);
+                                    } else {
+                                        let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
+
+                                        if (sanitized.length > length * 2) {
+                                            console.warn("Input too long, trimming.");
+                                            sanitized = sanitized.slice(-length * 2);
+                                        } else if (sanitized.length < length * 2) {
+                                            sanitized = sanitized.padStart(length * 2, "0");
+                                        }
+
+                                        fullValue = parseInt(sanitized, 16);
                                     }
 
-                                    let fullValue = parseInt(sanitized, 16);
+                                    rawValue = fullValue;  // store globally
 
-                                    var i;
-                                    for (i = length - 1; i >= 0; i--) {
-                                        let b = (fullValue >> (i * 8)) & 0xFF;
-                                        dataToSend.push(b);
+                                    let dataToSend = [];
+                                    for (let i = length - 1; i >= 0; i--) {
+                                        dataToSend.push((fullValue >> (i * 8)) & 0xFF);
                                     }
 
                                     console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
@@ -509,14 +547,15 @@ Rectangle {
 
                                     if (success) {
                                         console.log("Write successful.");
-                                        i2cStatus.text = "Write successful"
-                                        i2cStatus.color = "lightgreen"
+                                        i2cStatus.text = "Write successful";
+                                        i2cStatus.color = "lightgreen";
                                     } else {
                                         console.log("Write failed.");
-                                        i2cStatus.text = "Write failed"
-                                        i2cStatus.color = "red"
+                                        i2cStatus.text = "Write failed";
+                                        i2cStatus.color = "red";
                                     }
-                                    cleari2cStatusTimer.start()
+
+                                    cleari2cStatusTimer.start();
                                 }
                             }
                         }
@@ -754,7 +793,7 @@ Rectangle {
 
     Timer {
         id: consoleUpdateTimer
-        interval: 1000
+        interval: 500
         running: false
         onTriggered: {            
             if (MOTIONConnector.consoleConnected) {

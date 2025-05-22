@@ -10,6 +10,19 @@ import datetime
 from omotion.Interface import MOTIONInterface
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)  # or INFO depending on what you want to see
+
+# Create console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.ERROR)  # Show all messages on console
+
+# Optional: set a formatter
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+
+# Add handler to the logger (only if not already added)
+if not logger.hasHandlers():
+    logger.addHandler(console_handler)
 
 # Define system states
 DISCONNECTED = 0
@@ -377,8 +390,7 @@ class MOTIONConnector(QObject):
     def i2cReadBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data_len: int):
         """Send i2c read to device"""
         try:
-            print(
-                f"I2C Read Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
+            logger.info(f"I2C Read Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
                 f"i2c_addr=0x{int(i2c_addr):02X}, offset=0x{int(offset):02X}, read_len={int(data_len)}"
             )            
 
@@ -388,12 +400,12 @@ class MOTIONConnector(QObject):
                     logger.error(f"Read I2C Failed")
                     return []
                 else:
-                    logger.info(f"Read I2C Success")
-                    logger.info(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
+                    logger.debug(f"Read I2C Success")
+                    logger.debug(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
                     return list(fpga_data[:fpga_data_len]) 
                 
             elif target == "SENSOR":
-                logger.info(f"I2C Read Not Implemented")
+                logger.error(f"I2C Read Not Implemented")
                 return []
         except Exception as e:
             logger.error(f"Error sending i2c read command: {e}")
@@ -403,7 +415,7 @@ class MOTIONConnector(QObject):
     def i2cWriteBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data: list[int]) -> bool:
         """Send i2c write to device"""
         try:
-            print(
+            logger.info(
                 f"I2C Write Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
                 f"i2c_addr=0x{int(i2c_addr):02X}, offset=0x{int(offset):02X}, data={[f'0x{int(b):02X}' for b in data]}"
             )            
@@ -455,7 +467,7 @@ class MOTIONConnector(QObject):
     def scanI2C(self, mux: int, chan: int) -> list[str]:
         addresses = self.interface.console_module.scan_i2c_mux_channel(mux, chan)
         hex_addresses = [hex(addr) for addr in addresses]
-        print(f"Devices found on MUX {mux} channel {chan}: {hex_addresses}")
+        logger.info(f"Devices found on MUX {mux} channel {chan}: {hex_addresses}")
         return hex_addresses
 
     @pyqtSlot(int, result=bool)
@@ -484,13 +496,13 @@ class MOTIONConnector(QObject):
                 writer.writerow(["Bin", "Value"])
                 for i, value in enumerate(data):
                     writer.writerow([i, value])
-            print(f"Histogram saved to {path}")
+            logger.info(f"Histogram saved to {path}")
         except Exception as e:
-            print(f"Failed to save histogram: {e}")
+            logger.error(f"Failed to save histogram: {e}")
 
     @pyqtSlot(int, int)
     def getCameraHistogram(self, camera_index: int, test_pattern_id: int = 4):
-        print(f"Getting histogram for camera {camera_index + 1}")
+        logger.info(f"Getting histogram for camera {camera_index + 1}")
         bins, histo = self.interface.get_camera_histogram(
             camera_id=camera_index,
             test_pattern_id=test_pattern_id,
@@ -500,7 +512,7 @@ class MOTIONConnector(QObject):
         if bins:
             self.histogramReady.emit(bins)
         else:
-            print("Failed to retrieve histogram.")
+            logger.error("Failed to retrieve histogram.")
             self.histogramReady.emit([])  # Emit empty to clear
 
     @pyqtProperty(bool, notify=connectionStatusChanged)
