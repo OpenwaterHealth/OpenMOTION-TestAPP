@@ -43,30 +43,40 @@ class CaptureThread(QThread):
         self.frame_delay = 1.0 / fps
 
     def run(self):
-        CAMERA_MASK = 1 << (self.camera_index - 1)
+        if self.camera_index == 9:
+            CAMERA_MASK = 0xFF  # All cameras
+        else:    
+            CAMERA_MASK = 1 << (self.camera_index - 1)
         status_map = self.interface.sensor_module.get_camera_status(CAMERA_MASK)
-        if not status_map or self.camera_index - 1 not in status_map:
-            logger.error("Failed to get camera status.")
+        if not status_map:
+            logger.error("Failed to get camera status map.")
             return None
-        status = status_map[self.camera_index - 1]
-        if not status & (1 << 0):  # Not READY
-            logger.error(f"Camera {self.camera_index} is not ready.")
-            return None
-
-        if not (status & (1 << 1) and status & (1 << 2)):  # Not programmed
-            logger.debug("FPGA Configuration Started")
-            start_time = time.time()
-            if not self.interface.sensor_module.program_fpga(camera_position=CAMERA_MASK, manual_process=False):
-                logger.error("Failed to enter sram programming mode for camera FPGA.")
-                return None
-            logger.debug(f"FPGAs programmed | Time: {(time.time() - start_time)*1000:.2f} ms")
-
-        if not (status & (1 << 1) and status & (1 << 3)):  # Not configured
-            logger.debug ("Programming camera sensor registers.")
-            if not self.interface.sensor_module.camera_configure_registers(CAMERA_MASK):
-                logger.error("Failed to configure default registers for camera FPGA.")
-                return None
         
+        for cam_idx in range(8):
+            if CAMERA_MASK & (1 << cam_idx):
+                status = status_map.get(cam_idx)
+                if status is None:
+                    logger.error(f"Camera {cam_idx + 1} missing in status map.")
+                    return None
+
+                if not status & (1 << 0):  # Not READY
+                    logger.error(f"Camera {cam_idx + 1} is not ready.")
+                    return None
+
+                if not (status & (1 << 1) and status & (1 << 2)):  # Not programmed
+                    logger.debug(f"FPGA configuration started for camera {cam_idx + 1}")
+                    start_time = time.time()
+                    if not self.interface.sensor_module.program_fpga(camera_position=(1 << cam_idx), manual_process=False):
+                        logger.error(f"Failed to program FPGA for camera {cam_idx + 1}")
+                        return None
+                    logger.debug(f"FPGA programmed for camera {cam_idx + 1} | Time: {(time.time() - start_time) * 1000:.2f} ms")
+
+                if not (status & (1 << 1) and status & (1 << 3)):  # Not configured
+                    logger.debug(f"Configuring registers for camera {cam_idx + 1}")
+                    if not self.interface.sensor_module.camera_configure_registers(1 << cam_idx):
+                        logger.error(f"Failed to configure registers for camera {cam_idx + 1}")
+                        return None
+                
         logger.debug("Setting test pattern...")
         if not self.interface.sensor_module.camera_configure_test_pattern(CAMERA_MASK, 0x04):
             logger.error("Failed to set test pattern.")
@@ -74,16 +84,22 @@ class CaptureThread(QThread):
         
         # Get status
         status_map = self.interface.sensor_module.get_camera_status(CAMERA_MASK)
-        if not status_map or self.camera_index - 1 not in status_map:
+        if not status_map:
             logger.error("Failed to get camera status.")
             return None
 
-        status = status_map[self.camera_index - 1]
-        logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {self.interface.sensor_module.decode_camera_status(status)}")
+        for cam_idx in range(8):
+            if CAMERA_MASK & (1 << cam_idx):
+                status = status_map.get(cam_idx)
 
-        if not (status & (1 << 0) and status & (1 << 1) and status & (1 << 2)):  # Not ready for histo
-            logger.error("Not configured.")
-            return None
+                if status is None:
+                    logger.error(f"Camera {cam_idx + 1} missing in status map.")
+                    return None
+                logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {self.interface.sensor_module.decode_camera_status(status)}")
+
+                if not (status & (1 << 0) and status & (1 << 1) and status & (1 << 2)):  # Not ready for histo
+                    logger.error("Not configured.")
+                    return None
 
         self.running = True
         while self.running:

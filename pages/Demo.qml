@@ -46,7 +46,6 @@ Rectangle {
             default: return /0x[0-9a-fA-F]{1,2}/;
         }
     }
-
     ListModel {
         id: cameraModel
         ListElement { label: "Camera 1"; cam_num: 1; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
@@ -57,6 +56,11 @@ Rectangle {
         ListElement { label: "Camera 6"; cam_num: 6; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
         ListElement { label: "Camera 7"; cam_num: 7; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
         ListElement { label: "Camera 8"; cam_num: 8; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
+        ListElement { label: "Camera ALL"; cam_num: 9; cam_mask: 0xFF; channel: 7; i2c_addr: 0x41 }
+    }
+    
+    ListModel {
+        id: filteredPatternModel
     }
     
     ListModel {
@@ -104,6 +108,23 @@ Rectangle {
 
         accessSelector.currentIndex = 0
         hexInput.text = ""
+    }
+
+    function updatePatternOptions() {
+        filteredPatternModel.clear()
+        let selectedCam = cameraModel.get(cameraSelector.currentIndex)
+        if (selectedCam && selectedCam.cam_num === 9) {  // Camera ALL
+            for (let i = 0; i < cameraModeModel.count; i++) {
+                let mode = cameraModeModel.get(i)
+                if (mode.label === "Stream") {
+                    filteredPatternModel.append(mode)
+                }
+            }
+        } else {
+            for (let i = 0; i < cameraModeModel.count; i++) {
+                filteredPatternModel.append(cameraModeModel.get(i))
+            }
+        }
     }
 
     // HEADER
@@ -288,7 +309,7 @@ Rectangle {
                                     "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
                                     "LaserPulseDelayUsec": parseInt(lsDelay.text),
                                     "LaserPulseWidthUsec": parseInt(lsPulseWidth.text),
-                                    "EnableSyncOut": true,
+                                    "EnableSyncOut": false,
                                     "EnableTaTrigger": true
                                 }
 
@@ -638,11 +659,15 @@ Rectangle {
                             Layout.preferredWidth: 130
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
+
+                            onCurrentIndexChanged: {
+                                updatePatternOptions()
+                            }
                         }
 
                         ComboBox {
                             id: patternSelector
-                            model: cameraModeModel
+                            model: filteredPatternModel
                             textRole: "label"
                             Layout.preferredWidth: 110
                             Layout.preferredHeight: 32
@@ -880,6 +905,7 @@ Rectangle {
         if (MOTIONConnector.consoleConnected) {
             consoleUpdateTimer.start()
         }    
+        updatePatternOptions()
     }
 
     Component.onDestruction: {
