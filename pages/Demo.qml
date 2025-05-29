@@ -646,7 +646,7 @@ Rectangle {
                         Layout.alignment: Qt.AlignHCenter
                     }
                     
-                    // Row: Dropdown + Offset + Byte Count
+                    // Row: Dropdowns
                     RowLayout {
                         Layout.fillWidth: true
                         Layout.leftMargin: 20
@@ -656,7 +656,7 @@ Rectangle {
                             id: cameraSelector
                             model: cameraModel
                             textRole: "label"
-                            Layout.preferredWidth: 130
+                            Layout.preferredWidth: 140
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
 
@@ -669,15 +669,18 @@ Rectangle {
                             id: patternSelector
                             model: filteredPatternModel
                             textRole: "label"
-                            Layout.preferredWidth: 110
+                            Layout.preferredWidth: 120
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
+                            onCurrentIndexChanged: {
+                                
+                            }
                         }
 
                         Button {
                             id: idCameraCapButton
                             text: {
-                                let mode = cameraModeModel.get(patternSelector.currentIndex)
+                                let mode = filteredPatternModel.get(patternSelector.currentIndex)
                                 return (mode && mode.label === "Stream") ? (MOTIONConnector.isStreaming ? "Stop" : "Start") : "Capture"
                             }
                             Layout.preferredWidth: 100
@@ -711,7 +714,7 @@ Rectangle {
 
                             onClicked: {
                                 let cam = cameraModel.get(cameraSelector.currentIndex)
-                                let tp = cameraModeModel.get(patternSelector.currentIndex)
+                                let tp = filteredPatternModel.get(patternSelector.currentIndex)
 
                                 if (tp && tp.label === "Stream") {
                                     if (MOTIONConnector.isStreaming) {
