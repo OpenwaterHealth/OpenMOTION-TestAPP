@@ -66,6 +66,7 @@ Rectangle {
         ListElement { label: "Squares"; tp_id: 0x02}
         ListElement { label: "Continuous"; tp_id: 0x03}
         ListElement { label: "Live"; tp_id: 0x04}
+        ListElement { label: "Stream"; tp_id: 0x04}
     }
 
     // Define the model for accessSelector
@@ -650,7 +651,10 @@ Rectangle {
 
                         Button {
                             id: idCameraCapButton
-                            text: "Capture"
+                            text: {
+                                let mode = cameraModeModel.get(patternSelector.currentIndex)
+                                return (mode && mode.label === "Stream") ? (MOTIONConnector.isStreaming ? "Stop" : "Start") : "Capture"
+                            }
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 45
                             hoverEnabled: true  // Enable hover detection
@@ -683,13 +687,27 @@ Rectangle {
                             onClicked: {
                                 let cam = cameraModel.get(cameraSelector.currentIndex)
                                 let tp = cameraModeModel.get(patternSelector.currentIndex)
-                                console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id);          
-                                                      
-                                // Call get single frame
-                                MOTIONConnector.getCameraHistogram(cam.cam_num, tp.tp_id)
-                                
-                                cameraCapStatus.text = "Capturing..."
-                                cameraCapStatus.color = "orange"
+
+                                if (tp && tp.label === "Stream") {
+                                    if (MOTIONConnector.isStreaming) {
+                                        MOTIONConnector.stopCameraStream(cam.cam_num)
+                                        cameraCapStatus.text = "Stopped"
+                                        cameraCapStatus.color = "red"
+                                    } else {
+                                        MOTIONConnector.startCameraStream(cam.cam_num)
+                                        cameraCapStatus.text = "Streaming"
+                                        cameraCapStatus.color = "lightgreen"
+                                    }
+                                } else {
+                                    console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id)
+                                    
+                                    Qt.callLater(() => {
+                                        cameraCapStatus.text = "Capturing..."
+                                        cameraCapStatus.color = "orange"
+                                    })
+
+                                    MOTIONConnector.getCameraHistogram(cam.cam_num, tp.tp_id)
+                                }
                             }
                         }
 
@@ -827,24 +845,41 @@ Rectangle {
         }
         
         function onHistogramReady(bins) {
-            console.log("Histogram received, bins: " + bins.length)
+            if(bins.length != 1024){
+                console.log("Histogram received, bins: " + bins.length)
+            }
             histogramWidget.histogramData = bins
             histogramWidget.maxValue = Math.max(...bins)
             histogramWidget.forceRepaint?.()
 
-            console.log("Update status");
             Qt.callLater(() => {
                 cameraCapStatus.text = "Ready"
                 cameraCapStatus.color = "lightgreen"
             });                     
         }
         
-        function onConnectionStatusChanged() {            
+        function onConnectionStatusChanged() {          
+            if (MOTIONConnector.sensorConnected) {
+            }   
             if (MOTIONConnector.consoleConnected) {
                 consoleUpdateTimer.start()
             }            
         }
 
+        function onIsStreamingChanged() {
+            cameraCapStatus.text = MOTIONConnector.isStreaming ? "Streaming" : "Stopped"
+            cameraCapStatus.color = MOTIONConnector.isStreaming ? "lightgreen" : "red"
+        }
+
+    }
+
+    // Run refresh logic immediately on page load if Sensor is already connected
+    Component.onCompleted: {
+        if (MOTIONConnector.sensorConnected) {
+        }   
+        if (MOTIONConnector.consoleConnected) {
+            consoleUpdateTimer.start()
+        }    
     }
 
     Component.onDestruction: {

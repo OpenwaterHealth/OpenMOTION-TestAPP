@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant, QThread
 from typing import List
 import logging
 import base58
@@ -6,6 +6,7 @@ import json
 import csv
 import os
 import datetime
+import time
 
 from omotion.Interface import MOTIONInterface
 
@@ -31,6 +32,42 @@ CONSOLE_CONNECTED = 2
 READY = 3
 RUNNING = 4
 
+class CaptureThread(QThread):
+    new_histogram = pyqtSignal(list)  # Signal for histogram data
+
+    def __init__(self, interface, camera_index, fps=3, parent=None):
+        super().__init__(parent)
+        self.interface = interface
+        self.camera_index = camera_index
+        self.running = False
+        self.frame_delay = 1.0 / fps
+
+    def run(self):
+        self.running = True
+        while self.running:
+            start_time = time.time()
+            try:
+                bins, histo = self.interface.get_camera_histogram(
+                    camera_id=self.camera_index,
+                    test_pattern_id=4,
+                    auto_upload=True
+                )
+                if bins:
+                    self.new_histogram.emit(bins)
+                else:
+                    self.new_histogram.emit([])  # Emit empty on failure
+            except Exception as e:
+                logger.error(f"Error in capture thread: {e}")
+                self.new_histogram.emit([])
+
+            elapsed = time.time() - start_time
+            if elapsed < self.frame_delay:
+                time.sleep(self.frame_delay - elapsed)
+
+    def stop(self):
+        self.running = False
+        self.wait()
+
 class MOTIONConnector(QObject):
     # Ensure signals are correctly defined
     signalConnected = pyqtSignal(str, str)  # (descriptor, port)
@@ -48,6 +85,8 @@ class MOTIONConnector(QObject):
     triggerStateChanged = pyqtSignal(str)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
+    
+    isStreamingChanged = pyqtSignal()
 
     stateChanged = pyqtSignal()  # Notifies QML when state changes
     rgbStateReceived = pyqtSignal(int, str)  # Emit both integer value and text
@@ -64,6 +103,8 @@ class MOTIONConnector(QObject):
         self._running = False
         self._trigger_state = "OFF"
         self._state = DISCONNECTED
+        self._is_streaming = False
+        self._capture_thread = None
 
         self.connect_signals()
 
@@ -253,6 +294,9 @@ class MOTIONConnector(QObject):
             logger.error(f"Unexpected error while setting trigger: {e}")
             return False
             
+    @pyqtProperty(bool, notify=isStreamingChanged)
+    def isStreaming(self):
+        return self._is_streaming
     
     @pyqtSlot(result=bool)
     def startTrigger(self):
@@ -499,6 +543,33 @@ class MOTIONConnector(QObject):
             logger.info(f"Histogram saved to {path}")
         except Exception as e:
             logger.error(f"Failed to save histogram: {e}")
+
+    @pyqtSlot(list)
+    def on_new_histogram(self, bins):
+        if bins:
+            self.histogramReady.emit(bins)
+        else:
+            logger.error("Capture thread failed to retrieve histogram.")
+            self.histogramReady.emit([])  # Emit empty to clear
+
+    @pyqtSlot(int)
+    def startCameraStream(self, camera_index: int):
+        logger.info(f"Starting camera stream for camera {camera_index + 1}")
+        if self._capture_thread is None:
+            self._capture_thread = CaptureThread(self.interface, camera_index)
+            self._capture_thread.new_histogram.connect(self.on_new_histogram)
+            self._capture_thread.start()
+            self._is_streaming = True
+            self.isStreamingChanged.emit()
+        
+    @pyqtSlot(int)
+    def stopCameraStream(self, cam_num):
+        if self._is_streaming and self._capture_thread:
+            logger.info(f"Stopping camera stream for cam {cam_num}")
+            self._capture_thread.stop()
+            self._capture_thread = None
+            self._is_streaming = False
+            self.isStreamingChanged.emit()
 
     @pyqtSlot(int, int)
     def getCameraHistogram(self, camera_index: int, test_pattern_id: int = 4):
