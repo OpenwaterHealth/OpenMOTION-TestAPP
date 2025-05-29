@@ -35,7 +35,7 @@ RUNNING = 4
 class CaptureThread(QThread):
     new_histogram = pyqtSignal(list)  # Signal for histogram data
 
-    def __init__(self, interface, camera_index, fps=3, parent=None):
+    def __init__(self, interface, camera_index, fps=5, parent=None):
         super().__init__(parent)
         self.interface = interface
         self.camera_index = camera_index
@@ -43,19 +43,70 @@ class CaptureThread(QThread):
         self.frame_delay = 1.0 / fps
 
     def run(self):
+        CAMERA_MASK = 1 << (self.camera_index - 1)
+        status_map = self.interface.sensor_module.get_camera_status(CAMERA_MASK)
+        if not status_map or self.camera_index - 1 not in status_map:
+            logger.error("Failed to get camera status.")
+            return None
+        status = status_map[self.camera_index - 1]
+        if not status & (1 << 0):  # Not READY
+            logger.error(f"Camera {self.camera_index} is not ready.")
+            return None
+
+        if not (status & (1 << 1) and status & (1 << 2)):  # Not programmed
+            logger.debug("FPGA Configuration Started")
+            start_time = time.time()
+            if not self.interface.sensor_module.program_fpga(camera_position=CAMERA_MASK, manual_process=False):
+                logger.error("Failed to enter sram programming mode for camera FPGA.")
+                return None
+            logger.debug(f"FPGAs programmed | Time: {(time.time() - start_time)*1000:.2f} ms")
+
+        if not (status & (1 << 1) and status & (1 << 3)):  # Not configured
+            logger.debug ("Programming camera sensor registers.")
+            if not self.interface.sensor_module.camera_configure_registers(CAMERA_MASK):
+                logger.error("Failed to configure default registers for camera FPGA.")
+                return None
+        
+        logger.debug("Setting test pattern...")
+        if not self.interface.sensor_module.camera_configure_test_pattern(CAMERA_MASK, 0x04):
+            logger.error("Failed to set test pattern.")
+            return None
+        
+        # Get status
+        status_map = self.interface.sensor_module.get_camera_status(CAMERA_MASK)
+        if not status_map or self.camera_index - 1 not in status_map:
+            logger.error("Failed to get camera status.")
+            return None
+
+        status = status_map[self.camera_index - 1]
+        logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {self.interface.sensor_module.decode_camera_status(status)}")
+
+        if not (status & (1 << 0) and status & (1 << 1) and status & (1 << 2)):  # Not ready for histo
+            logger.error("Not configured.")
+            return None
+
         self.running = True
         while self.running:
             start_time = time.time()
             try:
-                bins, histo = self.interface.get_camera_histogram(
-                    camera_id=self.camera_index,
-                    test_pattern_id=4,
-                    auto_upload=True
-                )
-                if bins:
-                    self.new_histogram.emit(bins)
-                else:
-                    self.new_histogram.emit([])  # Emit empty on failure
+                logger.debug("Capturing histogram...")
+                if not self.interface.sensor_module.camera_capture_histogram(CAMERA_MASK):
+                    logger.error("Capture failed.")
+                else:                    
+                    logger.debug("Capture successful, retrieving histogram...")                    
+                    time.sleep(0.005)  # Wait for capture to complete
+                    histogram = self.interface.sensor_module.camera_get_histogram(CAMERA_MASK)
+                    if histogram is None:
+                        logger.error("Histogram retrieval failed.")
+                    else:
+                        logger.debug("Histogram frame received successfully.")
+                        histogram = histogram[:4096]  # Ensure we only take the first 4096 bins
+                        bins, histo =  self.interface.bytes_to_integers(histogram)
+                        if bins:
+                            self.new_histogram.emit(bins)
+                            continue  # Continue to next frame
+
+                self.new_histogram.emit([])  # Emit empty on failure
             except Exception as e:
                 logger.error(f"Error in capture thread: {e}")
                 self.new_histogram.emit([])
