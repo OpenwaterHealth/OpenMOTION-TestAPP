@@ -34,6 +34,8 @@ RUNNING = 4
 
 class CaptureThread(QThread):
     new_histogram = pyqtSignal(list)  # Signal for histogram data
+    update_status = pyqtSignal(str)  # Signal for status updates
+    
 
     def __init__(self, interface, camera_index, fps=5, parent=None):
         super().__init__(parent)
@@ -64,20 +66,24 @@ class CaptureThread(QThread):
                     return None
 
                 if not (status & (1 << 1) and status & (1 << 2)):  # Not programmed
+                    self.update_status.emit(f"prog {cam_idx + 1}")
                     logger.debug(f"FPGA configuration started for camera {cam_idx + 1}")
                     start_time = time.time()
+
                     if not self.interface.sensor_module.program_fpga(camera_position=(1 << cam_idx), manual_process=False):
                         logger.error(f"Failed to program FPGA for camera {cam_idx + 1}")
                         return None
                     logger.debug(f"FPGA programmed for camera {cam_idx + 1} | Time: {(time.time() - start_time) * 1000:.2f} ms")
 
                 if not (status & (1 << 1) and status & (1 << 3)):  # Not configured
+                    self.update_status.emit(f"conf {cam_idx + 1}")
                     logger.debug(f"Configuring registers for camera {cam_idx + 1}")
                     if not self.interface.sensor_module.camera_configure_registers(1 << cam_idx):
                         logger.error(f"Failed to configure registers for camera {cam_idx + 1}")
                         return None
                 
         logger.debug("Setting test pattern...")
+        self.update_status.emit(f"set live")
         if not self.interface.sensor_module.camera_configure_test_pattern(CAMERA_MASK, 0x04):
             logger.error("Failed to set test pattern.")
             return None
@@ -160,6 +166,7 @@ class MOTIONConnector(QObject):
     fanSpeedsReceived = pyqtSignal(int)  # Emit both integers
     
     histogramReady = pyqtSignal(list)  # Emit 1024 bins to QML
+    updateCapStatus = pyqtSignal(str) 
 
     def __init__(self):
         super().__init__()
@@ -619,12 +626,19 @@ class MOTIONConnector(QObject):
             logger.error("Capture thread failed to retrieve histogram.")
             self.histogramReady.emit([])  # Emit empty to clear
 
+    @pyqtSlot(str)
+    def handleUpdateCapStatus(self, status: str):
+        """Update the capture status."""
+        logger.info(f"Capture Status: {status}")
+        self.updateCapStatus.emit(status)
+
     @pyqtSlot(int)
     def startCameraStream(self, camera_index: int):
         logger.info(f"Starting camera stream for camera {camera_index + 1}")
         if self._capture_thread is None:
             self._capture_thread = CaptureThread(self.interface, camera_index)
             self._capture_thread.new_histogram.connect(self.on_new_histogram)
+            self._capture_thread.update_status.connect(self.handleUpdateCapStatus)
             self._capture_thread.start()
             self._is_streaming = True
             self.isStreamingChanged.emit()

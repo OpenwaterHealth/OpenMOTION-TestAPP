@@ -899,6 +899,11 @@ Rectangle {
             cameraCapStatus.color = MOTIONConnector.isStreaming ? "lightgreen" : "red"
         }
 
+        function onUpdateCapStatus(message) {
+            cameraCapStatus.text = message
+            cameraCapStatus.color = "orange"
+        }
+
     }
 
     // Run refresh logic immediately on page load if Sensor is already connected
