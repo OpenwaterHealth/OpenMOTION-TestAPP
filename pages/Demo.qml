@@ -46,7 +46,6 @@ Rectangle {
             default: return /0x[0-9a-fA-F]{1,2}/;
         }
     }
-
     ListModel {
         id: cameraModel
         ListElement { label: "Camera 1"; cam_num: 1; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
@@ -57,6 +56,11 @@ Rectangle {
         ListElement { label: "Camera 6"; cam_num: 6; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
         ListElement { label: "Camera 7"; cam_num: 7; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
         ListElement { label: "Camera 8"; cam_num: 8; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
+        ListElement { label: "Camera ALL"; cam_num: 9; cam_mask: 0xFF; channel: 7; i2c_addr: 0x41 }
+    }
+    
+    ListModel {
+        id: filteredPatternModel
     }
     
     ListModel {
@@ -66,6 +70,7 @@ Rectangle {
         ListElement { label: "Squares"; tp_id: 0x02}
         ListElement { label: "Continuous"; tp_id: 0x03}
         ListElement { label: "Live"; tp_id: 0x04}
+        ListElement { label: "Stream"; tp_id: 0x04}
     }
 
     // Define the model for accessSelector
@@ -103,6 +108,23 @@ Rectangle {
 
         accessSelector.currentIndex = 0
         hexInput.text = ""
+    }
+
+    function updatePatternOptions() {
+        filteredPatternModel.clear()
+        let selectedCam = cameraModel.get(cameraSelector.currentIndex)
+        if (selectedCam && selectedCam.cam_num === 9) {  // Camera ALL
+            for (let i = 0; i < cameraModeModel.count; i++) {
+                let mode = cameraModeModel.get(i)
+                if (mode.label === "Stream") {
+                    filteredPatternModel.append(mode)
+                }
+            }
+        } else {
+            for (let i = 0; i < cameraModeModel.count; i++) {
+                filteredPatternModel.append(cameraModeModel.get(i))
+            }
+        }
     }
 
     // HEADER
@@ -287,7 +309,7 @@ Rectangle {
                                     "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
                                     "LaserPulseDelayUsec": parseInt(lsDelay.text),
                                     "LaserPulseWidthUsec": parseInt(lsPulseWidth.text),
-                                    "EnableSyncOut": true,
+                                    "EnableSyncOut": false,
                                     "EnableTaTrigger": true
                                 }
 
@@ -624,7 +646,7 @@ Rectangle {
                         Layout.alignment: Qt.AlignHCenter
                     }
                     
-                    // Row: Dropdown + Offset + Byte Count
+                    // Row: Dropdowns
                     RowLayout {
                         Layout.fillWidth: true
                         Layout.leftMargin: 20
@@ -634,23 +656,33 @@ Rectangle {
                             id: cameraSelector
                             model: cameraModel
                             textRole: "label"
-                            Layout.preferredWidth: 130
+                            Layout.preferredWidth: 140
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
+
+                            onCurrentIndexChanged: {
+                                updatePatternOptions()
+                            }
                         }
 
                         ComboBox {
                             id: patternSelector
-                            model: cameraModeModel
+                            model: filteredPatternModel
                             textRole: "label"
-                            Layout.preferredWidth: 110
+                            Layout.preferredWidth: 120
                             Layout.preferredHeight: 32
                             enabled: MOTIONConnector.sensorConnected
+                            onCurrentIndexChanged: {
+                                
+                            }
                         }
 
                         Button {
                             id: idCameraCapButton
-                            text: "Capture"
+                            text: {
+                                let mode = filteredPatternModel.get(patternSelector.currentIndex)
+                                return (mode && mode.label === "Stream") ? (MOTIONConnector.isStreaming ? "Stop" : "Start") : "Capture"
+                            }
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 45
                             hoverEnabled: true  // Enable hover detection
@@ -682,14 +714,28 @@ Rectangle {
 
                             onClicked: {
                                 let cam = cameraModel.get(cameraSelector.currentIndex)
-                                let tp = cameraModeModel.get(patternSelector.currentIndex)
-                                console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id);          
-                                                      
-                                // Call get single frame
-                                MOTIONConnector.getCameraHistogram(cam.cam_num, tp.tp_id)
-                                
-                                cameraCapStatus.text = "Capturing..."
-                                cameraCapStatus.color = "orange"
+                                let tp = filteredPatternModel.get(patternSelector.currentIndex)
+
+                                if (tp && tp.label === "Stream") {
+                                    if (MOTIONConnector.isStreaming) {
+                                        MOTIONConnector.stopCameraStream(cam.cam_num)
+                                        cameraCapStatus.text = "Stopped"
+                                        cameraCapStatus.color = "red"
+                                    } else {
+                                        MOTIONConnector.startCameraStream(cam.cam_num)
+                                        cameraCapStatus.text = "Streaming"
+                                        cameraCapStatus.color = "lightgreen"
+                                    }
+                                } else {
+                                    console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id)
+                                    
+                                    Qt.callLater(() => {
+                                        cameraCapStatus.text = "Capturing..."
+                                        cameraCapStatus.color = "orange"
+                                    })
+
+                                    MOTIONConnector.getCameraHistogram(cam.cam_num, tp.tp_id)
+                                }
                             }
                         }
 
@@ -827,24 +873,47 @@ Rectangle {
         }
         
         function onHistogramReady(bins) {
-            console.log("Histogram received, bins: " + bins.length)
+            if(bins.length != 1024){
+                console.log("Histogram received, bins: " + bins.length)
+            }
             histogramWidget.histogramData = bins
             histogramWidget.maxValue = Math.max(...bins)
             histogramWidget.forceRepaint?.()
 
-            console.log("Update status");
             Qt.callLater(() => {
                 cameraCapStatus.text = "Ready"
                 cameraCapStatus.color = "lightgreen"
             });                     
         }
         
-        function onConnectionStatusChanged() {            
+        function onConnectionStatusChanged() {          
+            if (MOTIONConnector.sensorConnected) {
+            }   
             if (MOTIONConnector.consoleConnected) {
                 consoleUpdateTimer.start()
             }            
         }
 
+        function onIsStreamingChanged() {
+            cameraCapStatus.text = MOTIONConnector.isStreaming ? "Streaming" : "Stopped"
+            cameraCapStatus.color = MOTIONConnector.isStreaming ? "lightgreen" : "red"
+        }
+
+        function onUpdateCapStatus(message) {
+            cameraCapStatus.text = message
+            cameraCapStatus.color = "orange"
+        }
+
+    }
+
+    // Run refresh logic immediately on page load if Sensor is already connected
+    Component.onCompleted: {
+        if (MOTIONConnector.sensorConnected) {
+        }   
+        if (MOTIONConnector.consoleConnected) {
+            consoleUpdateTimer.start()
+        }    
+        updatePatternOptions()
     }
 
     Component.onDestruction: {

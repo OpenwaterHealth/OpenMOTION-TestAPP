@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant, QThread
 from typing import List
 import logging
 import base58
@@ -6,6 +6,7 @@ import json
 import csv
 import os
 import datetime
+import time
 
 from omotion.Interface import MOTIONInterface
 
@@ -31,6 +32,115 @@ CONSOLE_CONNECTED = 2
 READY = 3
 RUNNING = 4
 
+class CaptureThread(QThread):
+    new_histogram = pyqtSignal(list)  # Signal for histogram data
+    update_status = pyqtSignal(str)  # Signal for status updates
+    
+
+    def __init__(self, interface, camera_index, fps=5, parent=None):
+        super().__init__(parent)
+        self.interface = interface
+        self.camera_index = camera_index
+        self.running = False
+        self.frame_delay = 1.0 / fps
+
+    def run(self):
+        if self.camera_index == 9:
+            CAMERA_MASK = 0xFF  # All cameras
+        else:    
+            CAMERA_MASK = 1 << (self.camera_index - 1)
+        status_map = self.interface.sensor_module.get_camera_status(CAMERA_MASK)
+        if not status_map:
+            logger.error("Failed to get camera status map.")
+            return None
+        
+        for cam_idx in range(8):
+            if CAMERA_MASK & (1 << cam_idx):
+                status = status_map.get(cam_idx)
+                if status is None:
+                    logger.error(f"Camera {cam_idx + 1} missing in status map.")
+                    return None
+
+                if not status & (1 << 0):  # Not READY
+                    logger.error(f"Camera {cam_idx + 1} is not ready.")
+                    return None
+
+                if not (status & (1 << 1) and status & (1 << 2)):  # Not programmed
+                    self.update_status.emit(f"prog {cam_idx + 1}")
+                    logger.debug(f"FPGA configuration started for camera {cam_idx + 1}")
+                    start_time = time.time()
+
+                    if not self.interface.sensor_module.program_fpga(camera_position=(1 << cam_idx), manual_process=False):
+                        logger.error(f"Failed to program FPGA for camera {cam_idx + 1}")
+                        return None
+                    logger.debug(f"FPGA programmed for camera {cam_idx + 1} | Time: {(time.time() - start_time) * 1000:.2f} ms")
+
+                if not (status & (1 << 1) and status & (1 << 3)):  # Not configured
+                    self.update_status.emit(f"conf {cam_idx + 1}")
+                    logger.debug(f"Configuring registers for camera {cam_idx + 1}")
+                    if not self.interface.sensor_module.camera_configure_registers(1 << cam_idx):
+                        logger.error(f"Failed to configure registers for camera {cam_idx + 1}")
+                        return None
+                
+        logger.debug("Setting test pattern...")
+        self.update_status.emit(f"set live")
+        if not self.interface.sensor_module.camera_configure_test_pattern(CAMERA_MASK, 0x04):
+            logger.error("Failed to set test pattern.")
+            return None
+        
+        # Get status
+        status_map = self.interface.sensor_module.get_camera_status(CAMERA_MASK)
+        if not status_map:
+            logger.error("Failed to get camera status.")
+            return None
+
+        for cam_idx in range(8):
+            if CAMERA_MASK & (1 << cam_idx):
+                status = status_map.get(cam_idx)
+
+                if status is None:
+                    logger.error(f"Camera {cam_idx + 1} missing in status map.")
+                    return None
+                logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {self.interface.sensor_module.decode_camera_status(status)}")
+
+                if not (status & (1 << 0) and status & (1 << 1) and status & (1 << 2)):  # Not ready for histo
+                    logger.error("Not configured.")
+                    return None
+
+        self.running = True
+        while self.running:
+            start_time = time.time()
+            try:
+                logger.debug("Capturing histogram...")
+                if not self.interface.sensor_module.camera_capture_histogram(CAMERA_MASK):
+                    logger.error("Capture failed.")
+                else:                    
+                    logger.debug("Capture successful, retrieving histogram...")                    
+                    time.sleep(0.005)  # Wait for capture to complete
+                    histogram = self.interface.sensor_module.camera_get_histogram(CAMERA_MASK)
+                    if histogram is None:
+                        logger.error("Histogram retrieval failed.")
+                    else:
+                        logger.debug("Histogram frame received successfully.")
+                        histogram = histogram[:4096]  # Ensure we only take the first 4096 bins
+                        bins, histo =  self.interface.bytes_to_integers(histogram)
+                        if bins:
+                            self.new_histogram.emit(bins)
+                            continue  # Continue to next frame
+
+                self.new_histogram.emit([])  # Emit empty on failure
+            except Exception as e:
+                logger.error(f"Error in capture thread: {e}")
+                self.new_histogram.emit([])
+
+            elapsed = time.time() - start_time
+            if elapsed < self.frame_delay:
+                time.sleep(self.frame_delay - elapsed)
+
+    def stop(self):
+        self.running = False
+        self.wait()
+
 class MOTIONConnector(QObject):
     # Ensure signals are correctly defined
     signalConnected = pyqtSignal(str, str)  # (descriptor, port)
@@ -48,12 +158,15 @@ class MOTIONConnector(QObject):
     triggerStateChanged = pyqtSignal(str)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
+    
+    isStreamingChanged = pyqtSignal()
 
     stateChanged = pyqtSignal()  # Notifies QML when state changes
     rgbStateReceived = pyqtSignal(int, str)  # Emit both integer value and text
     fanSpeedsReceived = pyqtSignal(int)  # Emit both integers
     
     histogramReady = pyqtSignal(list)  # Emit 1024 bins to QML
+    updateCapStatus = pyqtSignal(str) 
 
     def __init__(self):
         super().__init__()
@@ -64,6 +177,8 @@ class MOTIONConnector(QObject):
         self._running = False
         self._trigger_state = "OFF"
         self._state = DISCONNECTED
+        self._is_streaming = False
+        self._capture_thread = None
 
         self.connect_signals()
 
@@ -253,6 +368,9 @@ class MOTIONConnector(QObject):
             logger.error(f"Unexpected error while setting trigger: {e}")
             return False
             
+    @pyqtProperty(bool, notify=isStreamingChanged)
+    def isStreaming(self):
+        return self._is_streaming
     
     @pyqtSlot(result=bool)
     def startTrigger(self):
@@ -499,6 +617,40 @@ class MOTIONConnector(QObject):
             logger.info(f"Histogram saved to {path}")
         except Exception as e:
             logger.error(f"Failed to save histogram: {e}")
+
+    @pyqtSlot(list)
+    def on_new_histogram(self, bins):
+        if bins:
+            self.histogramReady.emit(bins)
+        else:
+            logger.error("Capture thread failed to retrieve histogram.")
+            self.histogramReady.emit([])  # Emit empty to clear
+
+    @pyqtSlot(str)
+    def handleUpdateCapStatus(self, status: str):
+        """Update the capture status."""
+        logger.info(f"Capture Status: {status}")
+        self.updateCapStatus.emit(status)
+
+    @pyqtSlot(int)
+    def startCameraStream(self, camera_index: int):
+        logger.info(f"Starting camera stream for camera {camera_index + 1}")
+        if self._capture_thread is None:
+            self._capture_thread = CaptureThread(self.interface, camera_index)
+            self._capture_thread.new_histogram.connect(self.on_new_histogram)
+            self._capture_thread.update_status.connect(self.handleUpdateCapStatus)
+            self._capture_thread.start()
+            self._is_streaming = True
+            self.isStreamingChanged.emit()
+        
+    @pyqtSlot(int)
+    def stopCameraStream(self, cam_num):
+        if self._is_streaming and self._capture_thread:
+            logger.info(f"Stopping camera stream for cam {cam_num}")
+            self._capture_thread.stop()
+            self._capture_thread = None
+            self._is_streaming = False
+            self.isStreamingChanged.emit()
 
     @pyqtSlot(int, int)
     def getCameraHistogram(self, camera_index: int, test_pattern_id: int = 4):
