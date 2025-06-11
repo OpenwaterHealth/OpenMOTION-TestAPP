@@ -13,6 +13,7 @@ var fpgaAddressModel = [
             { name: "CURRENT LIMIT", desc: "Current Limit", start_address: 0x08, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
             { name: "PWM MON CL", desc: "PWM Monitor Current Limit", start_address: 0x0A, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
             { name: "CW MON CL", desc: "CW Monitor Current Limit", start_address: 0x0C, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
+            { name: "TEMP Sensor", desc: "Temperature Sensor", start_address: 0x0E, data_size: "16B", direction: "RW" },
             { name: "STATIC CTL", desc: "Static Control", start_address: 0x20, data_size: "16B", direction: "RW" },
             { name: "DYNAMIC CTL", desc: "Dynamic Control", start_address: 0x22, data_size: "16B", direction: "RW" }
         ]
@@ -52,6 +53,7 @@ var fpgaAddressModel = [
             { name: "CW CURRENT", desc: "CW Drive Current", start_address: 0x14, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
             { name: "PWM MONITOR CL", desc: "PWM Monitor Current Limit", start_address: 0x16, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
             { name: "CW MONITOR CL", desc: "CW Monitor Current Limit", start_address: 0x18, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
+            { name: "TEMP Sensor", desc: "Temperature Sensor", start_address: 0x1A, data_size: "16B", direction: "RW" },
             { name: "STATIC CTRL", desc: "Static control bits", start_address: 0x20, data_size: "16B", direction: "RW" },
             { name: "DYNAMIC CTRL", desc: "Dynamic control bits", start_address: 0x22, data_size: "16B", direction: "WR" }
         ]
@@ -71,6 +73,7 @@ var fpgaAddressModel = [
             { name: "CW CURRENT", desc: "CW Drive Current", start_address: 0x14, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
             { name: "PWM MONITOR CL", desc: "PWM Monitor Current Limit", start_address: 0x16, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
             { name: "CW MONITOR CL", desc: "CW Monitor Current Limit", start_address: 0x18, data_size: "16B", direction: "RW", unit: "mv", scale: 0.50 },
+            { name: "TEMP Sensor", desc: "Temperature Sensor", start_address: 0x1A, data_size: "16B", direction: "RW" },
             { name: "STATIC CTRL", desc: "Static control bits", start_address: 0x20, data_size: "16B", direction: "RW" },
             { name: "DYNAMIC CTRL", desc: "Dynamic control bits", start_address: 0x22, data_size: "16B", direction: "WR" }
         ]
