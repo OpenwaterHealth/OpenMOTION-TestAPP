@@ -3,6 +3,7 @@ import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
 
 import "../components"
+import "../models/FpgaModel.js" as FpgaData
 
 Rectangle {
     id: page1
@@ -17,6 +18,73 @@ Rectangle {
     property string deviceId: "N/A"
     property string rgbState: "Off" // Add property for Indicator state
     property int fan_speed: 0
+    property var fn: null
+    property int rawValue: 0 
+    
+    readonly property int dataSize: {
+        if (fn && fn.data_size) {
+            const match = fn.data_size.match(/^(\d+)B$/);
+            return match ? parseInt(match[1]) : 8;
+        }
+        return 8;
+    }
+    
+    readonly property string placeholderHex: {
+        switch (dataSize) {
+            case 8: return "0x00";
+            case 16: return "0x0000";
+            case 24: return "0x000000";
+            case 32: return "0x00000000";
+            default: return "0x00";
+        }
+    }
+
+    readonly property var hexValidator: {
+        switch (dataSize) {
+            case 8: return /0x[0-9a-fA-F]{1,2}/;
+            case 16: return /0x[0-9a-fA-F]{1,4}/;
+            case 24: return /0x[0-9a-fA-F]{1,6}/;
+            case 32: return /0x[0-9a-fA-F]{1,8}/;
+            default: return /0x[0-9a-fA-F]{1,2}/;
+        }
+    }
+
+    // Define the model for accessSelector
+    ListModel {
+        id: accessModeModel
+    }
+
+    function updateFpgaFunctionUI(index) {
+        accessModeModel.clear()
+
+        // Defensive check: valid index and model element
+        if (index < 0 || !functionSelector.model || index >= functionSelector.model.length) {
+            fn = null
+            hexInput.text = ""
+            return
+        }
+
+        fn = functionSelector.model[index]
+        if (!fn || !fn.direction) {
+            console.warn("Function data is invalid")
+            hexInput.text = ""
+            return
+        }
+
+        const dir = fn.direction
+
+        if (dir === "RD") {
+            accessModeModel.append({ text: "Read" })
+        } else if (dir === "WR") {
+            accessModeModel.append({ text: "Write" })
+        } else if (dir === "RW") {
+            accessModeModel.append({ text: "Read" })
+            accessModeModel.append({ text: "Write" })
+        }
+
+        accessSelector.currentIndex = 0
+        hexInput.text = ""
+    }
 
     function updateStates() {
         console.log("Console Updating all states...")
@@ -132,7 +200,7 @@ Rectangle {
                     // Communication Tests Box
                     Rectangle {
                         width: 650
-                        height: 390
+                        height: 310
                         radius: 6
                         color: "#1E1E20"
                         border.color: "#3E4E6F"
@@ -153,7 +221,7 @@ Rectangle {
                             anchors.left: parent.left
                             anchors.top: parent.top
                             anchors.leftMargin: 20   
-                            anchors.topMargin: 60    
+                            anchors.topMargin: 40    
                             columns: 5
                             rowSpacing: 10
                             columnSpacing: 10
@@ -164,7 +232,7 @@ Rectangle {
                                 id: pingButton
                                 text: "Ping"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -218,7 +286,7 @@ Rectangle {
                                 id: ledButton
                                 text: "Toggle LED"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -271,7 +339,7 @@ Rectangle {
                                 id: echoButton
                                 text: "Echo"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -327,7 +395,7 @@ Rectangle {
                             ComboBox {
                                 id: rgbLedDropdown
                                 Layout.preferredWidth: 120
-                                Layout.preferredHeight: 40
+                                Layout.preferredHeight: 28
                                 model: ["Off", "IND1", "IND2", "IND3"]
                                 enabled: MOTIONConnector.consoleConnected  
 
@@ -350,7 +418,7 @@ Rectangle {
                                 id: pduButton
                                 text: "PDU"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -405,7 +473,7 @@ Rectangle {
                                 id: seedButton
                                 text: "Seed"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -457,7 +525,7 @@ Rectangle {
                                 id: taButton
                                 text: "TA"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -512,7 +580,7 @@ Rectangle {
                                 id: safetyButton
                                 text: "Safety EE"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -567,7 +635,7 @@ Rectangle {
                                 id: tecButton
                                 text: "TEC"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -622,7 +690,7 @@ Rectangle {
                                 id: safety2Button
                                 text: "Safety OPT"
                                 Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
+                                Layout.preferredHeight: 40
                                 hoverEnabled: true  // Enable hover detection
                                 enabled: MOTIONConnector.consoleConnected 
 
@@ -672,10 +740,252 @@ Rectangle {
                     }
                                         
 
+                    // FPGA Utility
+                    Rectangle {
+                        width: 650
+                        height: 140
+                        radius: 8
+                        color: "#1E1E20"
+                        border.color: "#3E4E6F"
+                        border.width: 2
+                        enabled: MOTIONConnector.consoleConnected
+
+                        // Title
+                        Text {
+                            id: fpgaTitle
+                            text: "FPGA I2C Utility"
+                            color: "#BDC3C7"
+                            font.pixelSize: 16
+                            font.bold: true
+                            anchors.top: parent.top
+                            anchors.topMargin: 12
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+
+                        ColumnLayout {
+                            id: fpgaLayout
+                            anchors.top: fpgaTitle.bottom
+                            anchors.topMargin: 12
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.margins: 12
+                            spacing: 10
+
+                            // FPGA + Function Combo Row
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 12
+
+                                ComboBox {
+                                    id: fpgaSelector
+                                    model: FpgaData.fpgaAddressModel
+                                    textRole: "label"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 32
+
+                                    onCurrentIndexChanged: {
+                                        accessModeModel.clear()
+                                        functionSelector.currentIndex = 0;
+                                        updateFpgaFunctionUI(0)
+                                    }
+                                }
+
+                                ComboBox {
+                                    id: functionSelector
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 32
+                                    model: fpgaSelector.currentIndex >= 0 ? FpgaData.fpgaAddressModel[fpgaSelector.currentIndex].functions : []
+                                    textRole: "name"
+                                    enabled: fpgaSelector.currentIndex >= 0
+
+                                    onCurrentIndexChanged: updateFpgaFunctionUI(currentIndex)
+                                    onModelChanged: {
+                                        if (functionSelector.model.length > 0) {
+                                            functionSelector.currentIndex = 0;
+                                            updateFpgaFunctionUI(0);
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Access + Input + Execute Row
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 12
+
+                                ComboBox {
+                                    id: accessSelector
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 32
+                                    model: accessModeModel
+                                    textRole: "text"
+                                }
+
+                                DoubleValidator {
+                                    id: doubleVal
+                                    bottom: 0
+                                }
+
+                                RegularExpressionValidator {
+                                    id: hexVal
+                                    regularExpression: hexValidator
+                                }
+
+                                TextField {
+                                    id: hexInput
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 32
+                                    placeholderText: fn && fn.unit ? `e.g. 12.8 ${fn.unit}` : placeholderHex
+                                    enabled: accessSelector.currentText === "Write"
+                                    validator: fn && fn.unit ? doubleVal : hexVal
+                                    text: {
+                                        if (!fn || rawValue === undefined) return "";
+                                        if (fn.unit && fn.scale)
+                                            return (rawValue * fn.scale).toFixed(2);
+                                        return "0x" + rawValue.toString(16).toUpperCase();
+                                    }
+                                }
+
+                                Button {
+                                    id: exeButton
+                                    text: "Execute"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 40
+                                    hoverEnabled: true
+                                    enabled: MOTIONConnector.consoleConnected && functionSelector.currentIndex >= 0 &&
+                                            (accessSelector.currentText === "Read" || (hexInput.acceptableInput && hexInput.text.length > 0))
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {
+                                        color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                        border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                        radius: 4
+                                    }
+
+                                    onClicked: {
+                                        const fpga = FpgaData.fpgaAddressModel[fpgaSelector.currentIndex];
+                                        const i2cAddr = fpga.i2c_addr;
+                                        const muxIdx = fpga.mux_idx;
+                                        const channel = fpga.channel;
+
+                                        const fn = functionSelector.model[functionSelector.currentIndex];
+                                        const offset = fn.start_address;
+                                        const dir = accessSelector.currentText;
+                                        const length = parseInt(fn.data_size.replace("B", "")) / 8;
+                                        let data = hexInput.text;
+
+                                        if (dir === "Read") {
+                                            console.log(`READ from ${fpga.label} @ 0x${offset.toString(16)}`);
+                                            let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, length);
+
+                                            if (result.length === 0) {
+                                                console.log("Read failed or returned empty array.");
+                                                i2cStatus.text = "Read failed";
+                                                i2cStatus.color = "red";
+                                            } else {
+                                                let fullValue = 0;
+                                                for (let i = 0; i < result.length; i++) {
+                                                    fullValue = (fullValue << 8) | result[i];
+                                                }
+
+                                                rawValue = fullValue;  // store globally
+
+                                                if (fn.unit && fn.scale) {
+                                                    hexInput.text = (fullValue * fn.scale).toFixed(2);
+                                                } else {
+                                                    let hexStr = "0x" + fullValue.toString(16).toUpperCase().padStart(length * 2, "0");
+                                                    hexInput.text = hexStr;
+                                                }
+
+                                                console.log("Read success:", hexInput.text);
+                                                i2cStatus.text = "Read successful";
+                                                i2cStatus.color = "lightgreen";
+                                            }
+
+                                            cleari2cStatusTimer.start();
+                                        } else {
+                                            console.log(`WRITE to ${fpga.label} @ 0x${offset.toString(16)} = ${data}`);
+
+                                            let fullValue = 0;
+
+                                            if (fn.unit && fn.scale) {
+                                                const floatVal = parseFloat(data);
+                                                if (isNaN(floatVal)) {
+                                                    console.warn("Invalid numeric input for unit conversion.");
+                                                    return;
+                                                }
+                                                fullValue = Math.round(floatVal / fn.scale);
+                                            } else {
+                                                let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
+
+                                                if (sanitized.length > length * 2) {
+                                                    console.warn("Input too long, trimming.");
+                                                    sanitized = sanitized.slice(-length * 2);
+                                                } else if (sanitized.length < length * 2) {
+                                                    sanitized = sanitized.padStart(length * 2, "0");
+                                                }
+
+                                                fullValue = parseInt(sanitized, 16);
+                                            }
+
+                                            rawValue = fullValue;  // store globally
+
+                                            let dataToSend = [];
+                                            for (let i = length - 1; i >= 0; i--) {
+                                                dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+                                            }
+
+                                            console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
+
+                                            let success = MOTIONConnector.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
+
+                                            if (success) {
+                                                console.log("Write successful.");
+                                                i2cStatus.text = "Write successful";
+                                                i2cStatus.color = "lightgreen";
+                                            } else {
+                                                console.log("Write failed.");
+                                                i2cStatus.text = "Write failed";
+                                                i2cStatus.color = "red";
+                                            }
+
+                                            cleari2cStatusTimer.start();
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                id: i2cStatus
+                                text: ""
+                                color: "#BDC3C7"
+                                font.pixelSize: 12
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+
+                            Timer {
+                                id: cleari2cStatusTimer
+                                interval: 2000
+                                running: false
+                                repeat: false
+                                onTriggered: i2cStatus.text = ""
+                            }
+                        }
+
+
+                    }
+
                     // Fan Tests Box
                     Rectangle {
                         width: 650
-                        height: 190
+                        height: 140
                         radius: 8
                         color: "#1E1E20"
                         border.color: "#3E4E6F"
@@ -694,13 +1004,13 @@ Rectangle {
                         // Slider for Fan
                         Column {
                             anchors.top: parent.top
-                            anchors.topMargin: 40  // Adjust spacing as needed
+                            anchors.topMargin: 28  // Adjust spacing as needed
                             anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 5
 
 
                             Rectangle {  // Acts as a spacer
-                                height: 20
+                                height: 10
                                 width: 1
                                 color: "transparent"
                             }

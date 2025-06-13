@@ -3,7 +3,6 @@ import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
 
 import "../components"
-import "../models/FpgaModel.js" as FpgaData
 
 Rectangle {
     id: page1
@@ -46,6 +45,7 @@ Rectangle {
             default: return /0x[0-9a-fA-F]{1,2}/;
         }
     }
+
     ListModel {
         id: cameraModel
         ListElement { label: "Camera 1"; cam_num: 1; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
@@ -145,18 +145,18 @@ Rectangle {
     // LAYOUT
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 20
+        anchors.margins: 10
+        spacing: 10
 
         // Left Column (Input Panel)
         ColumnLayout {
-            spacing: 20
+            spacing: 10
 
             // Trigger
             Rectangle {
                 id: triggerContainer
                 width: 500
-                height: 260
+                height: 230
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
@@ -164,7 +164,7 @@ Rectangle {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 12
+                    anchors.margins: 6
                     spacing: 8
 
                     Text {
@@ -229,13 +229,6 @@ Rectangle {
                                 }
                             }
                         }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        anchors.margins: 12
-                        spacing: 8
-                        Layout.alignment: Qt.AlignHCenter
 
                         // Laser Delay
                         ColumnLayout {
@@ -279,7 +272,7 @@ Rectangle {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 10
-                        anchors.topMargin: 10
+                        anchors.topMargin: 5
                         Layout.alignment: Qt.AlignHCenter
                         
                         Button {
@@ -365,239 +358,175 @@ Rectangle {
             Rectangle {
                 id: fpgaContainer
                 width: 500
-                height: 340
+                height: 400
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
                 enabled: MOTIONConnector.consoleConnected
 
-                // Title
-                Text {
-                    id: fpgaTitle
-                    text: "FPGA I2C Utility"
-                    color: "#BDC3C7"
-                    font.pixelSize: 16
-                    font.bold: true
-                    anchors.top: parent.top
-                    anchors.topMargin: 12
-                    anchors.horizontalCenter: parent.horizontalCenter
-                }
-
                 ColumnLayout {
-                    id: fpgaLayout
-                    anchors.top: fpgaTitle.bottom
-                    anchors.topMargin: 12
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: 12
+                    anchors.fill: parent
+                    anchors.margins: 10
                     spacing: 10
 
-                    // FPGA + Function Combo Row
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
-
-                        ComboBox {
-                            id: fpgaSelector
-                            model: FpgaData.fpgaAddressModel
-                            textRole: "label"
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 32
-
-                            onCurrentIndexChanged: {
-                                accessModeModel.clear()
-                                functionSelector.currentIndex = 0;
-                                updateFunctionUI(0)
-                            }
-                        }
-
-                        ComboBox {
-                            id: functionSelector
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 32
-                            model: fpgaSelector.currentIndex >= 0 ? FpgaData.fpgaAddressModel[fpgaSelector.currentIndex].functions : []
-                            textRole: "name"
-                            enabled: fpgaSelector.currentIndex >= 0
-
-                            onCurrentIndexChanged: updateFunctionUI(currentIndex)
-                            onModelChanged: {
-                                if (functionSelector.model.length > 0) {
-                                    functionSelector.currentIndex = 0;
-                                    updateFunctionUI(0);
-                                }
-                            }
-                        }
-                    }
-
-                    // Access + Input + Execute Row
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
-
-                        ComboBox {
-                            id: accessSelector
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 32
-                            model: accessModeModel
-                            textRole: "text"
-                        }
-
-                        DoubleValidator {
-                            id: doubleVal
-                            bottom: 0
-                        }
-
-                        RegularExpressionValidator {
-                            id: hexVal
-                            regularExpression: hexValidator
-                        }
-
-                        TextField {
-                            id: hexInput
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 32
-                            placeholderText: fn && fn.unit ? `e.g. 12.8 ${fn.unit}` : placeholderHex
-                            enabled: accessSelector.currentText === "Write"
-                            validator: fn && fn.unit ? doubleVal : hexVal
-                            text: {
-                                if (!fn || rawValue === undefined) return "";
-                                if (fn.unit && fn.scale)
-                                    return (rawValue * fn.scale).toFixed(2);
-                                return "0x" + rawValue.toString(16).toUpperCase();
-                            }
-                        }
-
-                        Button {
-                            id: exeButton
-                            text: "Execute"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 40
-                            hoverEnabled: true
-                            enabled: MOTIONConnector.consoleConnected && functionSelector.currentIndex >= 0 &&
-                                    (accessSelector.currentText === "Read" || (hexInput.acceptableInput && hexInput.text.length > 0))
-
-                            contentItem: Text {
-                                text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            background: Rectangle {
-                                color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                radius: 4
-                            }
-
-                            onClicked: {
-                                const fpga = FpgaData.fpgaAddressModel[fpgaSelector.currentIndex];
-                                const i2cAddr = fpga.i2c_addr;
-                                const muxIdx = fpga.mux_idx;
-                                const channel = fpga.channel;
-
-                                const fn = functionSelector.model[functionSelector.currentIndex];
-                                const offset = fn.start_address;
-                                const dir = accessSelector.currentText;
-                                const length = parseInt(fn.data_size.replace("B", "")) / 8;
-                                let data = hexInput.text;
-
-                                if (dir === "Read") {
-                                    console.log(`READ from ${fpga.label} @ 0x${offset.toString(16)}`);
-                                    let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, length);
-
-                                    if (result.length === 0) {
-                                        console.log("Read failed or returned empty array.");
-                                        i2cStatus.text = "Read failed";
-                                        i2cStatus.color = "red";
-                                    } else {
-                                        let fullValue = 0;
-                                        for (let i = 0; i < result.length; i++) {
-                                            fullValue = (fullValue << 8) | result[i];
-                                        }
-
-                                        rawValue = fullValue;  // store globally
-
-                                        if (fn.unit && fn.scale) {
-                                            hexInput.text = (fullValue * fn.scale).toFixed(2);
-                                        } else {
-                                            let hexStr = "0x" + fullValue.toString(16).toUpperCase().padStart(length * 2, "0");
-                                            hexInput.text = hexStr;
-                                        }
-
-                                        console.log("Read success:", hexInput.text);
-                                        i2cStatus.text = "Read successful";
-                                        i2cStatus.color = "lightgreen";
-                                    }
-
-                                    cleari2cStatusTimer.start();
-                                } else {
-                                    console.log(`WRITE to ${fpga.label} @ 0x${offset.toString(16)} = ${data}`);
-
-                                    let fullValue = 0;
-
-                                    if (fn.unit && fn.scale) {
-                                        const floatVal = parseFloat(data);
-                                        if (isNaN(floatVal)) {
-                                            console.warn("Invalid numeric input for unit conversion.");
-                                            return;
-                                        }
-                                        fullValue = Math.round(floatVal / fn.scale);
-                                    } else {
-                                        let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
-
-                                        if (sanitized.length > length * 2) {
-                                            console.warn("Input too long, trimming.");
-                                            sanitized = sanitized.slice(-length * 2);
-                                        } else if (sanitized.length < length * 2) {
-                                            sanitized = sanitized.padStart(length * 2, "0");
-                                        }
-
-                                        fullValue = parseInt(sanitized, 16);
-                                    }
-
-                                    rawValue = fullValue;  // store globally
-
-                                    let dataToSend = [];
-                                    for (let i = length - 1; i >= 0; i--) {
-                                        dataToSend.push((fullValue >> (i * 8)) & 0xFF);
-                                    }
-
-                                    console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
-
-                                    let success = MOTIONConnector.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
-
-                                    if (success) {
-                                        console.log("Write successful.");
-                                        i2cStatus.text = "Write successful";
-                                        i2cStatus.color = "lightgreen";
-                                    } else {
-                                        console.log("Write failed.");
-                                        i2cStatus.text = "Write failed";
-                                        i2cStatus.color = "red";
-                                    }
-
-                                    cleari2cStatusTimer.start();
-                                }
-                            }
-                        }
-                    }
-
+                    // Title
                     Text {
-                        id: i2cStatus
-                        text: ""
+                        id: fpgaTitle
+                        text: "FPGA Utility"
                         color: "#BDC3C7"
-                        font.pixelSize: 12
-                        Layout.fillWidth: true
-                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize: 16
+                        font.bold: true
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.topMargin: 10
                     }
 
-                    Timer {
-                        id: cleari2cStatusTimer
-                        interval: 2000
-                        running: false
-                        repeat: false
-                        onTriggered: i2cStatus.text = ""
+                    GroupBox {
+                        title: "TA"
+                        Layout.fillWidth: true
+
+                        GridLayout {
+                            columns: 4
+                            width: parent.width
+
+                            Text { text: "TA Drive (mA):"; color: "white" }
+                            TextField { id: taDrive; Layout.preferredHeight: 30; font.pixelSize: 14; text: "120.0" }
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "PulseWidth (uS):"; color: "white" }
+                            TextField { id: taPulseWidth; Layout.preferredHeight: 30; font.pixelSize: 14; text: "500.0" }
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Button {
+                                id: btnUpdateTa
+                                text: "Update"
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 40
+                                hoverEnabled: true
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                    radius: 4
+                                }
+
+                                onClicked: {
+                                    console.log("Update TA Settings");
+                                }
+                            }
+                        }
+                    }
+
+                    GroupBox {
+                        title: "Seed"
+                        Layout.fillWidth: true
+
+                        GridLayout {
+                            columns: 4
+                            width: parent.width
+
+                            Text { text: "DDS (mA):"; color: "white" }
+                            TextField { id: ddsCurrent; Layout.preferredHeight: 30; font.pixelSize: 14; text: "120.0" }
+                            TextField { id: ddsCurrentLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "200.0" }
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "CW (mA):"; color: "white" }
+                            TextField { id: cwSeedCurrent; Layout.preferredHeight: 30; font.pixelSize: 14; text: "120.0" }
+                            TextField { id: cwSeedCurrentLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "200.0" }
+                            Button {
+                                id: btnUpdateSeed
+                                text: "Update"
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 40
+                                hoverEnabled: true
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                    radius: 4
+                                }
+
+                                onClicked: {
+                                    console.log("Update Seed Settings");
+                                }
+                            }
+                        }
+                    }
+
+                    GroupBox {
+                        title: "Safety (OPT/EE)"
+                        Layout.fillWidth: true
+
+                        GridLayout {
+                            columns: 4
+                            width: parent.width
+
+                            Text { text: "PulseWidth Limit (uS):"; color: "white" }
+                            TextField { id: pwLowerLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "100.0" }
+                            TextField { id: pwUpperLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "140.0" }
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "Period Limit (mS):"; color: "white" }
+                            TextField { id: periodLowerLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "150.0" }
+                            TextField { id: periodUpperLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "250.0" }
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "Drive Curr Limit (mA):"; color: "white" }
+                            TextField { id: driveCurrentLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "1000.0" }
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "CW Curr Limit (mA):"; color: "white" }
+                            TextField { id: cwSafetyCurrentLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "1000.0" }
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "PWM Curr Limit (mA):"; color: "white" }
+                            TextField { id: pwmCurrentLimit; Layout.preferredHeight: 30; font.pixelSize: 14; text: "1000.0" }
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+                            Button {
+                                id: btnUpdateSafety
+                                text: "Update"
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 40
+                                hoverEnabled: true
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                    radius: 4
+                                }
+
+                                onClicked: {
+                                    console.log("Update Safety Settings");
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -611,7 +540,7 @@ Rectangle {
             Rectangle {
                 id: camerahContainer
                 width: 500
-                height: 470
+                height: 490
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
