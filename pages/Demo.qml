@@ -242,7 +242,7 @@ Rectangle {
                                 Layout.preferredWidth: 100
                                 Layout.preferredHeight: 40
                                 hoverEnabled: true
-                                enabled: MOTIONConnector.consoleConnected 
+                                enabled: MOTIONConnector.consoleConnected
 
                                 contentItem: Text {
                                     text: parent.text
@@ -251,9 +251,19 @@ Rectangle {
                                     verticalAlignment: Text.AlignVCenter
                                 }
 
-                                background: Rectangle {
-                                    color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                background: Rectangle {                     
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
                                     radius: 4
                                 }
 
@@ -393,9 +403,19 @@ Rectangle {
                                     verticalAlignment: Text.AlignVCenter
                                 }
 
-                                background: Rectangle {
-                                    color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                background: Rectangle {                     
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
                                     radius: 4
                                 }
 
@@ -624,9 +644,19 @@ Rectangle {
                                     verticalAlignment: Text.AlignVCenter
                                 }
 
-                                background: Rectangle {
-                                    color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                background: Rectangle {                                    
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
                                     radius: 4
                                 }
 
@@ -936,9 +966,19 @@ Rectangle {
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                 }
-                                background: Rectangle {
-                                    color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                background: Rectangle {                     
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
                                     radius: 4
                                 }
                                 onClicked: {
@@ -971,9 +1011,19 @@ Rectangle {
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                 }
-                                background: Rectangle {
-                                    color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                background: Rectangle {                     
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
                                     radius: 4
                                 }
                                 onClicked: MOTIONConnector.stopTrigger()
