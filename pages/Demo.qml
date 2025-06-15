@@ -113,7 +113,7 @@ Rectangle {
             let rawValue = fullValue;  // store globally
 
             if (myFn.unit && myFn.scale) {
-                field.text = (fullValue * myFn.scale).toFixed(2);
+                field.text = (fullValue * myFn.scale).toFixed(3);
             } else {
                 let hexStr = "0x" + fullValue.toString(16).toUpperCase().padStart(length * 2, "0");
                 field.text = hexStr;
@@ -124,10 +124,19 @@ Rectangle {
     function updateLaserUI() {
         readFpgaRegister("TA", "PULSE WIDTH", taPulseWidth);
         readFpgaRegister("TA", "CURRENT DRV", taDrive);
+
         readFpgaRegister("Seed", "DDS CURRENT", ddsCurrent);
         readFpgaRegister("Seed", "DDS CL", ddsCurrentLimit);
         readFpgaRegister("Seed", "CW CURRENT", cwSeedCurrent);
         readFpgaRegister("Seed", "CW CL", cwSeedCurrentLimit);
+
+        readFpgaRegister("Safety EE", "PULSE WIDTH LL", pwLowerLimit);
+        readFpgaRegister("Safety EE", "PULSE WIDTH UL", pwUpperLimit);
+        readFpgaRegister("Safety EE", "RATE LL", periodLowerLimit);
+        readFpgaRegister("Safety EE", "RATE UL", periodUpperLimit);
+        readFpgaRegister("Safety EE", "DRIVE CL", driveCurrentLimit);
+        readFpgaRegister("Safety EE", "CW CURRENT", cwSafetyCurrentLimit);
+        readFpgaRegister("Safety EE", "PWM CURRENT", pwmCurrentLimit);
     }
 
     function updatePatternOptions() {
