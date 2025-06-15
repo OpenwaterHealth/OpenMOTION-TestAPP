@@ -3,6 +3,7 @@ import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
 
 import "../components"
+import "../models/FpgaModel.js" as FpgaData
 
 Rectangle {
     id: page1
@@ -73,41 +74,60 @@ Rectangle {
         ListElement { label: "Stream"; tp_id: 0x04}
     }
 
-    // Define the model for accessSelector
-    ListModel {
-        id: accessModeModel
+
+    function readFpgaRegister(fpgaLabel, funcName, field) {
+        
+        const fModel = FpgaData.fpgaAddressModel.find(fpga => fpga.label === fpgaLabel);
+
+        if (!fModel) {
+            console.error("FPGA Label not found");
+            return;
+        }
+
+        let  i2cAddr = fModel.i2c_addr;
+        let  muxIdx = fModel.mux_idx;
+        let  channel = fModel.channel;
+        const myFn = fModel.functions.find(fn => fn.name === funcName);
+
+        if (!myFn) {
+            console.error("Function not found");
+            return;
+        }
+
+        const offset = myFn.start_address;
+        const data_len = parseInt(myFn.data_size.replace("B", "")) / 8;
+
+        console.log(`READ from ${fModel.label} @ 0x${offset.toString(16)}`);
+        let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len);
+
+        if (result.length === 0) {
+            console.log("Read failed or returned empty array.");
+            statusText.text = "Read " + funcName + " Failed";
+            statusText.color = "red";
+        } else {
+            let fullValue = 0;
+            for (let i = 0; i < result.length; i++) {
+                fullValue = (fullValue << 8) | result[i];
+            }
+
+            let rawValue = fullValue;  // store globally
+
+            if (myFn.unit && myFn.scale) {
+                field.text = (fullValue * myFn.scale).toFixed(2);
+            } else {
+                let hexStr = "0x" + fullValue.toString(16).toUpperCase().padStart(length * 2, "0");
+                field.text = hexStr;
+            }
+        }
     }
 
-    function updateFunctionUI(index) {
-        accessModeModel.clear()
-
-        // Defensive check: valid index and model element
-        if (index < 0 || !functionSelector.model || index >= functionSelector.model.length) {
-            fn = null
-            hexInput.text = ""
-            return
-        }
-
-        fn = functionSelector.model[index]
-        if (!fn || !fn.direction) {
-            console.warn("Function data is invalid")
-            hexInput.text = ""
-            return
-        }
-
-        const dir = fn.direction
-
-        if (dir === "RD") {
-            accessModeModel.append({ text: "Read" })
-        } else if (dir === "WR") {
-            accessModeModel.append({ text: "Write" })
-        } else if (dir === "RW") {
-            accessModeModel.append({ text: "Read" })
-            accessModeModel.append({ text: "Write" })
-        }
-
-        accessSelector.currentIndex = 0
-        hexInput.text = ""
+    function updateLaserUI() {
+        readFpgaRegister("TA", "PULSE WIDTH", taPulseWidth);
+        readFpgaRegister("TA", "CURRENT DRV", taDrive);
+        readFpgaRegister("Seed", "DDS CURRENT", ddsCurrent);
+        readFpgaRegister("Seed", "DDS CL", ddsCurrentLimit);
+        readFpgaRegister("Seed", "CW CURRENT", cwSeedCurrent);
+        readFpgaRegister("Seed", "CW CL", cwSeedCurrentLimit);
     }
 
     function updatePatternOptions() {
@@ -192,9 +212,8 @@ Rectangle {
 
                                 TextField {
                                     id: taDrive
-                                    placeholderText: "e.g. 100"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -222,9 +241,8 @@ Rectangle {
 
                                 TextField {
                                     id: taPulseWidth
-                                    placeholderText: "e.g. 1000"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -297,9 +315,8 @@ Rectangle {
 
                                 TextField {
                                     id: ddsCurrent
-                                    placeholderText: "e.g. 120"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -322,9 +339,8 @@ Rectangle {
 
                                 TextField {
                                     id: ddsCurrentLimit
-                                    placeholderText: "e.g. 200"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -351,9 +367,8 @@ Rectangle {
 
                                 TextField {
                                     id: cwSeedCurrent
-                                    placeholderText: "e.g. 120"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -376,9 +391,8 @@ Rectangle {
 
                                 TextField {
                                     id: cwSeedCurrentLimit
-                                    placeholderText: "e.g. 500"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -449,9 +463,8 @@ Rectangle {
 
                                 TextField {
                                     id: pwLowerLimit
-                                    placeholderText: "e.g. 450"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -474,9 +487,8 @@ Rectangle {
 
                                 TextField {
                                     id: pwUpperLimit
-                                    placeholderText: "e.g. 550"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -503,9 +515,8 @@ Rectangle {
 
                                 TextField {
                                     id: periodLowerLimit
-                                    placeholderText: "e.g. 550"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -528,9 +539,8 @@ Rectangle {
 
                                 TextField {
                                     id: periodUpperLimit
-                                    placeholderText: "e.g. 550"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -557,9 +567,8 @@ Rectangle {
 
                                 TextField {
                                     id: driveCurrentLimit
-                                    placeholderText: "e.g. 2000"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -587,9 +596,8 @@ Rectangle {
 
                                 TextField {
                                     id: cwSafetyCurrentLimit
-                                    placeholderText: "e.g. 2000"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -617,9 +625,8 @@ Rectangle {
 
                                 TextField {
                                     id: pwmCurrentLimit
-                                    placeholderText: "e.g. 1000"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -1138,6 +1145,8 @@ Rectangle {
                     lsDelay.text = config.LaserPulseDelayUsec.toString()
                     lsPulseWidth.text = config.LaserPulseWidthUsec.toString()
                 }
+                
+                updateLaserUI();
             }
         }
     }
