@@ -934,7 +934,7 @@ Rectangle {
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
-                enabled: MOTIONConnector.sensorConnected
+                enabled: MOTIONConnector.consoleConnected
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -965,11 +965,11 @@ Rectangle {
 
                                 TextField {
                                     id: fsFrequency
-                                    placeholderText: "1 - 100"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 32
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
+                                    text: "40"
                                     validator: IntValidator { bottom: 1; top: 100 }
                                     background: Rectangle {
                                         radius: 6
@@ -993,9 +993,9 @@ Rectangle {
 
                                 TextField {
                                     id: fsPulseWidth
-                                    placeholderText: "e.g. 500"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 32
+                                    text: "5000"
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 1; top: 1000 }
@@ -1019,9 +1019,9 @@ Rectangle {
 
                                 TextField {
                                     id: lsDelay
-                                    placeholderText: "e.g. 100"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 32
+                                    text: "250"
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
@@ -1045,9 +1045,9 @@ Rectangle {
 
                                 TextField {
                                     id: lsPulseWidth
-                                    placeholderText: "e.g. 100"
                                     Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: 32
+                                    text: "5000"
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
