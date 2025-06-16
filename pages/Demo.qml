@@ -74,6 +74,69 @@ Rectangle {
         ListElement { label: "Stream"; tp_id: 0x04}
     }
 
+    function writeFpgaRegister(fpgaLabel, funcName, data) {
+
+        const fModel = FpgaData.fpgaAddressModel.find(fpga => fpga.label === fpgaLabel);
+
+        if (!fModel) {
+            console.error("FPGA Label not found");
+            return;
+        }
+
+        let  i2cAddr = fModel.i2c_addr;
+        let  muxIdx = fModel.mux_idx;
+        let  channel = fModel.channel;
+        const myFn = fModel.functions.find(fn => fn.name === funcName);
+
+        if (!myFn) {
+            console.error("Function not found");
+            return;
+        }
+
+        const offset = myFn.start_address;
+        const data_len = parseInt(myFn.data_size.replace("B", "")) / 8;
+        
+        let fullValue = 0;
+
+        if (myFn.unit && myFn.scale) {
+            const floatVal = parseFloat(data);
+            if (isNaN(floatVal)) {
+                console.warn("Invalid numeric input for unit conversion.");
+                return;
+            }
+            fullValue = Math.round(floatVal / fn.scale);
+        } else {
+            let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
+
+            if (sanitized.length > length * 2) {
+                console.warn("Input too long, trimming.");
+                sanitized = sanitized.slice(-length * 2);
+            } else if (sanitized.length < length * 2) {
+                sanitized = sanitized.padStart(length * 2, "0");
+            }
+
+            fullValue = parseInt(sanitized, 16);
+        }
+
+        let dataToSend = [];
+        for (let i = length - 1; i >= 0; i--) {
+            dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+        }
+
+        console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
+
+        let success = MOTIONConnector.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
+
+        if (success) {
+            console.log("Write successful.");
+            statusText.text = "Write successful";
+            statusText.color = "lightgreen";
+        } else {
+            console.log("Write failed.");
+            statusText.text = "Write failed";
+            statusText.color = "red";
+        }
+    }
 
     function readFpgaRegister(fpgaLabel, funcName, field) {
         
@@ -296,6 +359,9 @@ Rectangle {
 
                                 onClicked: {
                                     console.log("Update TA Settings");
+                                    
+                                    writeFpgaRegister("TA", "PULSE WIDTH", taPulseWidth.text);
+                                    writeFpgaRegister("TA", "CURRENT DRV", taDrive.text);                                    
                                 }
                             }
                         }
@@ -443,7 +509,13 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    console.log("Update Seed Settings");
+                                    console.log("Update Seed Settings");                                    
+
+                                    writeFpgaRegister("Seed", "DDS CURRENT", ddsCurrent.text);
+                                    writeFpgaRegister("Seed", "DDS CL", ddsCurrentLimit.text);
+                                    writeFpgaRegister("Seed", "CW CURRENT", cwSeedCurrent.text);
+                                    writeFpgaRegister("Seed", "CW CL", cwSeedCurrentLimit.text);
+
                                 }
                             }
                         }
@@ -678,6 +750,21 @@ Rectangle {
 
                                 onClicked: {
                                     console.log("Update Safety Settings");
+
+                                    writeFpgaRegister("Safety EE", "PULSE WIDTH LL", pwLowerLimit.text);
+                                    writeFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit.text);
+                                    writeFpgaRegister("Safety EE", "PULSE WIDTH UL", pwUpperLimit.text);
+                                    writeFpgaRegister("Safety OPT", "PULSE WIDTH UL", pwUpperLimit.text);
+                                    writeFpgaRegister("Safety EE", "RATE LL", periodLowerLimit.text);
+                                    writeFpgaRegister("Safety OPT", "RATE LL", periodLowerLimit.text);
+                                    writeFpgaRegister("Safety EE", "RATE UL", periodUpperLimit.text);
+                                    writeFpgaRegister("Safety OPT", "RATE UL", periodUpperLimit.text);
+                                    writeFpgaRegister("Safety EE", "DRIVE CL", driveCurrentLimit.text);
+                                    writeFpgaRegister("Safety OPT", "DRIVE CL", driveCurrentLimit.text);
+                                    writeFpgaRegister("Safety EE", "CW CURRENT", cwSafetyCurrentLimit.text);
+                                    writeFpgaRegister("Safety OPT", "CW CURRENT", cwSafetyCurrentLimit.text);
+                                    writeFpgaRegister("Safety EE", "PWM CURRENT", pwmCurrentLimit.text);
+                                    writeFpgaRegister("Safety OPT", "PWM CURRENT", pwmCurrentLimit.text);
                                 }
                             }
                         }
