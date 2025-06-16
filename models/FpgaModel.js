@@ -6,6 +6,7 @@ var fpgaAddressModel = [
         mux_idx: 1,
         channel: 4,
         i2c_addr: 0x41,
+        isMsbFirst: false,
         functions: [
             { name: "PULSE WIDTH", desc: "Pulse Width", start_address: 0x00, data_size: "24B", direction: "RW", unit: "us", scale: 0.320 },
             { name: "PERIOD", desc: "Period", start_address: 0x03, data_size: "24B", direction: "RW", unit: "us", scale: 0.320 },
@@ -23,6 +24,7 @@ var fpgaAddressModel = [
         mux_idx: 1,
         channel: 5,
         i2c_addr: 0x41,
+        isMsbFirst: false,
         functions: [
             { name: "DDS CTRL", desc: "DDS Control", start_address: 0x00, data_size: "16B", direction: "RW" },
             { name: "DDS CURRENT", desc: "DDS Current", start_address: 0x02, data_size: "16B", direction: "RW", unit: "mA", scale: 0.0640 },
@@ -43,6 +45,7 @@ var fpgaAddressModel = [
         mux_idx: 1,
         channel: 6,
         i2c_addr: 0x41,
+        isMsbFirst: false,
         functions: [
             { name: "PULSE WIDTH LL", desc: "Pulse Width Lower Limit", start_address: 0x00, data_size: "32B", direction: "RW", unit: "uS", scale: 0.320 },
             { name: "PULSE WIDTH UL", desc: "Pulse Width Upper Limit", start_address: 0x04, data_size: "32B", direction: "RW", unit: "uS", scale: 0.320 },
@@ -63,6 +66,7 @@ var fpgaAddressModel = [
         mux_idx: 1,
         channel: 7,
         i2c_addr: 0x41,
+        isMsbFirst: false,
         functions: [
             { name: "PULSE WIDTH LL", desc: "Pulse Width Lower Limit", start_address: 0x00, data_size: "32B", direction: "RW", unit: "uS", scale: 0.320 },
             { name: "PULSE WIDTH UL", desc: "Pulse Width Upper Limit", start_address: 0x04, data_size: "32B", direction: "RW", unit: "uS", scale: 0.320 },

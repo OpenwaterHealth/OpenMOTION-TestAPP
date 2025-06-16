@@ -15,7 +15,7 @@ logger.setLevel(logging.INFO)  # or INFO depending on what you want to see
 
 # Create console handler
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)  # Show all messages on console
+console_handler.setLevel(logging.ERROR)  # Show all messages on console
 
 # Optional: set a formatter
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')

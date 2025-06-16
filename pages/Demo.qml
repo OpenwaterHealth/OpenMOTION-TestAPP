@@ -86,6 +86,8 @@ Rectangle {
         let  i2cAddr = fModel.i2c_addr;
         let  muxIdx = fModel.mux_idx;
         let  channel = fModel.channel;
+        let isMsbFirst = fModel.isMsbFirst;
+
         const myFn = fModel.functions.find(fn => fn.name === funcName);
 
         if (!myFn) {
@@ -119,8 +121,17 @@ Rectangle {
         }
 
         let dataToSend = [];
-        for (let i = length - 1; i >= 0; i--) {
-            dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+    
+        if (isMsbFirst) {
+            // MSB first (big-endian, default)
+            for (let i = length - 1; i >= 0; i--) {
+                dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+            }
+        } else {
+            // LSB first (little-endian, reversed)
+            for (let i = 0; i < length; i++) {
+                dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+            }
         }
 
         console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
@@ -150,6 +161,8 @@ Rectangle {
         let  i2cAddr = fModel.i2c_addr;
         let  muxIdx = fModel.mux_idx;
         let  channel = fModel.channel;
+        let isMsbFirst = fModel.isMsbFirst;
+
         const myFn = fModel.functions.find(fn => fn.name === funcName);
 
         if (!myFn) {
@@ -168,9 +181,19 @@ Rectangle {
             statusText.text = "Read " + funcName + " Failed";
             statusText.color = "red";
         } else {
+
             let fullValue = 0;
-            for (let i = 0; i < result.length; i++) {
-                fullValue = (fullValue << 8) | result[i];
+    
+            if (isMsbFirst) {
+                // MSB first (big-endian, default)
+                for (let i = 0; i < result.length; i++) {
+                    fullValue = (fullValue << 8) | result[i];
+                }
+            } else {
+                // LSB first (little-endian, reversed)
+                for (let i = result.length - 1; i >= 0; i--) {
+                    fullValue = (fullValue << 8) | result[i];
+                }
             }
 
             let rawValue = fullValue;  // store globally

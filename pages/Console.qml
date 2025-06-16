@@ -873,6 +873,7 @@ Rectangle {
                                         const i2cAddr = fpga.i2c_addr;
                                         const muxIdx = fpga.mux_idx;
                                         const channel = fpga.channel;
+                                        const isMsbFirst = fpga.isMsbFirst;
 
                                         const fn = functionSelector.model[functionSelector.currentIndex];
                                         const offset = fn.start_address;
@@ -890,8 +891,17 @@ Rectangle {
                                                 i2cStatus.color = "red";
                                             } else {
                                                 let fullValue = 0;
-                                                for (let i = 0; i < result.length; i++) {
-                                                    fullValue = (fullValue << 8) | result[i];
+    
+                                                if (isMsbFirst) {
+                                                    // MSB first (big-endian, default)
+                                                    for (let i = 0; i < result.length; i++) {
+                                                        fullValue = (fullValue << 8) | result[i];
+                                                    }
+                                                } else {
+                                                    // LSB first (little-endian, reversed)
+                                                    for (let i = result.length - 1; i >= 0; i--) {
+                                                        fullValue = (fullValue << 8) | result[i];
+                                                    }
                                                 }
 
                                                 rawValue = fullValue;  // store globally
@@ -937,8 +947,17 @@ Rectangle {
                                             rawValue = fullValue;  // store globally
 
                                             let dataToSend = [];
-                                            for (let i = length - 1; i >= 0; i--) {
-                                                dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+    
+                                            if (isMsbFirst) {
+                                                // MSB first (big-endian, default)
+                                                for (let i = length - 1; i >= 0; i--) {
+                                                    dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+                                                }
+                                            } else {
+                                                // LSB first (little-endian, reversed)
+                                                for (let i = 0; i < length; i++) {
+                                                    dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+                                                }
                                             }
 
                                             console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
