@@ -94,7 +94,7 @@ Rectangle {
         }
 
         const offset = myFn.start_address;
-        const data_len = parseInt(myFn.data_size.replace("B", "")) / 8;
+        const length = parseInt(myFn.data_size.replace("B", "")) / 8;
         
         let fullValue = 0;
 
@@ -104,7 +104,7 @@ Rectangle {
                 console.warn("Invalid numeric input for unit conversion.");
                 return;
             }
-            fullValue = Math.round(floatVal / fn.scale);
+            fullValue = Math.round(floatVal / myFn.scale);
         } else {
             let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
 
