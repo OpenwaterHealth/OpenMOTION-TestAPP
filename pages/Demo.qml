@@ -193,13 +193,21 @@ Rectangle {
         readFpgaRegister("Seed", "CW CURRENT", cwSeedCurrent);
         readFpgaRegister("Seed", "CW CL", cwSeedCurrentLimit);
 
-        readFpgaRegister("Safety EE", "PULSE WIDTH LL", pwLowerLimit);
-        readFpgaRegister("Safety EE", "PULSE WIDTH UL", pwUpperLimit);
-        readFpgaRegister("Safety EE", "RATE LL", periodLowerLimit);
-        readFpgaRegister("Safety EE", "RATE UL", periodUpperLimit);
-        readFpgaRegister("Safety EE", "DRIVE CL", driveCurrentLimit);
-        readFpgaRegister("Safety EE", "CW CURRENT", cwSafetyCurrentLimit);
-        readFpgaRegister("Safety EE", "PWM CURRENT", pwmCurrentLimit);
+        readFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit);
+        readFpgaRegister("Safety OPT", "PULSE WIDTH UL", pwUpperLimit);
+        readFpgaRegister("Safety OPT", "RATE LL", periodLowerLimit);
+        readFpgaRegister("Safety OPT", "RATE UL", periodUpperLimit);
+        readFpgaRegister("Safety OPT", "DRIVE CL", driveCurrentLimit);
+        readFpgaRegister("Safety OPT", "CW CURRENT", cwSafetyCurrentLimit);
+        readFpgaRegister("Safety OPT", "PWM CURRENT", pwmCurrentLimit);
+
+        readFpgaRegister("Safety EE", "PULSE WIDTH LL", pw2LowerLimit);
+        readFpgaRegister("Safety EE", "PULSE WIDTH UL", pw2UpperLimit);
+        readFpgaRegister("Safety EE", "RATE LL", period2LowerLimit);
+        readFpgaRegister("Safety EE", "RATE UL", period2UpperLimit);
+        readFpgaRegister("Safety EE", "DRIVE CL", drive2CurrentLimit);
+        readFpgaRegister("Safety EE", "CW CURRENT", cw2SafetyCurrentLimit);
+        readFpgaRegister("Safety EE", "PWM CURRENT", pwm2CurrentLimit);
     }
 
     function updatePatternOptions() {
@@ -521,250 +529,504 @@ Rectangle {
                         }
                     }
 
-                    GroupBox {
-                        title: "Safety (OPT/EE)"
+                    TabBar {
+                        id: safetyTabs
                         Layout.fillWidth: true
+                        implicitHeight: 32  // smaller height
 
-                        GridLayout {
-                            columns: 4
-                            width: parent.width
+                        TabButton {
+                            text: "Safety OPT"
+                            font.pixelSize: 12
+                            padding: 6
+                        }
 
-                            Text { text: "PulseWidth Limit:"; color: "white" }                            
-                            
-                            ColumnLayout {
-                                Layout.columnSpan: 1
-                                Layout.alignment: Qt.AlignLeft
-                                spacing: 2
+                        TabButton {
+                            text: "Safety EE"
+                            font.pixelSize: 12
+                            padding: 6
+                        }
+                    }
 
-                                Text {
-                                    text: "Lower (uS)"
-                                    color: "#BDC3C7"
-                                    font.pixelSize: 12
-                                }
+                    StackLayout {
+                        id: safetyStack
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        currentIndex: safetyTabs.currentIndex
+                        Rectangle {
+                            color: "#1E1E20"
+                            GridLayout {
+                                columns: 4
+                                width: parent.width
 
-                                TextField {
-                                    id: pwLowerLimit
-                                    Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
-                                    font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
-                                    background: Rectangle {
-                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                Text { text: "PulseWidth Limit:"; color: "white" }                            
+                                
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Lower (uS)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
                                     }
-                                }
-                            }                     
-                            
-                            ColumnLayout {
-                                Layout.columnSpan: 1
-                                Layout.alignment: Qt.AlignLeft
-                                spacing: 2
 
-                                Text {
-                                    text: "Upper (uS)"
-                                    color: "#BDC3C7"
-                                    font.pixelSize: 12
-                                }
-
-                                TextField {
-                                    id: pwUpperLimit
-                                    Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
-                                    font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
-                                    background: Rectangle {
-                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
-                                    }
-                                }
-                            }
-
-                            Item { Layout.preferredHeight: 30 } // Empty spacer
-
-                            Text { text: "Period Limit:"; color: "white" }
-                            
-                            ColumnLayout {
-                                Layout.columnSpan: 1
-                                Layout.alignment: Qt.AlignLeft
-                                spacing: 2
-
-                                Text {
-                                    text: "Lower (mS)"
-                                    color: "#BDC3C7"
-                                    font.pixelSize: 12
-                                }
-
-                                TextField {
-                                    id: periodLowerLimit
-                                    Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
-                                    font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
-                                    background: Rectangle {
-                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
-                                    }
-                                }
-                            }
-                            
-                            ColumnLayout {
-                                Layout.columnSpan: 1
-                                Layout.alignment: Qt.AlignLeft
-                                spacing: 2
-
-                                Text {
-                                    text: "Upper (mS)"
-                                    color: "#BDC3C7"
-                                    font.pixelSize: 12
-                                }
-
-                                TextField {
-                                    id: periodUpperLimit
-                                    Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
-                                    font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
-                                    background: Rectangle {
-                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
-                                    }
-                                }
-                            }
-                            
-                            Item { Layout.preferredHeight: 30 } // Empty spacer
-
-                            Text { text: "Drive Current:"; color: "white" }
-
-                            ColumnLayout {
-                                Layout.columnSpan: 1
-                                Layout.alignment: Qt.AlignLeft
-                                spacing: 2
-
-                                Text {
-                                    text: "Limit (mA)"
-                                    color: "#BDC3C7"
-                                    font.pixelSize: 12
-                                }
-
-                                TextField {
-                                    id: driveCurrentLimit
-                                    Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
-                                    font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
-                                    background: Rectangle {
-                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
-                                    }
-                                }
-                            }
-                            
-                            Item { Layout.preferredHeight: 30 } // Empty spacer
-                            Item { Layout.preferredHeight: 30 } // Empty spacer
-
-                            Text { text: "CW Current:"; color: "white" }
-
-                            ColumnLayout {
-                                Layout.columnSpan: 1
-                                Layout.alignment: Qt.AlignLeft
-                                spacing: 2
-
-                                Text {
-                                    text: "Limit (mA)"
-                                    color: "#BDC3C7"
-                                    font.pixelSize: 12
-                                }
-
-                                TextField {
-                                    id: cwSafetyCurrentLimit
-                                    Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
-                                    font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
-                                    background: Rectangle {
-                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
-                                    }
-                                }
-                            }
-                            
-                            Item { Layout.preferredHeight: 30 } // Empty spacer
-                            Item { Layout.preferredHeight: 30 } // Empty spacer
-
-                            Text { text: "PWM Current:"; color: "white" }
-
-                            ColumnLayout {
-                                Layout.columnSpan: 1
-                                Layout.alignment: Qt.AlignLeft
-                                spacing: 2
-
-                                Text {
-                                    text: "Limit (mA)"
-                                    color: "#BDC3C7"
-                                    font.pixelSize: 12
-                                }
-
-                                TextField {
-                                    id: pwmCurrentLimit
-                                    Layout.preferredWidth: 100
-                                    Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
-                                    font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
-                                    background: Rectangle {
-                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
-                                    }
-                                }
-                            }
-                                                        
-                            Button {
-                                id: btnUpdateSafety
-                                text: "Update"
-                                Layout.preferredWidth: 100
-                                Layout.preferredHeight: 40
-                                hoverEnabled: true
-                                enabled: MOTIONConnector.consoleConnected 
-
-                                contentItem: Text {
-                                    text: parent.text
-                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-
-                                background: Rectangle {                                    
-                                    color: {
-                                        if (!parent.enabled) {
-                                            return "#3A3F4B";  // Disabled color
+                                    TextField {
+                                        id: pwLowerLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
-                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
                                     }
-                                    border.color: {
-                                        if (!parent.enabled) {
-                                            return "#7F8C8D";  // Disabled border color
+                                }                     
+                                
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Upper (uS)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: pwUpperLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
-                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
                                     }
-                                    radius: 4
                                 }
 
-                                onClicked: {
-                                    console.log("Update Safety Settings");
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
 
-                                    writeFpgaRegister("Safety EE", "PULSE WIDTH LL", pwLowerLimit.text);
-                                    writeFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit.text);
-                                    writeFpgaRegister("Safety EE", "PULSE WIDTH UL", pwUpperLimit.text);
-                                    writeFpgaRegister("Safety OPT", "PULSE WIDTH UL", pwUpperLimit.text);
-                                    writeFpgaRegister("Safety EE", "RATE LL", periodLowerLimit.text);
-                                    writeFpgaRegister("Safety OPT", "RATE LL", periodLowerLimit.text);
-                                    writeFpgaRegister("Safety EE", "RATE UL", periodUpperLimit.text);
-                                    writeFpgaRegister("Safety OPT", "RATE UL", periodUpperLimit.text);
-                                    writeFpgaRegister("Safety EE", "DRIVE CL", driveCurrentLimit.text);
-                                    writeFpgaRegister("Safety OPT", "DRIVE CL", driveCurrentLimit.text);
-                                    writeFpgaRegister("Safety EE", "CW CURRENT", cwSafetyCurrentLimit.text);
-                                    writeFpgaRegister("Safety OPT", "CW CURRENT", cwSafetyCurrentLimit.text);
-                                    writeFpgaRegister("Safety EE", "PWM CURRENT", pwmCurrentLimit.text);
-                                    writeFpgaRegister("Safety OPT", "PWM CURRENT", pwmCurrentLimit.text);
+                                Text { text: "Period Limit:"; color: "white" }
+                                
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Lower (mS)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: periodLowerLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Upper (mS)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: periodUpperLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                                Text { text: "Drive Current:"; color: "white" }
+
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Limit (mA)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: driveCurrentLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                                Text { text: "CW Current:"; color: "white" }
+
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Limit (mA)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: cwSafetyCurrentLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                                Text { text: "PWM Current:"; color: "white" }
+
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Limit (mA)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: pwmCurrentLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                                            
+                                Button {
+                                    id: btnUpdateSafety
+                                    text: "Update"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 40
+                                    hoverEnabled: true
+                                    enabled: MOTIONConnector.consoleConnected 
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {                                    
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B";  // Disabled color
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                        }
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D";  // Disabled border color
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                        }
+                                        radius: 4
+                                    }
+
+                                    onClicked: {
+                                        console.log("Update Safety OPT Settings");
+
+                                        writeFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit.text);
+                                        writeFpgaRegister("Safety OPT", "PULSE WIDTH UL", pwUpperLimit.text);
+                                        writeFpgaRegister("Safety OPT", "RATE LL", periodLowerLimit.text);
+                                        writeFpgaRegister("Safety OPT", "RATE UL", periodUpperLimit.text);
+                                        writeFpgaRegister("Safety OPT", "DRIVE CL", driveCurrentLimit.text);
+                                        writeFpgaRegister("Safety OPT", "CW CURRENT", cwSafetyCurrentLimit.text);
+                                        writeFpgaRegister("Safety OPT", "PWM CURRENT", pwmCurrentLimit.text);
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            color: "#1E1E20"
+                            GridLayout {
+                                columns: 4
+                                width: parent.width
+
+                                Text { text: "PulseWidth Limit:"; color: "white" }                            
+                                
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Lower (uS)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: pw2LowerLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }                     
+                                
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Upper (uS)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: pw2UpperLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                                Text { text: "Period Limit:"; color: "white" }
+                                
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Lower (mS)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: period2LowerLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Upper (mS)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: period2UpperLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                                Text { text: "Drive Current:"; color: "white" }
+
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Limit (mA)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: drive2CurrentLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                                Text { text: "CW Current:"; color: "white" }
+
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Limit (mA)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: cw2SafetyCurrentLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                                Text { text: "PWM Current:"; color: "white" }
+
+                                ColumnLayout {
+                                    Layout.columnSpan: 1
+                                    Layout.alignment: Qt.AlignLeft
+                                    spacing: 2
+
+                                    Text {
+                                        text: "Limit (mA)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    TextField {
+                                        id: pwm2CurrentLimit
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 30
+                                        enabled: MOTIONConnector.consoleConnected
+                                        font.pixelSize: 12
+                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        background: Rectangle {
+                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                        }
+                                    }
+                                }
+                                                            
+                                Button {
+                                    id: btn2UpdateSafety
+                                    text: "Update"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 40
+                                    hoverEnabled: true
+                                    enabled: MOTIONConnector.consoleConnected 
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {                                    
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B";  // Disabled color
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                        }
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D";  // Disabled border color
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                        }
+                                        radius: 4
+                                    }
+
+                                    onClicked: {
+                                        console.log("Update Safety EE Settings");
+                                        writeFpgaRegister("Safety EE", "PULSE WIDTH LL", pw2LowerLimit.text);
+                                        writeFpgaRegister("Safety EE", "PULSE WIDTH UL", pw2UpperLimit.text);
+                                        writeFpgaRegister("Safety EE", "RATE LL", period2LowerLimit.text);
+                                        writeFpgaRegister("Safety EE", "RATE UL", period2UpperLimit.text);
+                                        writeFpgaRegister("Safety EE", "DRIVE CL", drive2CurrentLimit.text);
+                                        writeFpgaRegister("Safety EE", "CW CURRENT", cw2SafetyCurrentLimit.text);
+                                        writeFpgaRegister("Safety EE", "PWM CURRENT", pwm2CurrentLimit.text);
+                                    }
                                 }
                             }
                         }

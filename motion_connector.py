@@ -15,7 +15,7 @@ logger.setLevel(logging.INFO)  # or INFO depending on what you want to see
 
 # Create console handler
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.ERROR)  # Show all messages on console
+console_handler.setLevel(logging.INFO)  # Show all messages on console
 
 # Optional: set a formatter
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -518,8 +518,8 @@ class MOTIONConnector(QObject):
                     logger.error(f"Read I2C Failed")
                     return []
                 else:
-                    logger.debug(f"Read I2C Success")
-                    logger.debug(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
+                    logger.info(f"Read I2C Success")
+                    logger.info(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
                     return list(fpga_data[:fpga_data_len]) 
                 
             elif target == "SENSOR":
