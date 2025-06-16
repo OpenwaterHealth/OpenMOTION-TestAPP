@@ -46,6 +46,7 @@ Rectangle {
             default: return /0x[0-9a-fA-F]{1,2}/;
         }
     }
+
     ListModel {
         id: cameraModel
         ListElement { label: "Camera 1"; cam_num: 1; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
@@ -73,41 +74,132 @@ Rectangle {
         ListElement { label: "Stream"; tp_id: 0x04}
     }
 
-    // Define the model for accessSelector
-    ListModel {
-        id: accessModeModel
+    function writeFpgaRegister(fpgaLabel, funcName, data) {
+
+        const fModel = FpgaData.fpgaAddressModel.find(fpga => fpga.label === fpgaLabel);
+
+        if (!fModel) {
+            console.error("FPGA Label not found");
+            return;
+        }
+
+        let  i2cAddr = fModel.i2c_addr;
+        let  muxIdx = fModel.mux_idx;
+        let  channel = fModel.channel;
+        const myFn = fModel.functions.find(fn => fn.name === funcName);
+
+        if (!myFn) {
+            console.error("Function not found");
+            return;
+        }
+
+        const offset = myFn.start_address;
+        const length = parseInt(myFn.data_size.replace("B", "")) / 8;
+        
+        let fullValue = 0;
+
+        if (myFn.unit && myFn.scale) {
+            const floatVal = parseFloat(data);
+            if (isNaN(floatVal)) {
+                console.warn("Invalid numeric input for unit conversion.");
+                return;
+            }
+            fullValue = Math.round(floatVal / myFn.scale);
+        } else {
+            let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
+
+            if (sanitized.length > length * 2) {
+                console.warn("Input too long, trimming.");
+                sanitized = sanitized.slice(-length * 2);
+            } else if (sanitized.length < length * 2) {
+                sanitized = sanitized.padStart(length * 2, "0");
+            }
+
+            fullValue = parseInt(sanitized, 16);
+        }
+
+        let dataToSend = [];
+        for (let i = length - 1; i >= 0; i--) {
+            dataToSend.push((fullValue >> (i * 8)) & 0xFF);
+        }
+
+        console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
+
+        let success = MOTIONConnector.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
+
+        if (success) {
+            console.log("Write successful.");
+            statusText.text = "Write successful";
+            statusText.color = "lightgreen";
+        } else {
+            console.log("Write failed.");
+            statusText.text = "Write failed";
+            statusText.color = "red";
+        }
     }
 
-    function updateFunctionUI(index) {
-        accessModeModel.clear()
+    function readFpgaRegister(fpgaLabel, funcName, field) {
+        
+        const fModel = FpgaData.fpgaAddressModel.find(fpga => fpga.label === fpgaLabel);
 
-        // Defensive check: valid index and model element
-        if (index < 0 || !functionSelector.model || index >= functionSelector.model.length) {
-            fn = null
-            hexInput.text = ""
-            return
+        if (!fModel) {
+            console.error("FPGA Label not found");
+            return;
         }
 
-        fn = functionSelector.model[index]
-        if (!fn || !fn.direction) {
-            console.warn("Function data is invalid")
-            hexInput.text = ""
-            return
+        let  i2cAddr = fModel.i2c_addr;
+        let  muxIdx = fModel.mux_idx;
+        let  channel = fModel.channel;
+        const myFn = fModel.functions.find(fn => fn.name === funcName);
+
+        if (!myFn) {
+            console.error("Function not found");
+            return;
         }
 
-        const dir = fn.direction
+        const offset = myFn.start_address;
+        const data_len = parseInt(myFn.data_size.replace("B", "")) / 8;
 
-        if (dir === "RD") {
-            accessModeModel.append({ text: "Read" })
-        } else if (dir === "WR") {
-            accessModeModel.append({ text: "Write" })
-        } else if (dir === "RW") {
-            accessModeModel.append({ text: "Read" })
-            accessModeModel.append({ text: "Write" })
+        console.log(`READ from ${fModel.label} @ 0x${offset.toString(16)}`);
+        let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len);
+
+        if (result.length === 0) {
+            console.log("Read failed or returned empty array.");
+            statusText.text = "Read " + funcName + " Failed";
+            statusText.color = "red";
+        } else {
+            let fullValue = 0;
+            for (let i = 0; i < result.length; i++) {
+                fullValue = (fullValue << 8) | result[i];
+            }
+
+            let rawValue = fullValue;  // store globally
+
+            if (myFn.unit && myFn.scale) {
+                field.text = (fullValue * myFn.scale).toFixed(3);
+            } else {
+                let hexStr = "0x" + fullValue.toString(16).toUpperCase().padStart(length * 2, "0");
+                field.text = hexStr;
+            }
         }
+    }
 
-        accessSelector.currentIndex = 0
-        hexInput.text = ""
+    function updateLaserUI() {
+        readFpgaRegister("TA", "PULSE WIDTH", taPulseWidth);
+        readFpgaRegister("TA", "CURRENT DRV", taDrive);
+
+        readFpgaRegister("Seed", "DDS CURRENT", ddsCurrent);
+        readFpgaRegister("Seed", "DDS CL", ddsCurrentLimit);
+        readFpgaRegister("Seed", "CW CURRENT", cwSeedCurrent);
+        readFpgaRegister("Seed", "CW CL", cwSeedCurrentLimit);
+
+        readFpgaRegister("Safety EE", "PULSE WIDTH LL", pwLowerLimit);
+        readFpgaRegister("Safety EE", "PULSE WIDTH UL", pwUpperLimit);
+        readFpgaRegister("Safety EE", "RATE LL", periodLowerLimit);
+        readFpgaRegister("Safety EE", "RATE UL", periodUpperLimit);
+        readFpgaRegister("Safety EE", "DRIVE CL", driveCurrentLimit);
+        readFpgaRegister("Safety EE", "CW CURRENT", cwSafetyCurrentLimit);
+        readFpgaRegister("Safety EE", "PWM CURRENT", pwmCurrentLimit);
     }
 
     function updatePatternOptions() {
@@ -138,466 +230,544 @@ Rectangle {
             top: parent.top
             left: parent.left
             right: parent.right
-            topMargin: 10
+            topMargin: 5
+            bottomMargin: 5
         }
     }
 
     // LAYOUT
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 20
+        anchors.margins: 10
+        spacing: 10
 
         // Left Column (Input Panel)
         ColumnLayout {
-            spacing: 20
-
-            // Trigger
-            Rectangle {
-                id: triggerContainer
-                width: 500
-                height: 260
-                color: "#1E1E20"
-                radius: 10
-                border.color: "#3E4E6F"
-                border.width: 2
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 8
-
-                    Text {
-                        text: "Trigger Configuration"
-                        color: "#BDC3C7"
-                        font.pixelSize: 16
-                        font.bold: true
-                        Layout.alignment: Qt.AlignHCenter
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignHCenter
-                        Text {
-                            id: triggerStatus
-                            text: MOTIONConnector.triggerState
-                            color: triggerStatus.text === "ON" ? "lightgreen" : "red"
-                            font.pixelSize: 14
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-                    }
-                    
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
-                        Layout.alignment: Qt.AlignHCenter
-
-                        // Frequency
-                        ColumnLayout {
-                            spacing: 4
-                            Text { text: "Frequency (Hz)"; color: "#BDC3C7"; font.pixelSize: 12 }
-                            TextField {
-                                id: fsFrequency
-                                placeholderText: "1 - 100"
-                                Layout.preferredWidth: 100
-                                enabled: MOTIONConnector.consoleConnected
-                                font.pixelSize: 12
-                                validator: IntValidator { bottom: 1; top: 100 }
-                                background: Rectangle {
-                                    radius: 6
-                                    color: "#2B2B2E"
-                                    border.color: "#555"
-                                }
-                            }
-                        }
-
-                        // Pulse Width
-                        ColumnLayout {
-                            spacing: 4
-                            Text { text: "Pulse Width (µs)"; color: "#BDC3C7"; font.pixelSize: 12 }
-                            TextField {
-                                id: fsPulseWidth
-                                placeholderText: "e.g. 500"
-                                Layout.preferredWidth: 100
-                                enabled: MOTIONConnector.consoleConnected
-                                font.pixelSize: 12
-                                validator: IntValidator { bottom: 1; top: 1000 }
-                                background: Rectangle {
-                                    radius: 6
-                                    color: "#2B2B2E"
-                                    border.color: "#555"
-                                }
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        anchors.margins: 12
-                        spacing: 8
-                        Layout.alignment: Qt.AlignHCenter
-
-                        // Laser Delay
-                        ColumnLayout {
-                            spacing: 4
-                            Text { text: "Laser Delay (µs)"; color: "#BDC3C7"; font.pixelSize: 12 }
-                            TextField {
-                                id: lsDelay
-                                placeholderText: "e.g. 100"
-                                Layout.preferredWidth: 100
-                                enabled: MOTIONConnector.consoleConnected
-                                font.pixelSize: 12
-                                validator: IntValidator { bottom: 0; top: 1000 }
-                                background: Rectangle {
-                                    radius: 6
-                                    color: "#2B2B2E"
-                                    border.color: "#555"
-                                }
-                            }
-                        }
-
-                        // Laser Pulse Width
-                        ColumnLayout {
-                            spacing: 4
-                            Text { text: "Laser Width (µs)"; color: "#BDC3C7"; font.pixelSize: 12 }
-                            TextField {
-                                id: lsPulseWidth
-                                placeholderText: "e.g. 500"
-                                Layout.preferredWidth: 100
-                                enabled: MOTIONConnector.consoleConnected
-                                font.pixelSize: 12
-                                validator: IntValidator { bottom: 1; top: 1000 }
-                                background: Rectangle {
-                                    radius: 6
-                                    color: "#2B2B2E"
-                                    border.color: "#555"
-                                }
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
-                        anchors.topMargin: 10
-                        Layout.alignment: Qt.AlignHCenter
-                        
-                        Button {
-                            id: btnStartTrigger
-                            text: "Start Trigger"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 40
-                            hoverEnabled: true
-                            enabled: MOTIONConnector.consoleConnected 
-
-                            contentItem: Text {
-                                text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            background: Rectangle {
-                                color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                radius: 4
-                            }
-
-                            onClicked: {
-                                var json_trigger_data = {
-                                    "TriggerFrequencyHz": parseInt(fsFrequency.text),
-                                    "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
-                                    "LaserPulseDelayUsec": parseInt(lsDelay.text),
-                                    "LaserPulseWidthUsec": parseInt(lsPulseWidth.text),
-                                    "EnableSyncOut": false,
-                                    "EnableTaTrigger": true
-                                }
-
-                                // Convert the object to a JSON string
-                                var jsonString = JSON.stringify(json_trigger_data);
-                                
-                                if (MOTIONConnector.setTrigger(jsonString)) {
-                                    MOTIONConnector.startTrigger()
-                                } else {
-                                    console.log("Failed to apply trigger config")
-                                }
-							}
-						}
-
-                        Button {
-                            id: btnStopTrigger
-                            text: "Stop Trigger"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 40
-                            hoverEnabled: true
-                            enabled: MOTIONConnector.consoleConnected 
-
-                            contentItem: Text {
-                                text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            background: Rectangle {
-                                color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                radius: 4
-                            }
-
-                            onClicked: {
-								MOTIONConnector.stopTrigger()
-							}
-						}
-                    }
-                }
-
-                // Auto-refresh status
-                Connections {
-                    target: MOTIONConnector
-                    function onTriggerStateChanged(state) {
-                        triggerStatus.text = state
-                    }
-                }
-            }
+            spacing: 10
 
             // fpga container
             Rectangle {
                 id: fpgaContainer
                 width: 500
-                height: 340
+                height: 640
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
                 enabled: MOTIONConnector.consoleConnected
 
-                // Title
-                Text {
-                    id: fpgaTitle
-                    text: "FPGA I2C Utility"
-                    color: "#BDC3C7"
-                    font.pixelSize: 16
-                    font.bold: true
-                    anchors.top: parent.top
-                    anchors.topMargin: 12
-                    anchors.horizontalCenter: parent.horizontalCenter
-                }
-
                 ColumnLayout {
-                    id: fpgaLayout
-                    anchors.top: fpgaTitle.bottom
-                    anchors.topMargin: 12
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: 12
+                    anchors.fill: parent
+                    anchors.margins: 10
                     spacing: 10
 
-                    // FPGA + Function Combo Row
-                    RowLayout {
+                    GroupBox {
+                        title: "TA"
                         Layout.fillWidth: true
-                        spacing: 12
 
-                        ComboBox {
-                            id: fpgaSelector
-                            model: FpgaData.fpgaAddressModel
-                            textRole: "label"
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 32
+                        GridLayout {
+                            columns: 4
+                            width: parent.width
 
-                            onCurrentIndexChanged: {
-                                accessModeModel.clear()
-                                functionSelector.currentIndex = 0;
-                                updateFunctionUI(0)
+                            Text { text: "TA Drive:"; color: "white" }
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Current (mA)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: taDrive
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
                             }
-                        }
 
-                        ComboBox {
-                            id: functionSelector
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 32
-                            model: fpgaSelector.currentIndex >= 0 ? FpgaData.fpgaAddressModel[fpgaSelector.currentIndex].functions : []
-                            textRole: "name"
-                            enabled: fpgaSelector.currentIndex >= 0
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
 
-                            onCurrentIndexChanged: updateFunctionUI(currentIndex)
-                            onModelChanged: {
-                                if (functionSelector.model.length > 0) {
-                                    functionSelector.currentIndex = 0;
-                                    updateFunctionUI(0);
+                            Text { text: "TA Pulse:"; color: "white" }
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "PulseWidth (uS)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: taPulseWidth
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+                            
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Button {
+                                id: btnUpdateTa
+                                text: "Update"
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 40
+                                hoverEnabled: true
+                                enabled: MOTIONConnector.consoleConnected
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {                     
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                    radius: 4
+                                }
+
+                                onClicked: {
+                                    console.log("Update TA Settings");
+                                    
+                                    writeFpgaRegister("TA", "PULSE WIDTH", taPulseWidth.text);
+                                    writeFpgaRegister("TA", "CURRENT DRV", taDrive.text);                                    
                                 }
                             }
                         }
                     }
 
-                    // Access + Input + Execute Row
-                    RowLayout {
+                    GroupBox {
+                        title: "Seed"
                         Layout.fillWidth: true
-                        spacing: 12
 
-                        ComboBox {
-                            id: accessSelector
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 32
-                            model: accessModeModel
-                            textRole: "text"
-                        }
+                        GridLayout {
+                            columns: 4
+                            width: parent.width
 
-                        DoubleValidator {
-                            id: doubleVal
-                            bottom: 0
-                        }
+                            Text { text: "DDS:"; color: "white" }
+                                                        
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
 
-                        RegularExpressionValidator {
-                            id: hexVal
-                            regularExpression: hexValidator
-                        }
+                                Text {
+                                    text: "Current (mA)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
 
-                        TextField {
-                            id: hexInput
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 32
-                            placeholderText: fn && fn.unit ? `e.g. 12.8 ${fn.unit}` : placeholderHex
-                            enabled: accessSelector.currentText === "Write"
-                            validator: fn && fn.unit ? doubleVal : hexVal
-                            text: {
-                                if (!fn || rawValue === undefined) return "";
-                                if (fn.unit && fn.scale)
-                                    return (rawValue * fn.scale).toFixed(2);
-                                return "0x" + rawValue.toString(16).toUpperCase();
+                                TextField {
+                                    id: ddsCurrent
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
                             }
-                        }
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
 
-                        Button {
-                            id: exeButton
-                            text: "Execute"
-                            Layout.preferredWidth: 100
-                            Layout.preferredHeight: 40
-                            hoverEnabled: true
-                            enabled: MOTIONConnector.consoleConnected && functionSelector.currentIndex >= 0 &&
-                                    (accessSelector.currentText === "Read" || (hexInput.acceptableInput && hexInput.text.length > 0))
+                                Text {
+                                    text: "Limit (mA)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
 
-                            contentItem: Text {
-                                text: parent.text
-                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            background: Rectangle {
-                                color: parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                radius: 4
+                                TextField {
+                                    id: ddsCurrentLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
                             }
 
-                            onClicked: {
-                                const fpga = FpgaData.fpgaAddressModel[fpgaSelector.currentIndex];
-                                const i2cAddr = fpga.i2c_addr;
-                                const muxIdx = fpga.mux_idx;
-                                const channel = fpga.channel;
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
 
-                                const fn = functionSelector.model[functionSelector.currentIndex];
-                                const offset = fn.start_address;
-                                const dir = accessSelector.currentText;
-                                const length = parseInt(fn.data_size.replace("B", "")) / 8;
-                                let data = hexInput.text;
+                            Text { text: "CW:"; color: "white" }
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
 
-                                if (dir === "Read") {
-                                    console.log(`READ from ${fpga.label} @ 0x${offset.toString(16)}`);
-                                    let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, length);
+                                Text {
+                                    text: "Current (mA)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
 
-                                    if (result.length === 0) {
-                                        console.log("Read failed or returned empty array.");
-                                        i2cStatus.text = "Read failed";
-                                        i2cStatus.color = "red";
-                                    } else {
-                                        let fullValue = 0;
-                                        for (let i = 0; i < result.length; i++) {
-                                            fullValue = (fullValue << 8) | result[i];
-                                        }
-
-                                        rawValue = fullValue;  // store globally
-
-                                        if (fn.unit && fn.scale) {
-                                            hexInput.text = (fullValue * fn.scale).toFixed(2);
-                                        } else {
-                                            let hexStr = "0x" + fullValue.toString(16).toUpperCase().padStart(length * 2, "0");
-                                            hexInput.text = hexStr;
-                                        }
-
-                                        console.log("Read success:", hexInput.text);
-                                        i2cStatus.text = "Read successful";
-                                        i2cStatus.color = "lightgreen";
+                                TextField {
+                                    id: cwSeedCurrent
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
                                     }
+                                }
+                            }
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
 
-                                    cleari2cStatusTimer.start();
-                                } else {
-                                    console.log(`WRITE to ${fpga.label} @ 0x${offset.toString(16)} = ${data}`);
+                                Text {
+                                    text: "Limit (mA)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
 
-                                    let fullValue = 0;
+                                TextField {
+                                    id: cwSeedCurrentLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
 
-                                    if (fn.unit && fn.scale) {
-                                        const floatVal = parseFloat(data);
-                                        if (isNaN(floatVal)) {
-                                            console.warn("Invalid numeric input for unit conversion.");
-                                            return;
+                            Button {
+                                id: btnUpdateSeed
+                                text: "Update"
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 40
+                                hoverEnabled: true
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {                     
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
                                         }
-                                        fullValue = Math.round(floatVal / fn.scale);
-                                    } else {
-                                        let sanitized = data.replace(/0x/gi, "").replace(/\s+/g, "");
-
-                                        if (sanitized.length > length * 2) {
-                                            console.warn("Input too long, trimming.");
-                                            sanitized = sanitized.slice(-length * 2);
-                                        } else if (sanitized.length < length * 2) {
-                                            sanitized = sanitized.padStart(length * 2, "0");
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
                                         }
-
-                                        fullValue = parseInt(sanitized, 16);
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
                                     }
+                                    radius: 4
+                                }
 
-                                    rawValue = fullValue;  // store globally
+                                onClicked: {
+                                    console.log("Update Seed Settings");                                    
 
-                                    let dataToSend = [];
-                                    for (let i = length - 1; i >= 0; i--) {
-                                        dataToSend.push((fullValue >> (i * 8)) & 0xFF);
-                                    }
+                                    writeFpgaRegister("Seed", "DDS CURRENT", ddsCurrent.text);
+                                    writeFpgaRegister("Seed", "DDS CL", ddsCurrentLimit.text);
+                                    writeFpgaRegister("Seed", "CW CURRENT", cwSeedCurrent.text);
+                                    writeFpgaRegister("Seed", "CW CL", cwSeedCurrentLimit.text);
 
-                                    console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
-
-                                    let success = MOTIONConnector.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
-
-                                    if (success) {
-                                        console.log("Write successful.");
-                                        i2cStatus.text = "Write successful";
-                                        i2cStatus.color = "lightgreen";
-                                    } else {
-                                        console.log("Write failed.");
-                                        i2cStatus.text = "Write failed";
-                                        i2cStatus.color = "red";
-                                    }
-
-                                    cleari2cStatusTimer.start();
                                 }
                             }
                         }
                     }
 
-                    Text {
-                        id: i2cStatus
-                        text: ""
-                        color: "#BDC3C7"
-                        font.pixelSize: 12
+                    GroupBox {
+                        title: "Safety (OPT/EE)"
                         Layout.fillWidth: true
-                        horizontalAlignment: Text.AlignHCenter
-                    }
 
-                    Timer {
-                        id: cleari2cStatusTimer
-                        interval: 2000
-                        running: false
-                        repeat: false
-                        onTriggered: i2cStatus.text = ""
+                        GridLayout {
+                            columns: 4
+                            width: parent.width
+
+                            Text { text: "PulseWidth Limit:"; color: "white" }                            
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Lower (uS)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: pwLowerLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }                     
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Upper (uS)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: pwUpperLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "Period Limit:"; color: "white" }
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Lower (mS)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: periodLowerLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+                            
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Upper (mS)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: periodUpperLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+                            
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "Drive Current:"; color: "white" }
+
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Limit (mA)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: driveCurrentLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+                            
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "CW Current:"; color: "white" }
+
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Limit (mA)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: cwSafetyCurrentLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+                            
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+                            Item { Layout.preferredHeight: 30 } // Empty spacer
+
+                            Text { text: "PWM Current:"; color: "white" }
+
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Limit (mA)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: pwmCurrentLimit
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 30
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+                                                        
+                            Button {
+                                id: btnUpdateSafety
+                                text: "Update"
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 40
+                                hoverEnabled: true
+                                enabled: MOTIONConnector.consoleConnected 
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {                                    
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                    radius: 4
+                                }
+
+                                onClicked: {
+                                    console.log("Update Safety Settings");
+
+                                    writeFpgaRegister("Safety EE", "PULSE WIDTH LL", pwLowerLimit.text);
+                                    writeFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit.text);
+                                    writeFpgaRegister("Safety EE", "PULSE WIDTH UL", pwUpperLimit.text);
+                                    writeFpgaRegister("Safety OPT", "PULSE WIDTH UL", pwUpperLimit.text);
+                                    writeFpgaRegister("Safety EE", "RATE LL", periodLowerLimit.text);
+                                    writeFpgaRegister("Safety OPT", "RATE LL", periodLowerLimit.text);
+                                    writeFpgaRegister("Safety EE", "RATE UL", periodUpperLimit.text);
+                                    writeFpgaRegister("Safety OPT", "RATE UL", periodUpperLimit.text);
+                                    writeFpgaRegister("Safety EE", "DRIVE CL", driveCurrentLimit.text);
+                                    writeFpgaRegister("Safety OPT", "DRIVE CL", driveCurrentLimit.text);
+                                    writeFpgaRegister("Safety EE", "CW CURRENT", cwSafetyCurrentLimit.text);
+                                    writeFpgaRegister("Safety OPT", "CW CURRENT", cwSafetyCurrentLimit.text);
+                                    writeFpgaRegister("Safety EE", "PWM CURRENT", pwmCurrentLimit.text);
+                                    writeFpgaRegister("Safety OPT", "PWM CURRENT", pwmCurrentLimit.text);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -611,7 +781,7 @@ Rectangle {
             Rectangle {
                 id: camerahContainer
                 width: 500
-                height: 470
+                height: 360
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
@@ -755,11 +925,232 @@ Rectangle {
                 }
             }
 
+            // Trigger
+            Rectangle {
+                id: triggerContainer
+                width: 500
+                height: 120
+                color: "#1E1E20"
+                radius: 10
+                border.color: "#3E4E6F"
+                border.width: 2
+                enabled: MOTIONConnector.sensorConnected
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 5
+                    spacing: 10
+
+                    GroupBox {
+                        title: "Trigger"
+                        Layout.fillWidth: true
+                        background: Item {}
+                        topPadding: 20
+
+                        GridLayout {
+                            columns: 4
+                            width: parent.width
+
+                            // Frequency
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Frequency (Hz)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: fsFrequency
+                                    placeholderText: "1 - 100"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 24
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 1; top: 100 }
+                                    background: Rectangle {
+                                        radius: 6
+                                        color: "#2B2B2E"
+                                        border.color: "#555"
+                                    }
+                                }
+                            }
+
+                            // PulseWidth
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "PulseWidth (µs)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: fsPulseWidth
+                                    placeholderText: "e.g. 500"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 24
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 1; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+
+                            // Laser Delay
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Laser Delay (µs)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: lsDelay
+                                    placeholderText: "e.g. 100"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 24
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+
+                            // Laser PulseWidth
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "Laser PW (µs)"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: lsPulseWidth
+                                    placeholderText: "e.g. 100"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 24
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
+
+                            Button {
+                                id: btnStartTrigger
+                                text: "Start Trigger"
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 34
+                                enabled: MOTIONConnector.consoleConnected
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                background: Rectangle {                     
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                    radius: 4
+                                }
+                                onClicked: {
+                                    var json_trigger_data = {
+                                        "TriggerFrequencyHz": parseInt(fsFrequency.text),
+                                        "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
+                                        "LaserPulseDelayUsec": parseInt(lsDelay.text),
+                                        "LaserPulseWidthUsec": parseInt(lsPulseWidth.text),
+                                        "EnableSyncOut": false,
+                                        "EnableTaTrigger": true
+                                    }
+                                    var jsonString = JSON.stringify(json_trigger_data);
+                                    if (MOTIONConnector.setTrigger(jsonString)) {
+                                        MOTIONConnector.startTrigger()
+                                    } else {
+                                        console.log("Failed to apply trigger config")
+                                    }
+                                }
+                            }
+
+                            Button {
+                                id: btnStopTrigger
+                                text: "Stop Trigger"
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 34
+                                enabled: MOTIONConnector.consoleConnected
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                background: Rectangle {                     
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                    radius: 4
+                                }
+                                onClicked: MOTIONConnector.stopTrigger()
+                            }
+
+                            // Status Label aligned right
+                            Text {
+                                id: triggerStatus
+                                text: MOTIONConnector.triggerState
+                                color: triggerStatus.text === "ON" ? "lightgreen" : "red"
+                                font.pixelSize: 14
+                                Layout.columnSpan: 2
+                                Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                            }
+                        }
+                    }
+                }
+            }
+
 			// Status Panel (Connection Indicators)
             Rectangle {
                 id: statusPanel
                 width: 500
-                height: 130
+                height: 120
                 color: "#1E1E20"
                 radius: 10
                 border.color: "#3E4E6F"
@@ -850,6 +1241,8 @@ Rectangle {
                     lsDelay.text = config.LaserPulseDelayUsec.toString()
                     lsPulseWidth.text = config.LaserPulseWidthUsec.toString()
                 }
+                
+                updateLaserUI();
             }
         }
     }
