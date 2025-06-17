@@ -32,7 +32,7 @@ def main():
 
     # Expose to QML
     engine.rootContext().setContextProperty("MOTIONConnector", motion_connector)
-    engine.rootContext().setContextProperty("appVersion", "1.0.13")
+    engine.rootContext().setContextProperty("appVersion", "1.0.14")
 
     # Load the QML file
     engine.load("main.qml")
@@ -53,6 +53,7 @@ def main():
     async def shutdown():
         """Ensure MOTIONConnector stops monitoring before closing."""
         logger.info("Shutting down MOTION monitoring...")
+        motion_connector.shutdown()  # Graceful sync cleanup
         motion_connector.stop_monitoring()
 
         pending_tasks = [t for t in asyncio.all_tasks() if not t.done()]
@@ -70,7 +71,7 @@ def main():
 
         # Schedule shutdown but do NOT block the loop
         asyncio.ensure_future(shutdown()).add_done_callback(lambda _: loop.stop())
-
+        
         engine.deleteLater()  # Ensure QML engine is destroyed
 
     # Connect shutdown process to app quit event
