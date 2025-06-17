@@ -319,7 +319,7 @@ Rectangle {
                                     Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    validator: IntValidator { bottom: 0; top: 10000 }
                                     background: Rectangle {
                                         radius: 6; color: "#2B2B2E"; border.color: "#555"
                                     }
@@ -348,7 +348,7 @@ Rectangle {
                                     Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    validator: IntValidator { bottom: 0; top: 5000000 }
                                     background: Rectangle {
                                         radius: 6; color: "#2B2B2E"; border.color: "#555"
                                     }
@@ -425,7 +425,7 @@ Rectangle {
                                     Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    validator: IntValidator { bottom: 0; top: 4100 }
                                     background: Rectangle {
                                         radius: 6; color: "#2B2B2E"; border.color: "#555"
                                     }
@@ -449,7 +449,7 @@ Rectangle {
                                     Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    validator: IntValidator { bottom: 0; top: 1200 }
                                     background: Rectangle {
                                         radius: 6; color: "#2B2B2E"; border.color: "#555"
                                     }
@@ -477,7 +477,7 @@ Rectangle {
                                     Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    validator: IntValidator { bottom: 0; top: 4100 }
                                     background: Rectangle {
                                         radius: 6; color: "#2B2B2E"; border.color: "#555"
                                     }
@@ -501,7 +501,7 @@ Rectangle {
                                     Layout.preferredHeight: 30
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
-                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    validator: IntValidator { bottom: 0; top: 1200 }
                                     background: Rectangle {
                                         radius: 6; color: "#2B2B2E"; border.color: "#555"
                                     }
@@ -600,7 +600,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -624,7 +624,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -652,7 +652,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -676,7 +676,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -704,7 +704,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 32000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -733,7 +733,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 32000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -879,7 +879,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -903,7 +903,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -931,7 +931,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
@@ -955,7 +955,7 @@ Rectangle {
                                         Layout.preferredHeight: 30
                                         enabled: MOTIONConnector.consoleConnected
                                         font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000 }
+                                        validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
                                             radius: 6; color: "#2B2B2E"; border.color: "#555"
                                         }
