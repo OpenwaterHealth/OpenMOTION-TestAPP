@@ -16,7 +16,8 @@ var fpgaAddressModel = [
             { name: "CW MON CL", desc: "CW Monitor Current Limit", start_address: 0x0C, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
             { name: "TEMP Sensor", desc: "Temperature Sensor", start_address: 0x0E, data_size: "16B", direction: "RW" },
             { name: "STATIC CTL", desc: "Static Control", start_address: 0x20, data_size: "16B", direction: "RW" },
-            { name: "DYNAMIC CTL", desc: "Dynamic Control", start_address: 0x22, data_size: "16B", direction: "RW" }
+            { name: "DYNAMIC CTL", desc: "Dynamic Control", start_address: 0x22, data_size: "16B", direction: "RW" },
+            { name: "STATUS", desc: "Status Register", start_address: 0x24, data_size: "8B", direction: "RW" }
         ]
     },
     {
@@ -35,7 +36,7 @@ var fpgaAddressModel = [
             { name: "ADC CW CL", desc: "ADC CW Current Limit", start_address: 0x0C, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
             { name: "ADC CD", desc: "ADC Current Data", start_address: 0x0E, data_size: "16B", direction: "RD", unit: "mv", scale: 0.500 },
             { name: "ADC VD", desc: "ADC Voltage Data", start_address: 0x10, data_size: "16B", direction: "RD", unit: "mv", scale: 0.500 },
-            { name: "STATUS", desc: "Status", start_address: 0x10, data_size: "8B", direction: "RD" },
+            { name: "STATUS", desc: "Status", start_address: 0x12, data_size: "8B", direction: "RD" },
             { name: "STATIC CTRL", desc: "Static Control", start_address: 0x20, data_size: "16B", direction: "RW" },
             { name: "DYNAMIC CTRL", desc: "Dynamic Control", start_address: 0x22, data_size: "16B", direction: "WR" }
         ]
@@ -58,7 +59,8 @@ var fpgaAddressModel = [
             { name: "CW MONITOR CL", desc: "CW Monitor Current Limit", start_address: 0x18, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
             { name: "TEMP Sensor", desc: "Temperature Sensor", start_address: 0x1A, data_size: "16B", direction: "RW" },
             { name: "STATIC CTRL", desc: "Static control bits", start_address: 0x20, data_size: "16B", direction: "RW" },
-            { name: "DYNAMIC CTRL", desc: "Dynamic control bits", start_address: 0x22, data_size: "16B", direction: "WR" }
+            { name: "DYNAMIC CTRL", desc: "Dynamic control bits", start_address: 0x22, data_size: "16B", direction: "WR" },
+            { name: "STATUS", desc: "Status Register", start_address: 0x24, data_size: "8B", direction: "RW" }
         ]
     },
     {
@@ -79,7 +81,8 @@ var fpgaAddressModel = [
             { name: "CW MONITOR CL", desc: "CW Monitor Current Limit", start_address: 0x18, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
             { name: "TEMP Sensor", desc: "Temperature Sensor", start_address: 0x1A, data_size: "16B", direction: "RW" },
             { name: "STATIC CTRL", desc: "Static control bits", start_address: 0x20, data_size: "16B", direction: "RW" },
-            { name: "DYNAMIC CTRL", desc: "Dynamic control bits", start_address: 0x22, data_size: "16B", direction: "WR" }
+            { name: "DYNAMIC CTRL", desc: "Dynamic control bits", start_address: 0x22, data_size: "16B", direction: "WR" },
+            { name: "STATUS", desc: "Status Register", start_address: 0x24, data_size: "8B", direction: "RW" }
         ]
     }
 ];

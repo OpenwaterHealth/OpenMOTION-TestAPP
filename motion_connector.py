@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant, QThread
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant, QThread, QMutex, QMutexLocker
 from typing import List
 import logging
 import base58
@@ -11,7 +11,7 @@ import time
 from omotion.Interface import MOTIONInterface
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)  # or INFO depending on what you want to see
+logger.setLevel(logging.ERROR)  # or INFO depending on what you want to see
 
 # Create console handler
 console_handler = logging.StreamHandler()
@@ -126,7 +126,7 @@ class CaptureThread(QThread):
                         bins, histo =  self.interface.bytes_to_integers(histogram)
                         if bins:
                             self.new_histogram.emit(bins)
-                            continue  # Continue to next frame
+                            # Continue to next frame
 
                 self.new_histogram.emit([])  # Emit empty on failure
             except Exception as e:
@@ -158,6 +158,9 @@ class MOTIONConnector(QObject):
     triggerStateChanged = pyqtSignal(str)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
+
+    laserStateChanged = pyqtSignal(bool)  # 🔹 New signal for laser state change
+    safetyFailureStateChanged = pyqtSignal(bool)  # 🔹 New signal for safety failure state chang
     
     isStreamingChanged = pyqtSignal()
 
@@ -174,11 +177,15 @@ class MOTIONConnector(QObject):
 
         self._sensorConnected = False
         self._consoleConnected = False
+        self._laserOn = False
+        self._safetyFailure = False
         self._running = False
         self._trigger_state = "OFF"
         self._state = DISCONNECTED
+        self._i2c_mutex = QMutex()
         self._is_streaming = False
         self._capture_thread = None
+        self._console_status_thread = None
 
         self.connect_signals()
 
@@ -229,6 +236,13 @@ class MOTIONConnector(QObject):
             self._sensorConnected = True
         elif descriptor.upper() == "CONSOLE":
             self._consoleConnected = True
+
+            # Start status thread
+            if self._console_status_thread is None:
+                self._console_status_thread = ConsoleStatusThread(self)
+                self._console_status_thread.statusUpdate.connect(self.handleUpdateCapStatus)  # Or define a dedicated signal
+                self._console_status_thread.start()
+
         self.signalConnected.emit(descriptor, port)
         self.connectionStatusChanged.emit() 
         self.update_state()
@@ -240,6 +254,12 @@ class MOTIONConnector(QObject):
             self._sensorConnected = False
         elif descriptor.upper() == "CONSOLE":
             self._consoleConnected = False
+
+            # Stop status thread
+            if self._console_status_thread:
+                self._console_status_thread.stop()
+                self._console_status_thread = None
+
         self.signalDisconnected.emit(descriptor, port)
         self.connectionStatusChanged.emit() 
         self.update_state()
@@ -336,12 +356,12 @@ class MOTIONConnector(QObject):
             if updateTrigger["TriggerStatus"] == 2:               
                 self._trigger_state = "ON"
                 self.triggerStateChanged.emit("ON")            
-                return trigger_setting
+                return trigger_setting or {}
        
         self._trigger_state = "OFF"
         self.triggerStateChanged.emit("OFF")
                 
-        return trigger_setting
+        return trigger_setting or {}
     
     @pyqtSlot(str, result=bool)
     def setTrigger(self, triggerjson):
@@ -507,6 +527,7 @@ class MOTIONConnector(QObject):
     @pyqtSlot(str, int, int, int, int, int, result=QVariant)
     def i2cReadBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data_len: int):
         """Send i2c read to device"""
+        locker = QMutexLocker(self._i2c_mutex)  # Lock auto-released at function exit
         try:
             logger.info(f"I2C Read Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
                 f"i2c_addr=0x{int(i2c_addr):02X}, offset=0x{int(offset):02X}, read_len={int(data_len)}"
@@ -532,6 +553,7 @@ class MOTIONConnector(QObject):
     @pyqtSlot(str, int, int, int, int, list, result=bool)
     def i2cWriteBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data: list[int]) -> bool:
         """Send i2c write to device"""
+        locker = QMutexLocker(self._i2c_mutex)  # Lock auto-released at function exit
         try:
             logger.info(
                 f"I2C Write Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
@@ -635,7 +657,7 @@ class MOTIONConnector(QObject):
     @pyqtSlot(int)
     def startCameraStream(self, camera_index: int):
         logger.info(f"Starting camera stream for camera {camera_index + 1}")
-        if self._capture_thread is None:
+        if self._capture_thread is None or not self._capture_thread.isRunning():
             self._capture_thread = CaptureThread(self.interface, camera_index)
             self._capture_thread.new_histogram.connect(self.on_new_histogram)
             self._capture_thread.update_status.connect(self.handleUpdateCapStatus)
@@ -677,6 +699,16 @@ class MOTIONConnector(QObject):
         """Expose Console connection status to QML."""
         return self._consoleConnected
 
+    @pyqtProperty(bool, notify=laserStateChanged)
+    def laserOn(self):
+        """Expose Console connection status to QML."""
+        return self._laserOn
+    
+    @pyqtProperty(bool, notify=safetyFailureStateChanged)
+    def safetyFailure(self):
+        """Expose Console connection status to QML."""
+        return self._safetyFailure
+
     @pyqtProperty(int, notify=stateChanged)
     def state(self):
         """Expose state as a QML property."""
@@ -686,3 +718,84 @@ class MOTIONConnector(QObject):
     def sdkVersion(self) -> str:
         """Expose SDK version as a constant QML property."""
         return MOTIONInterface.get_sdk_version()
+    
+    @pyqtSlot()
+    def shutdown(self):
+        logger.info("Shutting down MOTIONConnector...")
+
+        if self._capture_thread:
+            self._capture_thread.stop()
+            self._capture_thread = None
+        
+        if self._console_status_thread:
+            self._console_status_thread.stop()
+            self._console_status_thread = None
+
+class ConsoleStatusThread(QThread):
+    statusUpdate = pyqtSignal(str)
+
+    def __init__(self, connector: MOTIONConnector, parent=None):
+        super().__init__(parent)
+        self.connector = connector  # Reference to MOTIONConnector
+        self._running = True
+
+    def run(self):
+        
+        while self._running:
+            try:
+                # Replace this with your actual console status check
+                        
+                muxIdx = 1
+                i2cAddr = 0x41
+                offset = 0x24  
+                data_len = 1  # Number of bytes to read
+
+                channels = {
+                    "TA": 4,
+                    "SE": 6,
+                    "SO": 7
+                }
+                statuses = {}
+
+
+                for label, channel in channels.items():
+                    status = self.connector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len)
+                    if status:
+                        value = status[0]
+                        statuses[label] = value
+
+                        if label == "TA":
+                            laser_on = bool(value & 0x01)
+                            if laser_on != self.connector._laserOn:
+                                self.connector._laserOn = laser_on
+                                self.connector.laserStateChanged.emit(laser_on)
+                        elif label in ("SE", "SO"):
+                            error_bits = value & 0x0F  # mask bits [3:0]
+                            if error_bits != 0:
+                                if not self.connector._safetyFailure:
+                                    self.connector._safetyFailure = True
+                                    self.connector.safetyFailureStateChanged.emit(True)
+                            else:
+                                if self.connector._safetyFailure:
+                                    self.connector._safetyFailure = False
+                                    self.connector.safetyFailureStateChanged.emit(False)
+
+                    else:
+                        self.statusUpdate.emit(f"{label} Disconnected")
+                        break
+
+
+                # Emit combined status if needed
+                status_text = f"TA: 0x{statuses['TA']:02X}, SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
+                
+                logging.info(f"Status QUERY: {status_text}")
+
+            except Exception as e:
+                logging.error(f"Console status query failed: {e}")
+                self.statusUpdate.emit("Disconnected")
+
+            self.msleep(1000)  # 0.5 second delay
+
+    def stop(self):
+        self._running = False
+        self.wait()

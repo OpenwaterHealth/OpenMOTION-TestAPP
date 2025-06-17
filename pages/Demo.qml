@@ -740,7 +740,45 @@ Rectangle {
                                     }
                                 }
                                 
-                                Item { Layout.preferredHeight: 30 } // Empty spacer
+                                               
+                                Button {
+                                    id: btnClearErrorFlagSafety
+                                    text: "Clear Failure"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 40
+                                    hoverEnabled: true
+                                    enabled: MOTIONConnector.safetyFailure 
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {                                    
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B";  // Disabled color
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                        }
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D";  // Disabled border color
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                        }
+                                        radius: 4
+                                    }
+
+                                    onClicked: {
+                                        console.log("Clear Safety Error Flag");
+
+                                        writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "1");
+                                        writeFpgaRegister("Safety EE", "DYNAMIC CTRL", "1");
+                                    }
+                                }
                                 Item { Layout.preferredHeight: 30 } // Empty spacer
 
                                 Text { text: "PWM Current:"; color: "white" }
@@ -812,6 +850,7 @@ Rectangle {
                                         writeFpgaRegister("Safety OPT", "PWM CURRENT", pwmCurrentLimit.text);
                                     }
                                 }
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
                             }
                         }
 
@@ -1051,6 +1090,7 @@ Rectangle {
                                         writeFpgaRegister("Safety EE", "PWM CURRENT", pwm2CurrentLimit.text);
                                     }
                                 }
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
                             }
                         }
                     }
@@ -1465,10 +1505,18 @@ Rectangle {
                         spacing: 20
                         anchors.horizontalCenter: parent.horizontalCenter
 
-                        // Sensor LED
-                        RowLayout {
-                            spacing: 5
-                            // LED circle
+                        // Sensor Indicator
+                        ColumnLayout {
+                            spacing: 4
+                            Layout.alignment: Qt.AlignHCenter
+
+                            Text {
+                                text: "Sensor"
+                                font.pixelSize: 14
+                                color: "#BDC3C7"
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+
                             Rectangle {
                                 width: 20
                                 height: 20
@@ -1477,19 +1525,20 @@ Rectangle {
                                 border.color: "black"
                                 border.width: 1
                             }
-                            // Label for Snsor
-                            Text {
-                                text: "Sensor"
-                                font.pixelSize: 16
-                                color: "#BDC3C7"
-                                verticalAlignment: Text.AlignVCenter
-                            }
                         }
 
-                        // Console LED
-                        RowLayout {
-                            spacing: 5
-                            // LED circle
+                        // Console Indicator
+                        ColumnLayout {
+                            spacing: 4
+                            Layout.alignment: Qt.AlignHCenter
+
+                            Text {
+                                text: "Console"
+                                font.pixelSize: 14
+                                color: "#BDC3C7"
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+
                             Rectangle {
                                 width: 20
                                 height: 20
@@ -1498,14 +1547,52 @@ Rectangle {
                                 border.color: "black"
                                 border.width: 1
                             }
-                            // Label for Console
+                        }
+
+                        // Laser Indicator
+                        ColumnLayout {
+                            spacing: 4
+                            Layout.alignment: Qt.AlignHCenter
+
                             Text {
-                                text: "Console"
-                                font.pixelSize: 16
+                                text: "Laser"
+                                font.pixelSize: 14
                                 color: "#BDC3C7"
-                                verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+
+                            Rectangle {
+                                width: 20
+                                height: 20
+                                radius: 10
+                                color: MOTIONConnector.laserOn ? "green" : "red"
+                                border.color: "black"
+                                border.width: 1
                             }
                         }
+
+                        // Failure Indicator
+                        ColumnLayout {
+                            spacing: 4
+                            Layout.alignment: Qt.AlignHCenter
+
+                            Text {
+                                text: "Failure"
+                                font.pixelSize: 14
+                                color: "#BDC3C7"
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+
+                            Rectangle {
+                                width: 20
+                                height: 20
+                                radius: 10
+                                color: MOTIONConnector.safetyFailure ? "red" : "grey"
+                                border.color: "black"
+                                border.width: 1
+                            }
+                        }
+
                     }
                 }
             }
@@ -1520,7 +1607,7 @@ Rectangle {
         onTriggered: {            
             if (MOTIONConnector.consoleConnected) {
                 const config = MOTIONConnector.queryTriggerConfig()
-                if (config) {
+                if (config && Object.keys(config).length > 0) {
                     fsFrequency.text = config.TriggerFrequencyHz.toString()
                     fsPulseWidth.text = config.TriggerPulseWidthUsec.toString()
                     lsDelay.text = config.LaserPulseDelayUsec.toString()
@@ -1569,6 +1656,16 @@ Rectangle {
             }   
             if (MOTIONConnector.consoleConnected) {
                 consoleUpdateTimer.start()
+            }            
+        }
+        
+        function onLaserStateChanged() {          
+            if (MOTIONConnector.consoleConnected) {
+            }            
+        }
+        
+        function onSafetyFailureStateChanged() {          
+            if (MOTIONConnector.consoleConnected) {
             }            
         }
 
