@@ -43,19 +43,20 @@ class CaptureThread(QThread):
         self.camera_index = camera_index
         self.running = False
         self.frame_delay = 1.0 / fps
+        self.camera_mask = 0x00
 
     def run(self):
         if self.camera_index == 9:
-            CAMERA_MASK = 0xFF  # All cameras
+            self.camera_mask = 0xFF  # All cameras
         else:    
-            CAMERA_MASK = 1 << (self.camera_index - 1)
-        status_map = self.interface.sensor_module.get_camera_status(CAMERA_MASK)
+            self.camera_mask = 1 << (self.camera_index - 1)
+        status_map = self.interface.sensor_module.get_camera_status(self.camera_mask)
         if not status_map:
             logger.error("Failed to get camera status map.")
             return None
         
         for cam_idx in range(8):
-            if CAMERA_MASK & (1 << cam_idx):
+            if self.camera_mask & (1 << cam_idx):
                 status = status_map.get(cam_idx)
                 if status is None:
                     logger.error(f"Camera {cam_idx + 1} missing in status map.")
@@ -84,18 +85,18 @@ class CaptureThread(QThread):
                 
         logger.debug("Setting test pattern...")
         self.update_status.emit(f"set live")
-        if not self.interface.sensor_module.camera_configure_test_pattern(CAMERA_MASK, 0x04):
+        if not self.interface.sensor_module.camera_configure_test_pattern(self.camera_mask, 0x04):
             logger.error("Failed to set test pattern.")
             return None
         
         # Get status
-        status_map = self.interface.sensor_module.get_camera_status(CAMERA_MASK)
+        status_map = self.interface.sensor_module.get_camera_status(self.camera_mask)
         if not status_map:
             logger.error("Failed to get camera status.")
             return None
 
         for cam_idx in range(8):
-            if CAMERA_MASK & (1 << cam_idx):
+            if self.camera_mask & (1 << cam_idx):
                 status = status_map.get(cam_idx)
 
                 if status is None:
@@ -107,37 +108,26 @@ class CaptureThread(QThread):
                     logger.error("Not configured.")
                     return None
 
-        self.running = True
-        while self.running:
-            start_time = time.time()
-            try:
-                logger.debug("Capturing histogram...")
-                if not self.interface.sensor_module.camera_capture_histogram(CAMERA_MASK):
-                    logger.error("Capture failed.")
-                else:                    
-                    logger.debug("Capture successful, retrieving histogram...")                    
-                    time.sleep(0.005)  # Wait for capture to complete
-                    histogram = self.interface.sensor_module.camera_get_histogram(CAMERA_MASK)
-                    if histogram is None:
-                        logger.error("Histogram retrieval failed.")
-                    else:
-                        logger.debug("Histogram frame received successfully.")
-                        histogram = histogram[:4096]  # Ensure we only take the first 4096 bins
-                        bins, histo =  self.interface.bytes_to_integers(histogram)
-                        if bins:
-                            self.new_histogram.emit(bins)
-                            continue  # Continue to next frame
+        
+        if not self.interface.sensor_module.enable_camera(self.camera_mask):
+            print("Failed to enable cameras.")
 
-                self.new_histogram.emit([])  # Emit empty on failure
-            except Exception as e:
-                logger.error(f"Error in capture thread: {e}")
-                self.new_histogram.emit([])
-
-            elapsed = time.time() - start_time
-            if elapsed < self.frame_delay:
-                time.sleep(self.frame_delay - elapsed)
+        try:
+            fsin_result = self.interface.sensor_module.enable_aggregator_fsin()
+            print("FSIN activated." if fsin_result else "FSIN activation failed.")
+        except Exception as e:
+            print(f"FSIN activate error: {e}")
 
     def stop(self):
+        if not self.interface.sensor_module.disable_camera(self.camera_mask):
+            print("Failed to enable cameras.")
+
+        time.sleep(1) # wait a few frames for the camera to exhaust itself before disabling the camera
+
+        print("\n[6] Deactivate FSIN...")
+        fsin_result = self.interface.sensor_module.disable_aggregator_fsin()
+        print("FSIN deactivated." if fsin_result else "FSIN deactivation failed.")
+
         self.running = False
         self.wait()
 
