@@ -219,7 +219,6 @@ Rectangle {
         readFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit);
         readFpgaRegister("Safety OPT", "PULSE WIDTH UL", pwUpperLimit);
         readFpgaRegister("Safety OPT", "RATE LL", periodLowerLimit);
-        readFpgaRegister("Safety OPT", "RATE UL", periodUpperLimit);
         readFpgaRegister("Safety OPT", "DRIVE CL", driveCurrentLimit);
         readFpgaRegister("Safety OPT", "CW CURRENT", cwSafetyCurrentLimit);
         readFpgaRegister("Safety OPT", "PWM CURRENT", pwmCurrentLimit);
@@ -227,7 +226,6 @@ Rectangle {
         readFpgaRegister("Safety EE", "PULSE WIDTH LL", pw2LowerLimit);
         readFpgaRegister("Safety EE", "PULSE WIDTH UL", pw2UpperLimit);
         readFpgaRegister("Safety EE", "RATE LL", period2LowerLimit);
-        readFpgaRegister("Safety EE", "RATE UL", period2UpperLimit);
         readFpgaRegister("Safety EE", "DRIVE CL", drive2CurrentLimit);
         readFpgaRegister("Safety EE", "CW CURRENT", cw2SafetyCurrentLimit);
         readFpgaRegister("Safety EE", "PWM CURRENT", pwm2CurrentLimit);
@@ -659,30 +657,7 @@ Rectangle {
                                     }
                                 }
                                 
-                                ColumnLayout {
-                                    Layout.columnSpan: 1
-                                    Layout.alignment: Qt.AlignLeft
-                                    spacing: 2
-
-                                    Text {
-                                        text: "Upper (mS)"
-                                        color: "#BDC3C7"
-                                        font.pixelSize: 12
-                                    }
-
-                                    TextField {
-                                        id: periodUpperLimit
-                                        Layout.preferredWidth: 100
-                                        Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
-                                        font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000000 }
-                                        background: Rectangle {
-                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
-                                        }
-                                    }
-                                }
-                                
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
                                 Item { Layout.preferredHeight: 30 } // Empty spacer
 
                                 Text { text: "Drive Current:"; color: "white" }
@@ -844,7 +819,6 @@ Rectangle {
                                         writeFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit.text);
                                         writeFpgaRegister("Safety OPT", "PULSE WIDTH UL", pwUpperLimit.text);
                                         writeFpgaRegister("Safety OPT", "RATE LL", periodLowerLimit.text);
-                                        writeFpgaRegister("Safety OPT", "RATE UL", periodUpperLimit.text);
                                         writeFpgaRegister("Safety OPT", "DRIVE CL", driveCurrentLimit.text);
                                         writeFpgaRegister("Safety OPT", "CW CURRENT", cwSafetyCurrentLimit.text);
                                         writeFpgaRegister("Safety OPT", "PWM CURRENT", pwmCurrentLimit.text);
@@ -937,31 +911,8 @@ Rectangle {
                                         }
                                     }
                                 }
-                                
-                                ColumnLayout {
-                                    Layout.columnSpan: 1
-                                    Layout.alignment: Qt.AlignLeft
-                                    spacing: 2
 
-                                    Text {
-                                        text: "Upper (mS)"
-                                        color: "#BDC3C7"
-                                        font.pixelSize: 12
-                                    }
-
-                                    TextField {
-                                        id: period2UpperLimit
-                                        Layout.preferredWidth: 100
-                                        Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
-                                        font.pixelSize: 12
-                                        validator: IntValidator { bottom: 0; top: 1000000 }
-                                        background: Rectangle {
-                                            radius: 6; color: "#2B2B2E"; border.color: "#555"
-                                        }
-                                    }
-                                }
-                                
+                                Item { Layout.preferredHeight: 30 } // Empty spacer
                                 Item { Layout.preferredHeight: 30 } // Empty spacer
 
                                 Text { text: "Drive Current:"; color: "white" }
@@ -1084,7 +1035,6 @@ Rectangle {
                                         writeFpgaRegister("Safety EE", "PULSE WIDTH LL", pw2LowerLimit.text);
                                         writeFpgaRegister("Safety EE", "PULSE WIDTH UL", pw2UpperLimit.text);
                                         writeFpgaRegister("Safety EE", "RATE LL", period2LowerLimit.text);
-                                        writeFpgaRegister("Safety EE", "RATE UL", period2UpperLimit.text);
                                         writeFpgaRegister("Safety EE", "DRIVE CL", drive2CurrentLimit.text);
                                         writeFpgaRegister("Safety EE", "CW CURRENT", cw2SafetyCurrentLimit.text);
                                         writeFpgaRegister("Safety EE", "PWM CURRENT", pwm2CurrentLimit.text);
@@ -1565,7 +1515,7 @@ Rectangle {
                                 width: 20
                                 height: 20
                                 radius: 10
-                                color: MOTIONConnector.laserOn ? "green" : "red"
+                                color: triggerStatus.text === "ON" ? "green" : "red"
                                 border.color: "black"
                                 border.width: 1
                             }
