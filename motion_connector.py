@@ -751,7 +751,6 @@ class ConsoleStatusThread(QThread):
                 data_len = 1  # Number of bytes to read
 
                 channels = {
-                    "TA": 4,
                     "SE": 6,
                     "SO": 7
                 }
@@ -764,12 +763,7 @@ class ConsoleStatusThread(QThread):
                         value = status[0]
                         statuses[label] = value
 
-                        if label == "TA":
-                            laser_on = bool(value & 0x01)
-                            if laser_on != self.connector._laserOn:
-                                self.connector._laserOn = laser_on
-                                self.connector.laserStateChanged.emit(laser_on)
-                        elif label in ("SE", "SO"):
+                        if label in ("SE", "SO"):
                             error_bits = value & 0x0F  # mask bits [3:0]
                             if error_bits != 0:
                                 if not self.connector._safetyFailure:
@@ -786,7 +780,7 @@ class ConsoleStatusThread(QThread):
 
 
                 # Emit combined status if needed
-                status_text = f"TA: 0x{statuses['TA']:02X}, SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
+                status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
                 
                 logging.info(f"Status QUERY: {status_text}")
 
