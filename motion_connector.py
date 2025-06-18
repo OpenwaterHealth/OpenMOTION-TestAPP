@@ -734,7 +734,6 @@ class ConsoleStatusThread(QThread):
         while self._running:
             try:
                 # Replace this with your actual console status check
-                        
                 muxIdx = 1
                 i2cAddr = 0x41
                 offset = 0x24  
@@ -746,28 +745,22 @@ class ConsoleStatusThread(QThread):
                 }
                 statuses = {}
 
-
                 for label, channel in channels.items():
                     status = self.connector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len)
                     if status:
-                        value = status[0]
-                        statuses[label] = value
-
-                        if label in ("SE", "SO"):
-                            error_bits = value & 0x0F  # mask bits [3:0]
-                            if error_bits != 0:
-                                if not self.connector._safetyFailure:
-                                    self.connector._safetyFailure = True
-                                    self.connector.safetyFailureStateChanged.emit(True)
-                            else:
-                                if self.connector._safetyFailure:
-                                    self.connector._safetyFailure = False
-                                    self.connector.safetyFailureStateChanged.emit(False)
-
+                        statuses[label] = status[0]                
                     else:
                         self.statusUpdate.emit(f"{label} Disconnected")
-                        break
-
+                        raise Exception("I2C read error")
+                
+                if (statuses["SE"] & 0x0F) == 0 and (statuses["SO"] & 0x0F) == 0:
+                    if self.connector._safetyFailure:
+                        self.connector._safetyFailure = False
+                        self.connector.safetyFailureStateChanged.emit(False)
+                else:
+                    if not self.connector._safetyFailure:
+                        self.connector._safetyFailure = True
+                        self.connector.safetyFailureStateChanged.emit(True)
 
                 # Emit combined status if needed
                 status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
