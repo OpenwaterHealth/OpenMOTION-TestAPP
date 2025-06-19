@@ -722,7 +722,7 @@ Rectangle {
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 40
                                     hoverEnabled: true
-                                    enabled: MOTIONConnector.safetyFailure 
+                                    enabled: MOTIONConnector.consoleConnected 
 
                                     contentItem: Text {
                                         text: parent.text
