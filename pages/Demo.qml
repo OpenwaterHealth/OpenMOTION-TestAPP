@@ -639,7 +639,7 @@ Rectangle {
                                     spacing: 2
 
                                     Text {
-                                        text: "Lower (mS)"
+                                        text: "Lower (uS)"
                                         color: "#BDC3C7"
                                         font.pixelSize: 12
                                     }
@@ -894,7 +894,7 @@ Rectangle {
                                     spacing: 2
 
                                     Text {
-                                        text: "Lower (mS)"
+                                        text: "Lower (uS)"
                                         color: "#BDC3C7"
                                         font.pixelSize: 12
                                     }
