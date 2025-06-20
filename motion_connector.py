@@ -760,6 +760,8 @@ class ConsoleStatusThread(QThread):
                 else:
                     if not self.connector._safetyFailure:
                         self.connector._safetyFailure = True
+                        self.connector.stopTrigger()
+                        self.connector.laserStateChanged.emit(False)
                         self.connector.safetyFailureStateChanged.emit(True)
 
                 # Emit combined status if needed
