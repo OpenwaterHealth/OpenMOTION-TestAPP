@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant, QThread, QMutex, QMutexLocker
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant, QThread, QWaitCondition, QMutex, QMutexLocker
 from typing import List
 import logging
 import base58
@@ -139,7 +139,7 @@ class CaptureThread(QThread):
 
     def stop(self):
         self.running = False
-        self.wait()
+        self.wait(500)
 
 class MOTIONConnector(QObject):
     # Ensure signals are correctly defined
@@ -745,6 +745,8 @@ class MOTIONConnector(QObject):
                     statuses[label] = status[0]                
                 else:
                     raise Exception("I2C read error")
+                
+            status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
             
             if (statuses["SE"] & 0x0F) == 0 and (statuses["SO"] & 0x0F) == 0:
                 if self._safetyFailure:
@@ -755,10 +757,10 @@ class MOTIONConnector(QObject):
                     self._safetyFailure = True
                     self.stopTrigger()
                     self.laserStateChanged.emit(False)
-                    self.safetyFailureStateChanged.emit(True)
+                    self.safetyFailureStateChanged.emit(True)  
+                    logging.error(f"Failure Detected: {status_text}")
 
             # Emit combined status if needed
-            status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
             
             logging.info(f"Status QUERY: {status_text}")
 
@@ -784,6 +786,9 @@ class ConsoleStatusThread(QThread):
         super().__init__(parent)
         self.connector = connector  # Reference to MOTIONConnector
         self._running = True
+        self._mutex = QMutex()
+        self._wait_condition = QWaitCondition()
+        # self._count = 0  # Initialize count for status updates
 
     def run(self):
         
@@ -808,6 +813,11 @@ class ConsoleStatusThread(QThread):
                     else:
                         self.statusUpdate.emit(f"{label} Disconnected")
                         raise Exception("I2C read error")
+
+                # if self._count>4 :    
+                #     statuses["SE"] = 0x0F  # Trip safety error
+
+                status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
                 
                 if (statuses["SE"] & 0x0F) == 0 and (statuses["SO"] & 0x0F) == 0:
                     if self.connector._safetyFailure:
@@ -819,17 +829,29 @@ class ConsoleStatusThread(QThread):
                         self.connector.stopTrigger()
                         self.connector.laserStateChanged.emit(False)
                         self.connector.safetyFailureStateChanged.emit(True)
+                        logging.error(f"Failure Detected: {status_text}")
 
                 # Emit combined status if needed
-                status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
                 
                 logging.info(f"Status QUERY: {status_text}")
-                self.msleep(1000)  # 0.5 second delay
+
+                # Sleep for up to 1000ms, but can be woken early
+                self._mutex.lock()
+                self._wait_condition.wait(self._mutex, 1000)
+                self._mutex.unlock()
+
+                # self._count += 1  # Increment count for status updates
 
             except Exception as e:
                 logging.error(f"Console status query failed: {e}")
-                self.statusUpdate.emit("Disconnected")
-                self.msleep(1000)  # 0.5 second delay
+
+                # Sleep for up to 1000ms, but can be woken early
+                self._mutex.lock()
+                self._wait_condition.wait(self._mutex, 1000)
+                self._mutex.unlock()
 
     def stop(self):
         self._running = False
+        self._wait_condition.wakeAll()
+        self.quit()
+        self.wait()
