@@ -227,12 +227,6 @@ class MOTIONConnector(QObject):
         elif descriptor.upper() == "CONSOLE":
             self._consoleConnected = True
 
-            # Start status thread
-            if self._console_status_thread is None:
-                self._console_status_thread = ConsoleStatusThread(self)
-                self._console_status_thread.statusUpdate.connect(self.handleUpdateCapStatus)  # Or define a dedicated signal
-                self._console_status_thread.start()
-
         self.signalConnected.emit(descriptor, port)
         self.connectionStatusChanged.emit() 
         self.update_state()
@@ -386,6 +380,13 @@ class MOTIONConnector(QObject):
     def startTrigger(self):
         success = self.interface.console_module.start_trigger()
         if success:
+
+            # Start status thread
+            if self._console_status_thread is None:
+                self._console_status_thread = ConsoleStatusThread(self)
+                self._console_status_thread.statusUpdate.connect(self.handleUpdateCapStatus)  # Or define a dedicated signal
+                self._console_status_thread.start()
+
             self._trigger_state = "ON"
             self.triggerStateChanged.emit("ON")
         return success
@@ -394,7 +395,11 @@ class MOTIONConnector(QObject):
     def stopTrigger(self):
         self.interface.console_module.stop_trigger()
         self._trigger_state = "OFF"
-        self.triggerStateChanged.emit("OFF")
+        self.triggerStateChanged.emit("OFF")        
+        
+        if self._console_status_thread:
+            self._console_status_thread.stop()
+            self._console_status_thread = None
 
     @pyqtProperty(str, notify=triggerStateChanged)
     def triggerState(self):
@@ -768,13 +773,12 @@ class ConsoleStatusThread(QThread):
                 status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
                 
                 logging.info(f"Status QUERY: {status_text}")
+                self.msleep(1000)  # 0.5 second delay
 
             except Exception as e:
                 logging.error(f"Console status query failed: {e}")
                 self.statusUpdate.emit("Disconnected")
-
-            self.msleep(1000)  # 0.5 second delay
+                self.msleep(1000)  # 0.5 second delay
 
     def stop(self):
         self._running = False
-        self.wait()

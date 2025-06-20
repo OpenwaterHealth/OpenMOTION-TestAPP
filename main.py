@@ -13,6 +13,7 @@ from motion_connector import MOTIONConnector
 # python main.py
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)  # or INFO depending on what you want to see
 
 # Suppress PyQt6 DeprecationWarnings related to SIP
 warnings.simplefilter("ignore", DeprecationWarning)
@@ -32,7 +33,7 @@ def main():
 
     # Expose to QML
     engine.rootContext().setContextProperty("MOTIONConnector", motion_connector)
-    engine.rootContext().setContextProperty("appVersion", "1.0.18")
+    engine.rootContext().setContextProperty("appVersion", "1.0.19")
 
     # Load the QML file
     engine.load("main.qml")
