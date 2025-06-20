@@ -725,6 +725,47 @@ class MOTIONConnector(QObject):
         return MOTIONInterface.get_sdk_version()
     
     @pyqtSlot()
+    def readSafetyStatus(self):
+        # Replace this with your actual console status check
+        try:
+            muxIdx = 1
+            i2cAddr = 0x41
+            offset = 0x24  
+            data_len = 1  # Number of bytes to read
+
+            channels = {
+                "SE": 6,
+                "SO": 7
+            }
+            statuses = {}
+
+            for label, channel in channels.items():
+                status = self.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len)
+                if status:
+                    statuses[label] = status[0]                
+                else:
+                    raise Exception("I2C read error")
+            
+            if (statuses["SE"] & 0x0F) == 0 and (statuses["SO"] & 0x0F) == 0:
+                if self._safetyFailure:
+                    self._safetyFailure = False
+                    self.safetyFailureStateChanged.emit(False)
+            else:
+                if not self._safetyFailure:
+                    self._safetyFailure = True
+                    self.stopTrigger()
+                    self.laserStateChanged.emit(False)
+                    self.safetyFailureStateChanged.emit(True)
+
+            # Emit combined status if needed
+            status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
+            
+            logging.info(f"Status QUERY: {status_text}")
+
+        except Exception as e:
+            logging.error(f"Console status query failed: {e}")
+                
+    @pyqtSlot()
     def shutdown(self):
         logger.info("Shutting down MOTIONConnector...")
 

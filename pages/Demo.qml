@@ -752,6 +752,7 @@ Rectangle {
 
                                         writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "1");
                                         writeFpgaRegister("Safety EE", "DYNAMIC CTRL", "1");
+                                        MOTIONConnector.readSafetyStatus();
                                     }
                                 }
 
@@ -1007,6 +1008,7 @@ Rectangle {
 
                                         writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "1");
                                         writeFpgaRegister("Safety EE", "DYNAMIC CTRL", "1");
+                                        MOTIONConnector.readSafetyStatus();
                                     }
                                 }
                                 

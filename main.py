@@ -33,7 +33,7 @@ def main():
 
     # Expose to QML
     engine.rootContext().setContextProperty("MOTIONConnector", motion_connector)
-    engine.rootContext().setContextProperty("appVersion", "1.0.19")
+    engine.rootContext().setContextProperty("appVersion", "1.0.20")
 
     # Load the QML file
     engine.load("main.qml")
