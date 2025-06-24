@@ -50,73 +50,88 @@ class CaptureThread(QThread):
             self.camera_mask = 0xFF  # All cameras
         else:    
             self.camera_mask = 1 << (self.camera_index - 1)
-        status_map = self.interface.sensor_module.get_camera_status(self.camera_mask)
-        if not status_map:
-            logger.error("Failed to get camera status map.")
-            return None
-        
-        for cam_idx in range(8):
-            if self.camera_mask & (1 << cam_idx):
-                status = status_map.get(cam_idx)
-                if status is None:
-                    logger.error(f"Camera {cam_idx + 1} missing in status map.")
-                    return None
 
-                if not status & (1 << 0):  # Not READY
-                    logger.error(f"Camera {cam_idx + 1} is not ready.")
-                    return None
+        if(False): #TODO: remove this
+            # Get Status Map
+            status_map = self.interface.sensor_module.get_camera_status(self.camera_mask)
+            if not status_map:
+                logger.error("Failed to get camera status map.")
+                return None
 
-                if not (status & (1 << 1) and status & (1 << 2)):  # Not programmed
-                    self.update_status.emit(f"prog {cam_idx + 1}")
-                    logger.debug(f"FPGA configuration started for camera {cam_idx + 1}")
-                    start_time = time.time()
-
-                    if not self.interface.sensor_module.program_fpga(camera_position=(1 << cam_idx), manual_process=False):
-                        logger.error(f"Failed to program FPGA for camera {cam_idx + 1}")
+            # Check cameras, flash if not flashed
+            for cam_idx in range(8):
+                if self.camera_mask & (1 << cam_idx):
+                    status = status_map.get(cam_idx)
+                    if status is None:
+                        logger.error(f"Camera {cam_idx + 1} missing in status map.")
                         return None
-                    logger.debug(f"FPGA programmed for camera {cam_idx + 1} | Time: {(time.time() - start_time) * 1000:.2f} ms")
 
-                if not (status & (1 << 1) and status & (1 << 3)):  # Not configured
-                    self.update_status.emit(f"conf {cam_idx + 1}")
-                    logger.debug(f"Configuring registers for camera {cam_idx + 1}")
-                    if not self.interface.sensor_module.camera_configure_registers(1 << cam_idx):
-                        logger.error(f"Failed to configure registers for camera {cam_idx + 1}")
+                    if not status & (1 << 0):  # Not READY
+                        logger.error(f"Camera {cam_idx + 1} is not ready.")
                         return None
-                
-        logger.debug("Setting test pattern...")
-        self.update_status.emit(f"set live")
-        if not self.interface.sensor_module.camera_configure_test_pattern(self.camera_mask, 0x04):
-            logger.error("Failed to set test pattern.")
-            return None
-        
-        # Get status
-        status_map = self.interface.sensor_module.get_camera_status(self.camera_mask)
-        if not status_map:
-            logger.error("Failed to get camera status.")
-            return None
 
-        for cam_idx in range(8):
-            if self.camera_mask & (1 << cam_idx):
-                status = status_map.get(cam_idx)
+                    if not (status & (1 << 1) and status & (1 << 2)):  # Not programmed
+                        self.update_status.emit(f"prog {cam_idx + 1}")
+                        logger.debug(f"FPGA configuration started for camera {cam_idx + 1}")
+                        start_time = time.time()
 
-                if status is None:
-                    logger.error(f"Camera {cam_idx + 1} missing in status map.")
-                    return None
-                logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {self.interface.sensor_module.decode_camera_status(status)}")
+                        if not self.interface.sensor_module.program_fpga(camera_position=(1 << cam_idx), manual_process=False):
+                            logger.error(f"Failed to program FPGA for camera {cam_idx + 1}")
+                            return None
+                        logger.debug(f"FPGA programmed for camera {cam_idx + 1} | Time: {(time.time() - start_time) * 1000:.2f} ms")
 
-                if not (status & (1 << 0) and status & (1 << 1) and status & (1 << 2)):  # Not ready for histo
-                    logger.error("Not configured.")
-                    return None
+                    if not (status & (1 << 1) and status & (1 << 3)):  # Not configured
+                        self.update_status.emit(f"conf {cam_idx + 1}")
+                        logger.debug(f"Configuring registers for camera {cam_idx + 1}")
+                        if not self.interface.sensor_module.camera_configure_registers(1 << cam_idx):
+                            logger.error(f"Failed to configure registers for camera {cam_idx + 1}")
+                            return None
+                        
+            # Set test pattern
+            # logger.debug("Setting test pattern...")
+            # self.update_status.emit(f"set live")
+            # if not self.interface.sensor_module.camera_configure_test_pattern(self.camera_mask, 0x04):
+            #     logger.error("Failed to set test pattern.")
+            #     return None
+            
+            # Get status
+            status_map = self.interface.sensor_module.get_camera_status(self.camera_mask)
+            if not status_map:
+                logger.error("Failed to get camera status.")
+                return None
 
-        
+            # Check cameras again
+            for cam_idx in range(8):
+                if self.camera_mask & (1 << cam_idx):
+                    status = status_map.get(cam_idx)
+
+                    if status is None:
+                        logger.error(f"Camera {cam_idx + 1} missing in status map.")
+                        return None
+                    logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {self.interface.sensor_module.decode_camera_status(status)}")
+
+                    if not (status & (1 << 0) and status & (1 << 1) and status & (1 << 2)):  # Not ready for histo
+                        logger.error("Not configured.")
+                        return None
+
+        print("\n[3] Enable Cameras")
         if not self.interface.sensor_module.enable_camera(self.camera_mask):
             print("Failed to enable cameras.")
 
-        try:
-            fsin_result = self.interface.sensor_module.enable_aggregator_fsin()
-            print("FSIN activated." if fsin_result else "FSIN activation failed.")
-        except Exception as e:
-            print(f"FSIN activate error: {e}")
+        # Check if console is present
+        console_present = self.interface.console_module.is_connected()
+        console_present = False
+
+        if(console_present):
+            # Enable the external FSIN on the aggregator
+            logger.debug("enable external FSIN...")
+            self.interface.sensor_module.enable_camera_fsin_ext()
+            #TODO(start/stop console frame sync here)
+        else:
+            logger.debug("Enabling aggregator FSIN...")
+            if self.interface.sensor_module.enable_aggregator_fsin():
+                print("FSIN activated.")
+            else: print("FSIN activation failed.")
 
     def stop(self):
         if not self.interface.sensor_module.disable_camera(self.camera_mask):
@@ -124,9 +139,17 @@ class CaptureThread(QThread):
 
         time.sleep(1) # wait a few frames for the camera to exhaust itself before disabling the camera
 
-        print("\n[6] Deactivate FSIN...")
-        fsin_result = self.interface.sensor_module.disable_aggregator_fsin()
-        print("FSIN deactivated." if fsin_result else "FSIN deactivation failed.")
+        console_present = self.interface.console_module.is_connected()        
+        console_present = False
+        if(console_present):
+            # Disable the external FSIN on the aggregator
+            print("\n[6] Deactivate FSIN...")
+            fsin_result = self.interface.sensor_module.disable_camera_fsin_ext()
+            #TODO(start/stop console frame sync here)
+        else:
+            print("\n[6] Deactivate FSIN...")
+            fsin_result = self.interface.sensor_module.disable_aggregator_fsin()
+            print("FSIN deactivated." if fsin_result else "FSIN deactivation failed.")
 
         self.running = False
         self.wait()
@@ -440,6 +463,8 @@ class MOTIONConnector(QObject):
             bitmask = 1 << i  # 0x01, 0x02, 0x04, ..., 0x80
             try:
                 passed = self.interface.sensor_module.program_fpga(camera_position=bitmask, manual_process=False)
+                passed |=  self.interface.sensor_module.camera_configure_registers(bitmask)
+                
                 self.cameraConfigUpdated.emit(bitmask, passed)
             except Exception as e:
                 logger.error(f"Camera {bitmask} failed: {e}")
