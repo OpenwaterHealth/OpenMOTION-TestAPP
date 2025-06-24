@@ -120,7 +120,7 @@ class CaptureThread(QThread):
 
         # Check if console is present
         console_present = self.interface.console_module.is_connected()
-        console_present = False
+        console_present = False #TODO(fix this when console fs control is done)
 
         if(console_present):
             # Enable the external FSIN on the aggregator
@@ -140,7 +140,7 @@ class CaptureThread(QThread):
         time.sleep(1) # wait a few frames for the camera to exhaust itself before disabling the camera
 
         console_present = self.interface.console_module.is_connected()        
-        console_present = False
+        console_present = False#TODO(fix this when console fs control is done)
         if(console_present):
             # Disable the external FSIN on the aggregator
             print("\n[6] Deactivate FSIN...")
