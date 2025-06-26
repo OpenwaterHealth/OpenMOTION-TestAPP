@@ -126,7 +126,7 @@ class CaptureThread(QThread):
                         bins, histo =  self.interface.bytes_to_integers(histogram)
                         if bins:
                             self.new_histogram.emit(bins)
-                            # Continue to next frame
+                            continue # Continue to next frame
 
                 self.new_histogram.emit([])  # Emit empty on failure
             except Exception as e:
