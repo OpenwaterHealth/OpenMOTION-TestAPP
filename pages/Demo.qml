@@ -1471,124 +1471,141 @@ Rectangle {
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
-                
 
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 10
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 20
 
-                    // Connection status text
-                    Text {
-                        id: statusText
-                        text: "System State: " + (MOTIONConnector.state === 0 ? "Disconnected"
-                                        : MOTIONConnector.state === 1 ? "Sensor Connected"
-                                        : MOTIONConnector.state === 2 ? "Console Connected"
-                                        : MOTIONConnector.state === 3 ? "Ready"
-                                        : "Running")
-                        font.pixelSize: 16
-                        color: "#BDC3C7"
-                        horizontalAlignment: Text.AlignHCenter
-                        anchors.horizontalCenter: parent.horizontalCenter
+                    // Left Column: TCM, TCL, PDC
+                    ColumnLayout {
+                        spacing: 6
+                        Layout.preferredWidth: statusPanel.width * 1 / 3
+                        Layout.fillHeight: true
+                        Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+
+                        Text {
+                            text: "TCM: " + MOTIONConnector.tcm.toFixed(3) + " mV"
+                            font.pixelSize: 14
+                            color: "#BDC3C7"
+                        }
+                        Text {
+                            text: "TCL: " + MOTIONConnector.tcl.toFixed(3) + " mA"
+                            font.pixelSize: 14
+                            color: "#BDC3C7"
+                        }
+                        Text {
+                            text: "PDC: " + MOTIONConnector.pdc.toFixed(3)
+                            font.pixelSize: 14
+                            color: "#BDC3C7"
+                        }
                     }
 
-                    // Connection Indicators (TX, HV)
-                    RowLayout {
-                        spacing: 20
-                        anchors.horizontalCenter: parent.horizontalCenter
+                    // Right Column: status and indicators
+                    ColumnLayout {
+                        spacing: 10
+                        Layout.preferredWidth: statusPanel.width * 2 / 3
+                        Layout.fillHeight: true
+                        Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
 
-                        // Sensor Indicator
-                        ColumnLayout {
-                            spacing: 4
-                            Layout.alignment: Qt.AlignHCenter
-
-                            Text {
-                                text: "Sensor"
-                                font.pixelSize: 14
-                                color: "#BDC3C7"
-                                horizontalAlignment: Text.AlignHCenter
-                            }
-
-                            Rectangle {
-                                width: 20
-                                height: 20
-                                radius: 10
-                                color: MOTIONConnector.sensorConnected ? "green" : "red"
-                                border.color: "black"
-                                border.width: 1
-                            }
+                        Text {
+                            id: statusText
+                            text: "System State: " + (MOTIONConnector.state === 0 ? "Disconnected"
+                                            : MOTIONConnector.state === 1 ? "Sensor Connected"
+                                            : MOTIONConnector.state === 2 ? "Console Connected"
+                                            : MOTIONConnector.state === 3 ? "Ready"
+                                            : "Running")
+                            font.pixelSize: 16
+                            color: "#BDC3C7"
+                            horizontalAlignment: Text.AlignRight
+                            Layout.alignment: Qt.AlignRight
                         }
 
-                        // Console Indicator
-                        ColumnLayout {
-                            spacing: 4
-                            Layout.alignment: Qt.AlignHCenter
+                        RowLayout {
+                            spacing: 20
+                            Layout.alignment: Qt.AlignRight
 
-                            Text {
-                                text: "Console"
-                                font.pixelSize: 14
-                                color: "#BDC3C7"
-                                horizontalAlignment: Text.AlignHCenter
+                            // Sensor Indicator
+                            ColumnLayout {
+                                spacing: 4
+                                Layout.alignment: Qt.AlignHCenter
+
+                                Text {
+                                    text: "Sensor"
+                                    font.pixelSize: 14
+                                    color: "#BDC3C7"
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+
+                                Rectangle {
+                                    width: 20; height: 20; radius: 10
+                                    color: MOTIONConnector.sensorConnected ? "green" : "red"
+                                    border.color: "black"; border.width: 1
+                                }
                             }
 
-                            Rectangle {
-                                width: 20
-                                height: 20
-                                radius: 10
-                                color: MOTIONConnector.consoleConnected ? "green" : "red"
-                                border.color: "black"
-                                border.width: 1
+                            // Console Indicator
+                            ColumnLayout {
+                                spacing: 4
+                                Layout.alignment: Qt.AlignHCenter
+
+                                Text {
+                                    text: "Console"
+                                    font.pixelSize: 14
+                                    color: "#BDC3C7"
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+
+                                Rectangle {
+                                    width: 20; height: 20; radius: 10
+                                    color: MOTIONConnector.consoleConnected ? "green" : "red"
+                                    border.color: "black"; border.width: 1
+                                }
+                            }
+
+                            // Laser Indicator
+                            ColumnLayout {
+                                spacing: 4
+                                Layout.alignment: Qt.AlignHCenter
+
+                                Text {
+                                    text: "Laser"
+                                    font.pixelSize: 14
+                                    color: "#BDC3C7"
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+
+                                Rectangle {
+                                    width: 20; height: 20; radius: 10
+                                    color: triggerStatus.text === "ON" ? "green" : "red"
+                                    border.color: "black"; border.width: 1
+                                }
+                            }
+
+                            // Failure Indicator
+                            ColumnLayout {
+                                spacing: 4
+                                Layout.alignment: Qt.AlignHCenter
+
+                                Text {
+                                    text: "Failure"
+                                    font.pixelSize: 14
+                                    color: "#BDC3C7"
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+
+                                Rectangle {
+                                    width: 20; height: 20; radius: 10
+                                    color: MOTIONConnector.safetyFailure ? "red" : "grey"
+                                    border.color: "black"; border.width: 1
+                                }
                             }
                         }
-
-                        // Laser Indicator
-                        ColumnLayout {
-                            spacing: 4
-                            Layout.alignment: Qt.AlignHCenter
-
-                            Text {
-                                text: "Laser"
-                                font.pixelSize: 14
-                                color: "#BDC3C7"
-                                horizontalAlignment: Text.AlignHCenter
-                            }
-
-                            Rectangle {
-                                width: 20
-                                height: 20
-                                radius: 10
-                                color: triggerStatus.text === "ON" ? "green" : "red"
-                                border.color: "black"
-                                border.width: 1
-                            }
-                        }
-
-                        // Failure Indicator
-                        ColumnLayout {
-                            spacing: 4
-                            Layout.alignment: Qt.AlignHCenter
-
-                            Text {
-                                text: "Failure"
-                                font.pixelSize: 14
-                                color: "#BDC3C7"
-                                horizontalAlignment: Text.AlignHCenter
-                            }
-
-                            Rectangle {
-                                width: 20
-                                height: 20
-                                radius: 10
-                                color: MOTIONConnector.safetyFailure ? "red" : "grey"
-                                border.color: "black"
-                                border.width: 1
-                            }
-                        }
-
                     }
                 }
             }
-        }
 
+        }
     }
 
     Timer {

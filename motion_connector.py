@@ -171,6 +171,10 @@ class MOTIONConnector(QObject):
     histogramReady = pyqtSignal(list)  # Emit 1024 bins to QML
     updateCapStatus = pyqtSignal(str) 
 
+    tcmChanged = pyqtSignal()
+    tclChanged = pyqtSignal()
+    pdcChanged = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.interface = MOTIONInterface(run_async=True)
@@ -186,6 +190,9 @@ class MOTIONConnector(QObject):
         self._is_streaming = False
         self._capture_thread = None
         self._console_status_thread = None
+        self._tcm = 0.0
+        self._tcl = 0.0
+        self._pdc = 0.0
 
         self.connect_signals()
 
@@ -211,6 +218,57 @@ class MOTIONConnector(QObject):
         self.stateChanged.emit()  # Notify QML of state update
         logger.info(f"Updated state: {self._state}")
         
+
+    @pyqtProperty(bool, notify=connectionStatusChanged)
+    def sensorConnected(self):
+        """Expose Sensor connection status to QML."""
+        return self._sensorConnected
+
+    @pyqtProperty(bool, notify=connectionStatusChanged)
+    def consoleConnected(self):
+        """Expose Console connection status to QML."""
+        return self._consoleConnected
+
+    @pyqtProperty(bool, notify=laserStateChanged)
+    def laserOn(self):
+        """Expose Console connection status to QML."""
+        return self._laserOn
+    
+    @pyqtProperty(bool, notify=safetyFailureStateChanged)
+    def safetyFailure(self):
+        """Expose Console connection status to QML."""
+        return self._safetyFailure
+
+    @pyqtProperty(int, notify=stateChanged)
+    def state(self):
+        """Expose state as a QML property."""
+        return self._state
+        
+    @pyqtProperty(str, constant=True)
+    def sdkVersion(self) -> str:
+        """Expose SDK version as a constant QML property."""
+        return MOTIONInterface.get_sdk_version()
+    
+    @pyqtProperty(float, notify=tcmChanged)
+    def tcm(self):
+        return self._tcm
+
+    @pyqtProperty(float, notify=tclChanged)
+    def tcl(self):
+        return self._tcl
+
+    @pyqtProperty(float, notify=pdcChanged)
+    def pdc(self):
+        return self._pdc
+
+    @pyqtProperty(bool, notify=isStreamingChanged)
+    def isStreaming(self):
+        return self._is_streaming
+    
+    @pyqtProperty(str, notify=triggerStateChanged)
+    def triggerState(self):
+        return self._trigger_state
+    
     @pyqtSlot()
     async def start_monitoring(self):
         """Start monitoring for device connection asynchronously."""
@@ -382,10 +440,6 @@ class MOTIONConnector(QObject):
             logger.error(f"Unexpected error while setting trigger: {e}")
             return False
             
-    @pyqtProperty(bool, notify=isStreamingChanged)
-    def isStreaming(self):
-        return self._is_streaming
-    
     @pyqtSlot(result=bool)
     def startTrigger(self):
         success = self.interface.console_module.start_trigger()
@@ -410,10 +464,6 @@ class MOTIONConnector(QObject):
         if self._console_status_thread:
             self._console_status_thread.stop()
             self._console_status_thread = None
-
-    @pyqtProperty(str, notify=triggerStateChanged)
-    def triggerState(self):
-        return self._trigger_state
     
     @pyqtSlot()
     def querySensorAccelerometer (self):
@@ -694,36 +744,6 @@ class MOTIONConnector(QObject):
             logger.error("Failed to retrieve histogram.")
             self.histogramReady.emit([])  # Emit empty to clear
 
-    @pyqtProperty(bool, notify=connectionStatusChanged)
-    def sensorConnected(self):
-        """Expose Sensor connection status to QML."""
-        return self._sensorConnected
-
-    @pyqtProperty(bool, notify=connectionStatusChanged)
-    def consoleConnected(self):
-        """Expose Console connection status to QML."""
-        return self._consoleConnected
-
-    @pyqtProperty(bool, notify=laserStateChanged)
-    def laserOn(self):
-        """Expose Console connection status to QML."""
-        return self._laserOn
-    
-    @pyqtProperty(bool, notify=safetyFailureStateChanged)
-    def safetyFailure(self):
-        """Expose Console connection status to QML."""
-        return self._safetyFailure
-
-    @pyqtProperty(int, notify=stateChanged)
-    def state(self):
-        """Expose state as a QML property."""
-        return self._state
-        
-    @pyqtProperty(str, constant=True)
-    def sdkVersion(self) -> str:
-        """Expose SDK version as a constant QML property."""
-        return MOTIONInterface.get_sdk_version()
-    
     @pyqtSlot()
     def readSafetyStatus(self):
         # Replace this with your actual console status check
@@ -833,7 +853,36 @@ class ConsoleStatusThread(QThread):
 
                 # Emit combined status if needed
                 
-                logging.info(f"Status QUERY: {status_text}")
+                logging.info(f"Console Status QUERY: {status_text}")
+
+                # Read TCM (ADC VD) and TCL (ADC CD) from Seed (channel 5)
+                tcm_raw = 0 # need to read this from the MCU
+                tcl_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 4, i2cAddr, 0x10, 4)
+                # Read PDC from Safety OPT (channel 7)
+                pdc_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 7, i2cAddr, 0x1C, 2)
+                
+                logging.info(f"tcl_raw: {tcl_raw} pdc_raw: {pdc_raw}")
+                
+
+                if tcl_raw and pdc_raw:
+                    tcm = 0
+                    tcl = int.from_bytes(tcl_raw, byteorder='little') 
+                    pdc = int.from_bytes(pdc_raw, byteorder='little') * 0.1
+
+                    logging.info(f"tcl: {tcl} pdc: {pdc}")
+
+                    if (tcl != self.connector._tcl or 
+                        tcm != self.connector._tcm or 
+                        pdc != self.connector._pdc):
+                        self.connector._tcl = tcl
+                        self.connector._tcm = tcm
+                        self.connector._pdc = pdc
+
+                        logging.info(f"Analog Values → TCM: {tcm:.3f} mV, TCL: {tcl:.3f} mA, PDC: {pdc:.3f}")
+
+                        self.connector.tclChanged.emit()
+                        self.connector.tcmChanged.emit()
+                        self.connector.pdcChanged.emit()
 
                 # Sleep for up to 1000ms, but can be woken early
                 self._mutex.lock()
