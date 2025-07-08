@@ -211,9 +211,9 @@ Rectangle {
         readFpgaRegister("TA", "PULSE WIDTH", taPulseWidth);
         readFpgaRegister("TA", "CURRENT DRV", taDrive);
 
-        readFpgaRegister("Seed", "DDS CURRENT", ddsCurrent);
+        readFpgaRegister("Seed", "DDS GAIN", ddsCurrent);
         readFpgaRegister("Seed", "DDS CL", ddsCurrentLimit);
-        readFpgaRegister("Seed", "CW CURRENT", cwSeedCurrent);
+        readFpgaRegister("Seed", "CW GAIN", cwSeedCurrent);
         readFpgaRegister("Seed", "CW CL", cwSeedCurrentLimit);
 
         readFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit);
@@ -412,7 +412,7 @@ Rectangle {
                                 spacing: 2
 
                                 Text {
-                                    text: "Current (mA)"
+                                    text: "Gain (mV)"
                                     color: "#BDC3C7"
                                     font.pixelSize: 12
                                 }
@@ -464,7 +464,7 @@ Rectangle {
                                 spacing: 2
 
                                 Text {
-                                    text: "Current (mA)"
+                                    text: "Gain (mV)"
                                     color: "#BDC3C7"
                                     font.pixelSize: 12
                                 }
@@ -540,9 +540,9 @@ Rectangle {
                                 onClicked: {
                                     console.log("Update Seed Settings");                                    
 
-                                    writeFpgaRegister("Seed", "DDS CURRENT", ddsCurrent.text);
+                                    writeFpgaRegister("Seed", "DDS GAIN", ddsCurrent.text);
                                     writeFpgaRegister("Seed", "DDS CL", ddsCurrentLimit.text);
-                                    writeFpgaRegister("Seed", "CW CURRENT", cwSeedCurrent.text);
+                                    writeFpgaRegister("Seed", "CW GAIN", cwSeedCurrent.text);
                                     writeFpgaRegister("Seed", "CW CL", cwSeedCurrentLimit.text);
 
                                 }

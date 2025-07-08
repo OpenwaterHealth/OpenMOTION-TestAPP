@@ -33,8 +33,8 @@ var fpgaAddressModel = [
         isMsbFirst: false,
         functions: [
             { name: "DDS CTRL", desc: "DDS Control", start_address: 0x00, data_size: "16B", direction: "RW" },
-            { name: "DDS GAIN", desc: "DDS Gain", start_address: 0x02, data_size: "16B", direction: "RW", unit: "mA", scale: 0.064 },
-            { name: "CW GAIN", desc: "CW Gain", start_address: 0x04, data_size: "16B", direction: "RW", unit: "mA", scale: 0.064 },
+            { name: "DDS GAIN", desc: "DDS Gain", start_address: 0x02, data_size: "16B", direction: "RW", unit: "uV", scale: 0.064 },
+            { name: "CW GAIN", desc: "CW Gain", start_address: 0x04, data_size: "16B", direction: "RW", unit: "uV", scale: 0.064 },
             { name: "DDS CL", desc: "DDS Current Limit", start_address: 0x06, data_size: "16B", direction: "RW", unit: "mA", scale: 0.019 },
             { name: "CW CL", desc: "CW Current Limit", start_address: 0x08, data_size: "16B", direction: "RW", unit: "mA", scale: 0.019 },
             { name: "ADC DDS CL", desc: "ADC DDS Current Limit", start_address: 0x0A, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
