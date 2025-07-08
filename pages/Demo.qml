@@ -1262,7 +1262,7 @@ Rectangle {
                         topPadding: 20
 
                         GridLayout {
-                            columns: 4
+                            columns: 5
                             width: parent.width
 
                             // Frequency
@@ -1279,7 +1279,7 @@ Rectangle {
 
                                 TextField {
                                     id: fsFrequency
-                                    Layout.preferredWidth: 100
+                                    Layout.preferredWidth: 80
                                     Layout.preferredHeight: 32
                                     enabled: MOTIONConnector.consoleConnected
                                     font.pixelSize: 12
@@ -1307,7 +1307,7 @@ Rectangle {
 
                                 TextField {
                                     id: fsPulseWidth
-                                    Layout.preferredWidth: 100
+                                    Layout.preferredWidth: 80
                                     Layout.preferredHeight: 32
                                     text: "5000"
                                     enabled: MOTIONConnector.consoleConnected
@@ -1333,7 +1333,7 @@ Rectangle {
 
                                 TextField {
                                     id: lsDelay
-                                    Layout.preferredWidth: 100
+                                    Layout.preferredWidth: 80
                                     Layout.preferredHeight: 32
                                     text: "250"
                                     enabled: MOTIONConnector.consoleConnected
@@ -1359,7 +1359,7 @@ Rectangle {
 
                                 TextField {
                                     id: lsPulseWidth
-                                    Layout.preferredWidth: 100
+                                    Layout.preferredWidth: 80
                                     Layout.preferredHeight: 32
                                     text: "5000"
                                     enabled: MOTIONConnector.consoleConnected
@@ -1371,6 +1371,31 @@ Rectangle {
                                 }
                             }
 
+                            // LightFrame Spacing
+                            ColumnLayout {
+                                Layout.columnSpan: 1
+                                Layout.alignment: Qt.AlignLeft
+                                spacing: 2
+
+                                Text {
+                                    text: "# Light Frames"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 12
+                                }
+
+                                TextField {
+                                    id: lsSkipEveryNPulses
+                                    Layout.preferredWidth: 80
+                                    Layout.preferredHeight: 32
+                                    text: "6000"
+                                    enabled: MOTIONConnector.consoleConnected
+                                    font.pixelSize: 12
+                                    validator: IntValidator { bottom: 0; top: 1000 }
+                                    background: Rectangle {
+                                        radius: 6; color: "#2B2B2E"; border.color: "#555"
+                                    }
+                                }
+                            }
                             Button {
                                 id: btnStartTrigger
                                 text: "Start Trigger"
@@ -1404,7 +1429,8 @@ Rectangle {
                                         "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
                                         "LaserPulseDelayUsec": parseInt(lsDelay.text),
                                         "LaserPulseWidthUsec": parseInt(lsPulseWidth.text),
-                                        "EnableSyncOut": false,
+                                        "SkipEveryNPulses" : parseInt(lsSkipEveryNPulses.text),
+                                        "EnableSyncOut": true,
                                         "EnableTaTrigger": true
                                     }
                                     var jsonString = JSON.stringify(json_trigger_data);
@@ -1601,6 +1627,7 @@ Rectangle {
                     fsPulseWidth.text = config.TriggerPulseWidthUsec.toString()
                     lsDelay.text = config.LaserPulseDelayUsec.toString()
                     lsPulseWidth.text = config.LaserPulseWidthUsec.toString()
+                    lsSkipEveryNPulses.text = config.SkipEveryNPulses.toString()
                 }
                 
                 updateLaserUI();
