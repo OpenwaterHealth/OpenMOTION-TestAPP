@@ -1485,17 +1485,17 @@ Rectangle {
                         Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
 
                         Text {
-                            text: "TCM: " + MOTIONConnector.tcm.toFixed(3) + " mV"
+                            text: "TCM: " + MOTIONConnector.tcm + " "
                             font.pixelSize: 14
                             color: "#BDC3C7"
                         }
                         Text {
-                            text: "TCL: " + MOTIONConnector.tcl.toFixed(3) + " mA"
+                            text: "TCL: " + MOTIONConnector.tcl + " "
                             font.pixelSize: 14
                             color: "#BDC3C7"
                         }
                         Text {
-                            text: "PDC: " + MOTIONConnector.pdc.toFixed(3)
+                            text: "PDC: " + MOTIONConnector.pdc.toFixed(3) + " mA"
                             font.pixelSize: 14
                             color: "#BDC3C7"
                         }

@@ -878,7 +878,7 @@ class ConsoleStatusThread(QThread):
                         self.connector._tcm = tcm
                         self.connector._pdc = pdc
 
-                        logging.info(f"Analog Values → TCM: {tcm:.3f} mV, TCL: {tcl:.3f} mA, PDC: {pdc:.3f}")
+                        logging.info(f"Analog Values → TCM: {tcm}, TCL: {tcl}, PDC: {pdc:.3f} mA")
 
                         self.connector.tclChanged.emit()
                         self.connector.tcmChanged.emit()
