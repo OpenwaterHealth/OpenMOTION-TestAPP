@@ -579,6 +579,28 @@ class MOTIONConnector(QObject):
             logger.error(f"Error sending Echo command: {e}")
             return False
         
+    @pyqtSlot(result=int)
+    def getFsyncCount(self):
+        """Get the Fsync count from the console."""
+        try:
+            fsync_count = self.interface.console_module.get_fsync_pulsecount()
+            logger.info(f"Fsync Count: {fsync_count}")
+            return fsync_count
+        except Exception as e:
+            logger.error(f"Error getting Fsync count: {e}")
+            return -1
+        
+    @pyqtSlot(result=int)
+    def getLsyncCount(self):
+        """Get the Fsync count from the console."""
+        try:
+            lsync_count = self.interface.console_module.get_lsync_pulsecount()
+            logger.info(f"Lsync Count: {lsync_count}")
+            return lsync_count
+        except Exception as e:
+            logger.error(f"Error getting Lsync count: {e}")
+            return -1
+        
     @pyqtSlot(str, int, int, int, int, int, result=QVariant)
     def i2cReadBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data_len: int):
         """Send i2c read to device"""
@@ -856,16 +878,15 @@ class ConsoleStatusThread(QThread):
                 logging.info(f"Console Status QUERY: {status_text}")
 
                 # Read TCM (ADC VD) and TCL (ADC CD) from Seed (channel 5)
-                tcm_raw = 0 # need to read this from the MCU
+                tcm_raw = self.connector.getLsyncCount()
                 tcl_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 4, i2cAddr, 0x10, 4)
                 # Read PDC from Safety OPT (channel 7)
                 pdc_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 7, i2cAddr, 0x1C, 2)
                 
-                logging.info(f"tcl_raw: {tcl_raw} pdc_raw: {pdc_raw}")
-                
+                logging.info(f"tcm_raw: {tcm_raw} tcl_raw: {tcl_raw} pdc_raw: {pdc_raw}")
 
                 if tcl_raw and pdc_raw:
-                    tcm = 0
+                    tcm = int(tcm_raw) 
                     tcl = int.from_bytes(tcl_raw, byteorder='little') 
                     pdc = int.from_bytes(pdc_raw, byteorder='little') * 0.1
 

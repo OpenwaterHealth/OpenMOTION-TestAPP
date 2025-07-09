@@ -1488,16 +1488,47 @@ Rectangle {
                             text: "TCM: " + MOTIONConnector.tcm + " "
                             font.pixelSize: 14
                             color: "#BDC3C7"
+                            ToolTip.text: "TCM (Trigger Count MCU) - Laser Pulse"
+                            ToolTip.visible: maTcm.containsMouse
+                            ToolTip.delay: 500
+                            
+                            MouseArea {
+                                id: maTcm
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                                        
                         }
                         Text {
                             text: "TCL: " + MOTIONConnector.tcl + " "
                             font.pixelSize: 14
                             color: "#BDC3C7"
+                            ToolTip.text: "TCL (Trigger Count FPGA) - Laser Pulse"
+                            ToolTip.visible: maTcl.containsMouse
+                            ToolTip.delay: 500
+                            
+                            MouseArea {
+                                id: maTcl
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                            }
                         }
                         Text {
                             text: "PDC: " + MOTIONConnector.pdc.toFixed(3) + " mA"
                             font.pixelSize: 14
                             color: "#BDC3C7"
+                            ToolTip.text: "PDC (Power Draw Current) - Current power consumption"
+                            ToolTip.visible: maPdc.containsMouse
+                            ToolTip.delay: 500
+                            
+                            MouseArea {
+                                id: maPdc
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                            }
                         }
                     }
 
