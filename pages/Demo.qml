@@ -1384,7 +1384,7 @@ Rectangle {
                                 }
 
                                 TextField {
-                                    id: lsSkipEveryNPulses
+                                    id: lsLaserPulseSkipInterval
                                     Layout.preferredWidth: 80
                                     Layout.preferredHeight: 32
                                     text: "6000"
@@ -1429,7 +1429,7 @@ Rectangle {
                                         "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
                                         "LaserPulseDelayUsec": parseInt(lsDelay.text),
                                         "LaserPulseWidthUsec": parseInt(lsPulseWidth.text),
-                                        "SkipEveryNPulses" : parseInt(lsSkipEveryNPulses.text),
+                                        "LaserPulseSkipInterval" : parseInt(lsLaserPulseSkipInterval.text),
                                         "EnableSyncOut": true,
                                         "EnableTaTrigger": true
                                     }
@@ -1623,11 +1623,12 @@ Rectangle {
             if (MOTIONConnector.consoleConnected) {
                 const config = MOTIONConnector.queryTriggerConfig()
                 if (config && Object.keys(config).length > 0) {
+                    print(config)
                     fsFrequency.text = config.TriggerFrequencyHz.toString()
                     fsPulseWidth.text = config.TriggerPulseWidthUsec.toString()
                     lsDelay.text = config.LaserPulseDelayUsec.toString()
                     lsPulseWidth.text = config.LaserPulseWidthUsec.toString()
-                    lsSkipEveryNPulses.text = config.SkipEveryNPulses.toString()
+                    lsLaserPulseSkipInterval.text = config.LaserPulseSkipInterval.toString()
                 }
                 
                 updateLaserUI();
