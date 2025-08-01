@@ -4,7 +4,7 @@ import asyncio
 import warnings
 import logging
 from PyQt6.QtGui import QGuiApplication, QIcon
-from PyQt6.QtQml import QQmlApplicationEngine
+from PyQt6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonInstance
 from qasync import QEventLoop
 
 from motion_connector import MOTIONConnector
@@ -13,7 +13,7 @@ from motion_connector import MOTIONConnector
 # python main.py
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)  # or INFO depending on what you want to see
+logging.basicConfig(level=logging.INFO) 
 
 # Suppress PyQt6 DeprecationWarnings related to SIP
 warnings.simplefilter("ignore", DeprecationWarning)
@@ -21,6 +21,7 @@ warnings.simplefilter("ignore", DeprecationWarning)
 def main():
     os.environ["QT_QUICK_CONTROLS_STYLE"] = "Material"
     os.environ["QT_QUICK_CONTROLS_MATERIAL_THEME"] = "Dark"
+    os.environ["QT_LOGGING_RULES"] = "qt.qpa.fonts=false"
 
     app = QGuiApplication(sys.argv)
 
@@ -28,11 +29,11 @@ def main():
     app.setWindowIcon(QIcon("assets/images/favicon.png"))
     engine = QQmlApplicationEngine()
 
-    # Initialize LIFUConnector with hv_test_mode from command-line argument
-    motion_connector = MOTIONConnector()
+    engine.warnings.connect(lambda warnings: print([w.toString() for w in warnings]))
 
     # Expose to QML
-    engine.rootContext().setContextProperty("MOTIONConnector", motion_connector)
+    connector = MOTIONConnector()
+    qmlRegisterSingletonInstance("OpenMotion", 1, 0, "MOTIONInterface", connector)
     engine.rootContext().setContextProperty("appVersion", "1.0.21")
 
     # Load the QML file
@@ -49,13 +50,12 @@ def main():
     async def main_async():
         """Start MOTION monitoring before event loop runs."""
         logger.info("Starting MOTION monitoring...")
-        await motion_connector.start_monitoring()
+        await connector._interface.start_monitoring()
 
     async def shutdown():
         """Ensure MOTIONConnector stops monitoring before closing."""
         logger.info("Shutting down MOTION monitoring...")
-        motion_connector.shutdown()  # Graceful sync cleanup
-        motion_connector.stop_monitoring()
+        connector._interface.stop_monitoring()
 
         pending_tasks = [t for t in asyncio.all_tasks() if not t.done()]
         if pending_tasks:
@@ -77,15 +77,19 @@ def main():
 
     # Connect shutdown process to app quit event
     app.aboutToQuit.connect(handle_exit)
-
+    
     try:
         with loop:
-            loop.run_until_complete(main_async())  # Start monitoring before running event loop
+            loop.run_until_complete(main_async())
             loop.run_forever()
     except RuntimeError as e:
-        logger.error(f"Runtime error: {e}")
+        if "Event loop stopped before Future completed" in str(e):
+            # Graceful shutdown — expected if closing while a future is active
+            logger.warning("App closed while a Future was still running (safe to ignore)")
+        else:
+            logger.error(f"Runtime error: {e}")
     except KeyboardInterrupt:
-        logger.info("Application interrupted.")
+        logger.info("Application interrupted by user.")
     finally:
         loop.close()
 

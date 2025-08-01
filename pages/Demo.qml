@@ -1,6 +1,7 @@
 import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
+import OpenMotion 1.0 
 
 import "../components"
 import "../models/FpgaModel.js" as FpgaData
@@ -136,7 +137,7 @@ Rectangle {
 
         console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
 
-        let success = MOTIONConnector.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
+        let success = MOTIONInterface.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
 
         if (success) {
             console.log("Write successful.");
@@ -174,7 +175,7 @@ Rectangle {
         const data_len = parseInt(myFn.data_size.replace("B", "")) / 8;
 
         console.log(`READ from ${fModel.label} @ 0x${offset.toString(16)}`);
-        let result = MOTIONConnector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len);
+        let result = MOTIONInterface.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len);
 
         if (result.length === 0) {
             console.log("Read failed or returned empty array.");
@@ -283,7 +284,7 @@ Rectangle {
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
-                enabled: MOTIONConnector.consoleConnected
+                enabled: MOTIONInterface.consoleConnected
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -315,7 +316,7 @@ Rectangle {
                                     id: taDrive
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 10000 }
                                     background: Rectangle {
@@ -344,7 +345,7 @@ Rectangle {
                                     id: taPulseWidth
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 5000000 }
                                     background: Rectangle {
@@ -361,7 +362,7 @@ Rectangle {
                                 Layout.preferredWidth: 100
                                 Layout.preferredHeight: 40
                                 hoverEnabled: true
-                                enabled: MOTIONConnector.consoleConnected
+                                enabled: MOTIONInterface.consoleConnected
 
                                 contentItem: Text {
                                     text: parent.text
@@ -421,7 +422,7 @@ Rectangle {
                                     id: ddsCurrent
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 4100 }
                                     background: Rectangle {
@@ -445,7 +446,7 @@ Rectangle {
                                     id: ddsCurrentLimit
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1200 }
                                     background: Rectangle {
@@ -473,7 +474,7 @@ Rectangle {
                                     id: cwSeedCurrent
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 4100 }
                                     background: Rectangle {
@@ -497,7 +498,7 @@ Rectangle {
                                     id: cwSeedCurrentLimit
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 30
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1200 }
                                     background: Rectangle {
@@ -512,7 +513,7 @@ Rectangle {
                                 Layout.preferredWidth: 100
                                 Layout.preferredHeight: 40
                                 hoverEnabled: true
-                                enabled: MOTIONConnector.consoleConnected 
+                                enabled: MOTIONInterface.consoleConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -596,7 +597,7 @@ Rectangle {
                                         id: pwLowerLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
@@ -620,7 +621,7 @@ Rectangle {
                                         id: pwUpperLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
@@ -648,7 +649,7 @@ Rectangle {
                                         id: periodLowerLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
@@ -677,7 +678,7 @@ Rectangle {
                                         id: driveCurrentLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 32000 }
                                         background: Rectangle {
@@ -706,7 +707,7 @@ Rectangle {
                                         id: cwSafetyCurrentLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 32000 }
                                         background: Rectangle {
@@ -722,7 +723,7 @@ Rectangle {
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 40
                                     hoverEnabled: true
-                                    enabled: MOTIONConnector.consoleConnected 
+                                    enabled: MOTIONInterface.consoleConnected 
 
                                     contentItem: Text {
                                         text: parent.text
@@ -752,7 +753,7 @@ Rectangle {
 
                                         writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "1");
                                         writeFpgaRegister("Safety EE", "DYNAMIC CTRL", "1");
-                                        MOTIONConnector.readSafetyStatus();
+                                        MOTIONInterface.readSafetyStatus();
                                     }
                                 }
 
@@ -775,7 +776,7 @@ Rectangle {
                                         id: pwmCurrentLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000 }
                                         background: Rectangle {
@@ -790,7 +791,7 @@ Rectangle {
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 40
                                     hoverEnabled: true
-                                    enabled: MOTIONConnector.consoleConnected 
+                                    enabled: MOTIONInterface.consoleConnected 
 
                                     contentItem: Text {
                                         text: parent.text
@@ -853,7 +854,7 @@ Rectangle {
                                         id: pw2LowerLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
@@ -877,7 +878,7 @@ Rectangle {
                                         id: pw2UpperLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
@@ -905,7 +906,7 @@ Rectangle {
                                         id: period2LowerLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000000 }
                                         background: Rectangle {
@@ -934,7 +935,7 @@ Rectangle {
                                         id: drive2CurrentLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000 }
                                         background: Rectangle {
@@ -963,7 +964,7 @@ Rectangle {
                                         id: cw2SafetyCurrentLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000 }
                                         background: Rectangle {
@@ -978,7 +979,7 @@ Rectangle {
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 40
                                     hoverEnabled: true
-                                    enabled: MOTIONConnector.consoleConnected 
+                                    enabled: MOTIONInterface.consoleConnected 
 
                                     contentItem: Text {
                                         text: parent.text
@@ -1008,7 +1009,7 @@ Rectangle {
 
                                         writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "1");
                                         writeFpgaRegister("Safety EE", "DYNAMIC CTRL", "1");
-                                        MOTIONConnector.readSafetyStatus();
+                                        MOTIONInterface.readSafetyStatus();
                                     }
                                 }
                                 
@@ -1031,7 +1032,7 @@ Rectangle {
                                         id: pwm2CurrentLimit
                                         Layout.preferredWidth: 100
                                         Layout.preferredHeight: 30
-                                        enabled: MOTIONConnector.consoleConnected
+                                        enabled: MOTIONInterface.consoleConnected
                                         font.pixelSize: 12
                                         validator: IntValidator { bottom: 0; top: 1000 }
                                         background: Rectangle {
@@ -1046,7 +1047,7 @@ Rectangle {
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 40
                                     hoverEnabled: true
-                                    enabled: MOTIONConnector.consoleConnected 
+                                    enabled: MOTIONInterface.consoleConnected 
 
                                     contentItem: Text {
                                         text: parent.text
@@ -1144,7 +1145,7 @@ Rectangle {
                             textRole: "label"
                             Layout.preferredWidth: 140
                             Layout.preferredHeight: 32
-                            enabled: MOTIONConnector.sensorConnected
+                            enabled: MOTIONInterface.sensorConnected
 
                             onCurrentIndexChanged: {
                                 updatePatternOptions()
@@ -1157,7 +1158,7 @@ Rectangle {
                             textRole: "label"
                             Layout.preferredWidth: 120
                             Layout.preferredHeight: 32
-                            enabled: MOTIONConnector.sensorConnected
+                            enabled: MOTIONInterface.sensorConnected
                             onCurrentIndexChanged: {
                                 
                             }
@@ -1167,12 +1168,12 @@ Rectangle {
                             id: idCameraCapButton
                             text: {
                                 let mode = filteredPatternModel.get(patternSelector.currentIndex)
-                                return (mode && mode.label === "Stream") ? (MOTIONConnector.isStreaming ? "Stop" : "Start") : "Capture"
+                                return (mode && mode.label === "Stream") ? (MOTIONInterface.isStreaming ? "Stop" : "Start") : "Capture"
                             }
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 45
                             hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONConnector.sensorConnected 
+                            enabled: MOTIONInterface.sensorConnected 
 
                             contentItem: Text {
                                 text: parent.text
@@ -1203,12 +1204,12 @@ Rectangle {
                                 let tp = filteredPatternModel.get(patternSelector.currentIndex)
 
                                 if (tp && tp.label === "Stream") {
-                                    if (MOTIONConnector.isStreaming) {
-                                        MOTIONConnector.stopCameraStream(cam.cam_num)
+                                    if (MOTIONInterface.isStreaming) {
+                                        MOTIONInterface.stopCameraStream(cam.cam_num)
                                         cameraCapStatus.text = "Stopped"
                                         cameraCapStatus.color = "red"
                                     } else {
-                                        MOTIONConnector.startCameraStream(cam.cam_num)
+                                        MOTIONInterface.startCameraStream(cam.cam_num)
                                         cameraCapStatus.text = "Streaming"
                                         cameraCapStatus.color = "lightgreen"
                                     }
@@ -1220,7 +1221,7 @@ Rectangle {
                                         cameraCapStatus.color = "orange"
                                     })
 
-                                    MOTIONConnector.getCameraHistogram(cam.cam_num, tp.tp_id)
+                                    MOTIONInterface.getCameraHistogram(cam.cam_num, tp.tp_id)
                                 }
                             }
                         }
@@ -1250,7 +1251,7 @@ Rectangle {
                 radius: 10
                 border.color: "#3E4E6F"
                 border.width: 2
-                enabled: MOTIONConnector.consoleConnected
+                enabled: MOTIONInterface.consoleConnected
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -1283,7 +1284,7 @@ Rectangle {
                                     id: fsFrequency
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 32
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     text: "40"
                                     validator: IntValidator { bottom: 1; top: 100 }
@@ -1312,7 +1313,7 @@ Rectangle {
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 32
                                     text: "5000"
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 1; top: 1000 }
                                     background: Rectangle {
@@ -1338,7 +1339,7 @@ Rectangle {
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 32
                                     text: "250"
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
                                     background: Rectangle {
@@ -1364,7 +1365,7 @@ Rectangle {
                                     Layout.preferredWidth: 100
                                     Layout.preferredHeight: 32
                                     text: "5000"
-                                    enabled: MOTIONConnector.consoleConnected
+                                    enabled: MOTIONInterface.consoleConnected
                                     font.pixelSize: 12
                                     validator: IntValidator { bottom: 0; top: 1000 }
                                     background: Rectangle {
@@ -1378,7 +1379,7 @@ Rectangle {
                                 text: "Start Trigger"
                                 Layout.preferredWidth: 100
                                 Layout.preferredHeight: 34
-                                enabled: MOTIONConnector.consoleConnected
+                                enabled: MOTIONInterface.consoleConnected
                                 contentItem: Text {
                                     text: parent.text
                                     color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
@@ -1410,8 +1411,8 @@ Rectangle {
                                         "EnableTaTrigger": true
                                     }
                                     var jsonString = JSON.stringify(json_trigger_data);
-                                    if (MOTIONConnector.setTrigger(jsonString)) {
-                                        MOTIONConnector.startTrigger()
+                                    if (MOTIONInterface.setTrigger(jsonString)) {
+                                        MOTIONInterface.startTrigger()
                                     } else {
                                         console.log("Failed to apply trigger config")
                                     }
@@ -1423,7 +1424,7 @@ Rectangle {
                                 text: "Stop Trigger"
                                 Layout.preferredWidth: 100
                                 Layout.preferredHeight: 34
-                                enabled: MOTIONConnector.consoleConnected
+                                enabled: MOTIONInterface.consoleConnected
                                 contentItem: Text {
                                     text: parent.text
                                     color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
@@ -1445,13 +1446,13 @@ Rectangle {
                                     }
                                     radius: 4
                                 }
-                                onClicked: MOTIONConnector.stopTrigger()
+                                onClicked: MOTIONInterface.stopTrigger()
                             }
 
                             // Status Label aligned right
                             Text {
                                 id: triggerStatus
-                                text: MOTIONConnector.triggerState
+                                text: MOTIONInterface.triggerState
                                 color: triggerStatus.text === "ON" ? "lightgreen" : "red"
                                 font.pixelSize: 14
                                 Layout.columnSpan: 2
@@ -1485,7 +1486,7 @@ Rectangle {
                         Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
 
                         Text {
-                            text: "TCM: " + MOTIONConnector.tcm + " "
+                            text: "TCM: " + MOTIONInterface.tcm + " "
                             font.pixelSize: 14
                             color: "#BDC3C7"
                             ToolTip.text: "TCM (Trigger Count MCU) - Laser Pulse"
@@ -1501,7 +1502,7 @@ Rectangle {
                                         
                         }
                         Text {
-                            text: "TCL: " + MOTIONConnector.tcl + " "
+                            text: "TCL: " + MOTIONInterface.tcl + " "
                             font.pixelSize: 14
                             color: "#BDC3C7"
                             ToolTip.text: "TCL (Trigger Count FPGA) - Laser Pulse"
@@ -1516,7 +1517,7 @@ Rectangle {
                             }
                         }
                         Text {
-                            text: "PDC: " + MOTIONConnector.pdc.toFixed(3) + " mA"
+                            text: "PDC: " + MOTIONInterface.pdc.toFixed(3) + " mA"
                             font.pixelSize: 14
                             color: "#BDC3C7"
                             ToolTip.text: "PDC (Power Draw Current) - Current power consumption"
@@ -1541,10 +1542,10 @@ Rectangle {
 
                         Text {
                             id: statusText
-                            text: "System State: " + (MOTIONConnector.state === 0 ? "Disconnected"
-                                            : MOTIONConnector.state === 1 ? "Sensor Connected"
-                                            : MOTIONConnector.state === 2 ? "Console Connected"
-                                            : MOTIONConnector.state === 3 ? "Ready"
+                            text: "System State: " + (MOTIONInterface.state === 0 ? "Disconnected"
+                                            : MOTIONInterface.state === 1 ? "Sensor Connected"
+                                            : MOTIONInterface.state === 2 ? "Console Connected"
+                                            : MOTIONInterface.state === 3 ? "Ready"
                                             : "Running")
                             font.pixelSize: 16
                             color: "#BDC3C7"
@@ -1570,7 +1571,7 @@ Rectangle {
 
                                 Rectangle {
                                     width: 20; height: 20; radius: 10
-                                    color: MOTIONConnector.sensorConnected ? "green" : "red"
+                                    color: MOTIONInterface.sensorConnected ? "green" : "red"
                                     border.color: "black"; border.width: 1
                                 }
                             }
@@ -1589,7 +1590,7 @@ Rectangle {
 
                                 Rectangle {
                                     width: 20; height: 20; radius: 10
-                                    color: MOTIONConnector.consoleConnected ? "green" : "red"
+                                    color: MOTIONInterface.consoleConnected ? "green" : "red"
                                     border.color: "black"; border.width: 1
                                 }
                             }
@@ -1627,7 +1628,7 @@ Rectangle {
 
                                 Rectangle {
                                     width: 20; height: 20; radius: 10
-                                    color: MOTIONConnector.safetyFailure ? "red" : "grey"
+                                    color: MOTIONInterface.safetyFailure ? "red" : "grey"
                                     border.color: "black"; border.width: 1
                                 }
                             }
@@ -1644,8 +1645,8 @@ Rectangle {
         interval: 500
         running: false
         onTriggered: {            
-            if (MOTIONConnector.consoleConnected) {
-                const config = MOTIONConnector.queryTriggerConfig()
+            if (MOTIONInterface.consoleConnected) {
+                const config = MOTIONInterface.queryTriggerConfig()
                 if (config && Object.keys(config).length > 0) {
                     fsFrequency.text = config.TriggerFrequencyHz.toString()
                     fsPulseWidth.text = config.TriggerPulseWidthUsec.toString()
@@ -1660,7 +1661,7 @@ Rectangle {
     
     // **Connections for MOTIONConnector signals**
     Connections {
-        target: MOTIONConnector
+        target: MOTIONInterface
 
         function onSignalConnected(descriptor, port) {
             console.log(descriptor + " connected on " + port);
@@ -1691,26 +1692,26 @@ Rectangle {
         }
         
         function onConnectionStatusChanged() {          
-            if (MOTIONConnector.sensorConnected) {
+            if (MOTIONInterface.sensorConnected) {
             }   
-            if (MOTIONConnector.consoleConnected) {
+            if (MOTIONInterface.consoleConnected) {
                 consoleUpdateTimer.start()
             }            
         }
         
         function onLaserStateChanged() {          
-            if (MOTIONConnector.consoleConnected) {
+            if (MOTIONInterface.consoleConnected) {
             }            
         }
         
         function onSafetyFailureStateChanged() {          
-            if (MOTIONConnector.consoleConnected) {
+            if (MOTIONInterface.consoleConnected) {
             }            
         }
 
         function onIsStreamingChanged() {
-            cameraCapStatus.text = MOTIONConnector.isStreaming ? "Streaming" : "Stopped"
-            cameraCapStatus.color = MOTIONConnector.isStreaming ? "lightgreen" : "red"
+            cameraCapStatus.text = MOTIONInterface.isStreaming ? "Streaming" : "Stopped"
+            cameraCapStatus.color = MOTIONInterface.isStreaming ? "lightgreen" : "red"
         }
 
         function onUpdateCapStatus(message) {
@@ -1722,17 +1723,15 @@ Rectangle {
 
     // Run refresh logic immediately on page load if Sensor is already connected
     Component.onCompleted: {
-        if (MOTIONConnector.sensorConnected) {
+        if (MOTIONInterface.sensorConnected) {
         }   
-        if (MOTIONConnector.consoleConnected) {
+        if (MOTIONInterface.consoleConnected) {
             consoleUpdateTimer.start()
         }    
         updatePatternOptions()
     }
 
     Component.onDestruction: {
-        console.log("Closing UI, clearing MOTIONConnector...");
-        MOTIONConnector.stop_monitoring();
-        MOTIONConnector = null;  // Ensure QML does not access it
+        console.log("Closing UI, clearing MOTIONInterface...");
     }
 }

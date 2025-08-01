@@ -1,6 +1,7 @@
 import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
+import OpenMotion 1.0 
 
 import "../components"
 
@@ -38,15 +39,15 @@ Rectangle {
 
     function updateStates() {
         console.log("Sensor Updating all states...")
-        MOTIONConnector.querySensorInfo()
-        MOTIONConnector.querySensorTemperature()
-        MOTIONConnector.querySensorAccelerometer()
-        //MOTIONConnector.queryTriggerInfo()
+        MOTIONInterface.querySensorInfo()
+        MOTIONInterface.querySensorTemperature()
+        MOTIONInterface.querySensorAccelerometer()
+        //MOTIONInterface.queryTriggerInfo()
     }
 
     // Run refresh logic immediately on page load if Sensor is already connected
     Component.onCompleted: {
-        if (MOTIONConnector.sensorConnected) {
+        if (MOTIONInterface.sensorConnected) {
             console.log("Page Loaded - Sensor Already Connected. Fetching Info...")
             updateStates()
         }
@@ -63,11 +64,11 @@ Rectangle {
     }
 
     Connections {
-        target: MOTIONConnector
+        target: MOTIONInterface
 
         // Handle Sensor Connected state
         function onSensorConnectedChanged() {
-            if (MOTIONConnector.sensorConnected) {
+            if (MOTIONInterface.sensorConnected) {
                 infoTimer.start()          // One-time info fetch
             } else {
                 console.log("Sensor Disconnected - Clearing Data...")
@@ -190,7 +191,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONConnector.sensorConnected 
+                                enabled: MOTIONInterface.sensorConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -217,7 +218,7 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    if(MOTIONConnector.sendPingCommand("SENSOR")){                                        
+                                    if(MOTIONInterface.sendPingCommand("SENSOR")){                                        
                                         pingResult.text = "Ping SUCCESS"
                                         pingResult.color = "green"
                                     }else{
@@ -244,7 +245,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONConnector.sensorConnected 
+                                enabled: MOTIONInterface.sensorConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -271,7 +272,7 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    if(MOTIONConnector.sendLedToggleCommand("SENSOR"))
+                                    if(MOTIONInterface.sendLedToggleCommand("SENSOR"))
                                     {
                                         toggleLedResult.text = "LED Toggled"
                                         toggleLedResult.color = "green"
@@ -297,7 +298,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONConnector.sensorConnected 
+                                enabled: MOTIONInterface.sensorConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -325,7 +326,7 @@ Rectangle {
 
                                 onClicked: {
 
-                                    if(MOTIONConnector.sendEchoCommand("SENSOR"))
+                                    if(MOTIONInterface.sendEchoCommand("SENSOR"))
                                     {
                                         echoResult.text = "Echo SUCCESS"
                                         echoResult.color = "green"
@@ -402,7 +403,7 @@ Rectangle {
                                 Layout.preferredHeight: 40
                                 model: ["Camera 0", "Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "All Cameras"]
                                 currentIndex: 8  // Default to "All Cameras"
-                                enabled: MOTIONConnector.sensorConnected
+                                enabled: MOTIONInterface.sensorConnected
 
                                 onActivated: {
                                     var selectedIndex = cameraDropdown.currentIndex;
@@ -437,7 +438,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONConnector.sensorConnected 
+                                enabled: MOTIONInterface.sensorConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -473,9 +474,9 @@ Rectangle {
     
                                     console.log("Test Camera Mask: " + cameraMask.toString(16));
                                     if(cameraMask == 0xFF){
-                                        MOTIONConnector.configureAllCameras();
+                                        MOTIONInterface.configureAllCameras();
                                     }else{
-                                        MOTIONConnector.configureCamera(cameraMask);
+                                        MOTIONInterface.configureCamera(cameraMask);
                                     }
 
                                 }
@@ -546,13 +547,13 @@ Rectangle {
                                 width: 20
                                 height: 20
                                 radius: 10
-                                color: MOTIONConnector.sensorConnected ? "green" : "red"
+                                color: MOTIONInterface.sensorConnected ? "green" : "red"
                                 border.color: "black"
                                 border.width: 1
                             }
 
                             Text {
-                                text: MOTIONConnector.sensorConnected ? "Connected" : "Not Connected"
+                                text: MOTIONInterface.sensorConnected ? "Connected" : "Not Connected"
                                 font.pixelSize: 16
                                 color: "#BDC3C7"
                             }
@@ -570,7 +571,7 @@ Rectangle {
                                 radius: 15
                                 color: enabled ? "#2C3E50" : "#7F8C8D"  // Dim when disabled
                                 Layout.alignment: Qt.AlignRight  
-                                enabled: MOTIONConnector.sensorConnected
+                                enabled: MOTIONInterface.sensorConnected
 
                                 // Icon Text
                                 Text {
@@ -653,7 +654,7 @@ Rectangle {
                             height: 40
                             radius: 10
                             color: enabled ? "#E74C3C" : "#7F8C8D"  // Red when enabled, gray when disabled
-                            enabled: MOTIONConnector.sensorConnected
+                            enabled: MOTIONInterface.sensorConnected
 
                             Text {
                                 text: "Soft Reset"
@@ -668,7 +669,7 @@ Rectangle {
                                 enabled: parent.enabled  // Disable MouseArea when the button is disabled
                                 onClicked: {
                                     console.log("Soft Reset Triggered")
-                                    MOTIONConnector.softResetSensor("SENSOR")
+                                    MOTIONInterface.softResetSensor("SENSOR")
                                 }
 
                                 onEntered: {

@@ -1,6 +1,7 @@
 import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
+import OpenMotion 1.0 
 
 import "components"
 import "pages"
@@ -35,7 +36,7 @@ ApplicationWindow {
             titleText: "Open-MOTION Engineering App"
             logoSource: "../assets/images/OpenwaterLogo.png" // Correct relative path
             appVerText: "v" + appVersion
-            sdkVerText: "v" + MOTIONConnector.sdkVersion
+            sdkVerText: "v" + MOTIONInterface.get_sdk_version()
         }
 
         // Layout for Sidebar and Main Content
@@ -83,5 +84,9 @@ ApplicationWindow {
     function handleSidebarClick(index) {
         activeMenu = index; // Update the activeMenu property
         console.log("Button clicked with index:", index);
+    }
+    
+    Connections {
+        target: MOTIONInterface
     }
 }
