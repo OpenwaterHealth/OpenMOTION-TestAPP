@@ -70,9 +70,9 @@ Rectangle {
         ListElement { label: "Bars"; tp_id: 0x00}
         ListElement { label: "Solid"; tp_id: 0x01}
         ListElement { label: "Squares"; tp_id: 0x02}
-        ListElement { label: "Continuous"; tp_id: 0x03}
+        // ListElement { label: "Continuous"; tp_id: 0x03}
         ListElement { label: "Live"; tp_id: 0x04}
-        ListElement { label: "Stream"; tp_id: 0x04}
+        // ListElement { label: "Stream"; tp_id: 0x04}
     }
 
     function writeFpgaRegister(fpgaLabel, funcName, data) {
