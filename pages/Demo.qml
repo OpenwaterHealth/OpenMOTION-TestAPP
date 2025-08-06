@@ -1109,13 +1109,55 @@ Rectangle {
                     anchors.margins: 12
                     spacing: 4
 
-                    Text {
-                        text: "Camera Control"
-                        color: "#BDC3C7"
-                        font.pixelSize: 16
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                        Layout.alignment: Qt.AlignHCenter
+                    // Row with Sensor Selector + Title
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        // Sensor Selection Dropdown
+                        ComboBox {
+                            id: sensorSelector
+                            Layout.preferredWidth: 90
+                            Layout.preferredHeight: 26
+                            model: ["Left", "Right"]
+                            currentIndex: 0 // Default to Left
+
+                            // Make font smaller
+                            contentItem: Text {
+                                text: sensorSelector.displayText
+                                font.pixelSize: 12
+                                color: "#BDC3C7"
+                                verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+
+                            delegate: ItemDelegate {
+                                width: sensorSelector.width
+                                contentItem: Text {
+                                    text: modelData
+                                    font.pixelSize: 12
+                                    color: "#BDC3C7"
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+
+                            onCurrentIndexChanged: {
+                                // Clear status when switching
+                                cameraCapStatus.text = "Not Configured"
+                                cameraCapStatus.color = "#BDC3C7"
+                                updatePatternOptions()
+                            }
+                        }
+
+                        Text {
+                            text: "Camera Control"
+                            color: "#BDC3C7"
+                            font.pixelSize: 16
+                            font.bold: true
+                            Layout.alignment: Qt.AlignLeft
+                        }
+
+                        Item { Layout.fillWidth: true } // Spacer
                     }
 
                     // Spacer between title and dropdowns
@@ -1145,7 +1187,8 @@ Rectangle {
                             textRole: "label"
                             Layout.preferredWidth: 140
                             Layout.preferredHeight: 32
-                            enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
+                            enabled: (sensorSelector.currentIndex === 0 && MOTIONInterface.leftSensorConnected) ||
+                                        (sensorSelector.currentIndex === 1 && MOTIONInterface.rightSensorConnected)
 
                             onCurrentIndexChanged: {
                                 updatePatternOptions()
@@ -1158,7 +1201,9 @@ Rectangle {
                             textRole: "label"
                             Layout.preferredWidth: 120
                             Layout.preferredHeight: 32
-                            enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
+                            enabled: (sensorSelector.currentIndex === 0 && MOTIONInterface.leftSensorConnected) ||
+                                        (sensorSelector.currentIndex === 1 && MOTIONInterface.rightSensorConnected)
+
                             onCurrentIndexChanged: {
                                 
                             }
@@ -1173,7 +1218,8 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 45
                             hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
+                            enabled: (sensorSelector.currentIndex === 0 && MOTIONInterface.leftSensorConnected) ||
+                                        (sensorSelector.currentIndex === 1 && MOTIONInterface.rightSensorConnected)
 
                             contentItem: Text {
                                 text: parent.text
@@ -1202,6 +1248,8 @@ Rectangle {
                             onClicked: {
                                 let cam = cameraModel.get(cameraSelector.currentIndex)
                                 let tp = filteredPatternModel.get(patternSelector.currentIndex)
+                                let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT"
+                                console.log("Selected: ", sensor_tag)
 
                                 if (tp && tp.label === "Stream") {
                                     if (MOTIONInterface.isStreaming) {
@@ -1221,7 +1269,7 @@ Rectangle {
                                         cameraCapStatus.color = "orange"
                                     })
 
-                                    MOTIONInterface.getCameraHistogram("SENSOR_LEFT", cam.cam_num, tp.tp_id)
+                                    MOTIONInterface.getCameraHistogram(sensor_tag, cam.cam_num, tp.tp_id)
                                 }
                             }
                         }

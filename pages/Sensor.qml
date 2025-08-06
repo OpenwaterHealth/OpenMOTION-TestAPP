@@ -39,6 +39,16 @@ Rectangle {
 
     function updateStates() {
         console.log("Sensor Updating all states...")
+        
+        let isConnected = (sensorSelector.currentIndex === 0)
+            ? MOTIONInterface.leftSensorConnected
+            : MOTIONInterface.rightSensorConnected
+
+        if (!isConnected) {
+            console.log("Selected sensor is not connected. Skipping update.")
+            return
+        }
+
         let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
         console.log("Sensor Updating all states for", sensor_tag);
         
@@ -257,7 +267,13 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
 
                                 contentItem: Text {
                                     text: parent.text
@@ -312,7 +328,13 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
 
                                 contentItem: Text {
                                     text: parent.text
@@ -419,7 +441,13 @@ Rectangle {
                                 Layout.preferredHeight: 40
                                 model: ["Camera 0", "Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "All Cameras"]
                                 currentIndex: 8  // Default to "All Cameras"
-                                enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
 
                                 onActivated: {
                                     var selectedIndex = cameraDropdown.currentIndex;
@@ -454,7 +482,13 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
 
                                 contentItem: Text {
                                     text: parent.text
@@ -729,8 +763,13 @@ Rectangle {
                             height: 40
                             radius: 10
                             color: enabled ? "#E74C3C" : "#7F8C8D"  // Red when enabled, gray when disabled
-                            enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
-
+                            enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                            }
                             Text {
                                 text: "Soft Reset"
                                 anchors.centerIn: parent
