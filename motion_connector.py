@@ -547,13 +547,6 @@ class MOTIONConnector(QObject):
                 else:
                     logger.error(f"Failed to send ping command")
                     return False
-            elif target == "SENSOR_RIGHT":
-                if motion_interface.sensors["right"].ping():
-                    logger.info(f"Ping command sent successfully")
-                    return True
-                else:
-                    logger.error(f"Failed to send ping command")
-                    return False
             else:
                 logger.error(f"Invalid target for ping command")
                 return False
@@ -768,22 +761,24 @@ class MOTIONConnector(QObject):
     @pyqtSlot(int)
     def startCameraStream(self, camera_index: int):
         logger.info(f"Starting camera stream for camera {camera_index + 1}")
-        if self._capture_thread is None or not self._capture_thread.isRunning():
-            self._capture_thread = CaptureThread(camera_index)
-            self._capture_thread.new_histogram.connect(self.on_new_histogram)
-            self._capture_thread.update_status.connect(self.handleUpdateCapStatus)
-            self._capture_thread.start()
-            self._is_streaming = True
-            self.isStreamingChanged.emit()
+        logger.error("Camera streaming is not implemented yet.")
+        # if self._capture_thread is None or not self._capture_thread.isRunning():
+        #     self._capture_thread = CaptureThread(camera_index)
+        #     self._capture_thread.new_histogram.connect(self.on_new_histogram)
+        #     self._capture_thread.update_status.connect(self.handleUpdateCapStatus)
+        #     self._capture_thread.start()
+        #     self._is_streaming = True
+        #     self.isStreamingChanged.emit()
         
     @pyqtSlot(int)
     def stopCameraStream(self, cam_num):
-        if self._is_streaming and self._capture_thread:
-            logger.info(f"Stopping camera stream for cam {cam_num}")
-            self._capture_thread.stop()
-            self._capture_thread = None
-            self._is_streaming = False
-            self.isStreamingChanged.emit()
+        logger.error("Camera streaming is not implemented yet.")
+        # if self._is_streaming and self._capture_thread:
+        #     logger.info(f"Stopping camera stream for cam {cam_num}")
+        #     self._capture_thread.stop()
+        #     self._capture_thread = None
+        #     self._is_streaming = False
+        #     self.isStreamingChanged.emit()
 
     @pyqtSlot(str, int, int)
     def getCameraHistogram(self, target:str, camera_index: int, test_pattern_id: int = 4):
