@@ -1145,7 +1145,7 @@ Rectangle {
                             textRole: "label"
                             Layout.preferredWidth: 140
                             Layout.preferredHeight: 32
-                            enabled: MOTIONInterface.leftSensorConnected
+                            enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
 
                             onCurrentIndexChanged: {
                                 updatePatternOptions()
@@ -1158,7 +1158,7 @@ Rectangle {
                             textRole: "label"
                             Layout.preferredWidth: 120
                             Layout.preferredHeight: 32
-                            enabled: MOTIONInterface.leftSensorConnected
+                            enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
                             onCurrentIndexChanged: {
                                 
                             }
@@ -1173,7 +1173,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 45
                             hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONInterface.leftSensorConnected 
+                            enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
 
                             contentItem: Text {
                                 text: parent.text
@@ -1205,13 +1205,13 @@ Rectangle {
 
                                 if (tp && tp.label === "Stream") {
                                     if (MOTIONInterface.isStreaming) {
-                                        MOTIONInterface.stopCameraStream(cam.cam_num)
-                                        cameraCapStatus.text = "Stopped"
-                                        cameraCapStatus.color = "red"
+                                        // MOTIONInterface.stopCameraStream(cam.cam_num)
+                                        // cameraCapStatus.text = "Stopped"
+                                        // cameraCapStatus.color = "red"
                                     } else {
-                                        MOTIONInterface.startCameraStream(cam.cam_num)
-                                        cameraCapStatus.text = "Streaming"
-                                        cameraCapStatus.color = "lightgreen"
+                                        // MOTIONInterface.startCameraStream(cam.cam_num)
+                                        // cameraCapStatus.text = "Streaming"
+                                        // cameraCapStatus.color = "lightgreen"
                                     }
                                 } else {
                                     console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id)
@@ -1221,7 +1221,7 @@ Rectangle {
                                         cameraCapStatus.color = "orange"
                                     })
 
-                                    MOTIONInterface.getCameraHistogram(cam.cam_num, tp.tp_id)
+                                    MOTIONInterface.getCameraHistogram("SENSOR_LEFT", cam.cam_num, tp.tp_id)
                                 }
                             }
                         }

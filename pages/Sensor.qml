@@ -39,17 +39,21 @@ Rectangle {
 
     function updateStates() {
         console.log("Sensor Updating all states...")
-        MOTIONInterface.querySensorInfo()
-        MOTIONInterface.querySensorTemperature()
-        MOTIONInterface.querySensorAccelerometer()
+        let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+        console.log("Sensor Updating all states for", sensor_tag);
+        
+        MOTIONInterface.querySensorInfo(sensor_tag)
+        MOTIONInterface.querySensorTemperature(sensor_tag)
+        MOTIONInterface.querySensorAccelerometer(sensor_tag)
         //MOTIONInterface.queryTriggerInfo()
     }
 
     // Run refresh logic immediately on page load if Sensor is already connected
     Component.onCompleted: {
-        if (MOTIONInterface.leftSensorConnected) {
-            console.log("Page Loaded - Sensor Already Connected. Fetching Info...")
-            updateStates()
+        sensorSelector.currentIndex = 0 // default
+        if (MOTIONInterface.leftSensorConnected || MOTIONInterface.rightSensorConnected) {
+            console.log("Page Loaded - Sensor Already Connected. Fetching Info...");
+            updateStates();
         }
     }
 
@@ -191,7 +195,13 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.leftSensorConnected 
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
 
                                 contentItem: Text {
                                     text: parent.text
@@ -218,7 +228,9 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    if(MOTIONInterface.sendPingCommand("SENSOR")){                                        
+                                    let sensor_tag = "SENSOR_LEFT";
+                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                    if(MOTIONInterface.sendPingCommand(sensor_tag)){                                        
                                         pingResult.text = "Ping SUCCESS"
                                         pingResult.color = "green"
                                     }else{
@@ -245,7 +257,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.leftSensorConnected 
+                                enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
 
                                 contentItem: Text {
                                     text: parent.text
@@ -272,7 +284,9 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    if(MOTIONInterface.sendLedToggleCommand("SENSOR"))
+                                    let sensor_tag = "SENSOR_LEFT";
+                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                    if(MOTIONInterface.sendLedToggleCommand(sensor_tag))
                                     {
                                         toggleLedResult.text = "LED Toggled"
                                         toggleLedResult.color = "green"
@@ -298,7 +312,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.leftSensorConnected 
+                                enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
 
                                 contentItem: Text {
                                     text: parent.text
@@ -325,8 +339,10 @@ Rectangle {
                                 }
 
                                 onClicked: {
+                                    let sensor_tag = "SENSOR_LEFT";
+                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
 
-                                    if(MOTIONInterface.sendEchoCommand("SENSOR"))
+                                    if(MOTIONInterface.sendEchoCommand(sensor_tag))
                                     {
                                         echoResult.text = "Echo SUCCESS"
                                         echoResult.color = "green"
@@ -403,7 +419,7 @@ Rectangle {
                                 Layout.preferredHeight: 40
                                 model: ["Camera 0", "Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "All Cameras"]
                                 currentIndex: 8  // Default to "All Cameras"
-                                enabled: MOTIONInterface.leftSensorConnected
+                                enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
 
                                 onActivated: {
                                     var selectedIndex = cameraDropdown.currentIndex;
@@ -438,7 +454,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.leftSensorConnected 
+                                enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
 
                                 contentItem: Text {
                                     text: parent.text
@@ -472,11 +488,14 @@ Rectangle {
                                         cameraMask = 0xFF;  // All Cameras
                                     }
     
+                                    let sensor_tag = "SENSOR_LEFT";
+                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+
                                     console.log("Test Camera Mask: " + cameraMask.toString(16));
                                     if(cameraMask == 0xFF){
-                                        MOTIONInterface.configureAllCameras();
+                                        MOTIONInterface.configureAllCameras(sensor_tag);
                                     }else{
-                                        MOTIONInterface.configureCamera(cameraMask);
+                                        MOTIONInterface.configureCamera(sensor_tag, cameraMask);
                                     }
 
                                 }
@@ -542,23 +561,72 @@ Rectangle {
                             spacing: 8
 
                             Text { text: "Sensor"; font.pixelSize: 16; color: "#BDC3C7" }
-                        
+
+                            // Sensor selection dropdown
+                            ComboBox {
+                                id: sensorSelector
+                                Layout.preferredWidth: 100
+                                Layout.preferredHeight: 28
+                                model: ["Left", "Right"]
+                                currentIndex: 0 // Default to Left
+
+                                // Smaller font for the selected text
+                                contentItem: Text {
+                                    text: sensorSelector.displayText
+                                    font.pixelSize: 12     // Change this for smaller text
+                                    color: "#BDC3C7"
+                                    verticalAlignment: Text.AlignVCenter
+                                    horizontalAlignment: Text.AlignHCenter
+                                    elide: Text.ElideRight
+                                }
+
+                                onCurrentIndexChanged: {
+                                    console.log("Sensor selection changed to:", currentText)
+
+                                    // Clear status texts
+                                    pingResult.text = ""
+                                    echoResult.text = ""
+                                    toggleLedResult.text = ""
+
+                                    // Clear sensor data
+                                    firmwareVersion = "N/A"
+                                    deviceId = "N/A"
+                                    sensor_temperature = 0.0
+                                    amb_temperature = 0.0
+                                    accel_x = accel_y = accel_z = 0
+                                    gyro_x = gyro_y = gyro_z = 0
+
+                                    // Reset camera test table
+                                    for (let i = 0; i < cameraStatusModel.count; i++) {
+                                        cameraStatusModel.set(i, {
+                                            label: "Camera " + i,
+                                            status: "Not Tested",
+                                            color: "gray"
+                                        });
+                                    }
+
+                                    // Fetch new sensor states
+                                    updateStates()
+                                }
+                            }
+
+                            // Connection LED (changes based on selection)
                             Rectangle {
                                 width: 20
                                 height: 20
                                 radius: 10
-                                color: MOTIONInterface.leftSensorConnected ? "green" : "red"
+                                color: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected ? "green" : "red"
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected ? "green" : "red"
+                                    }
+                                }
                                 border.color: "black"
                                 border.width: 1
                             }
-
-                            Text {
-                                text: MOTIONInterface.leftSensorConnected ? "Connected" : "Not Connected"
-                                font.pixelSize: 16
-                                color: "#BDC3C7"
-                            }
                         
-                        // Spacer to push the Refresh Button to the right
+                            // Spacer to push the Refresh Button to the right
                             Item {
                                 Layout.fillWidth: true
                             }
@@ -571,7 +639,13 @@ Rectangle {
                                 radius: 15
                                 color: enabled ? "#2C3E50" : "#7F8C8D"  // Dim when disabled
                                 Layout.alignment: Qt.AlignRight  
-                                enabled: MOTIONInterface.leftSensorConnected
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
 
                                 // Icon Text
                                 Text {
@@ -603,6 +677,7 @@ Rectangle {
                                 ToolTip.delay: 400  // Optional: delay before tooltip shows
                             }
                         }
+
                         // Divider Line
                         Rectangle {
                             Layout.fillWidth: true
@@ -654,7 +729,7 @@ Rectangle {
                             height: 40
                             radius: 10
                             color: enabled ? "#E74C3C" : "#7F8C8D"  // Red when enabled, gray when disabled
-                            enabled: MOTIONInterface.leftSensorConnected
+                            enabled: MOTIONInterface.leftSensorConnected | MOTIONInterface.rightSensorConnected
 
                             Text {
                                 text: "Soft Reset"
@@ -668,8 +743,10 @@ Rectangle {
                                 anchors.fill: parent
                                 enabled: parent.enabled  // Disable MouseArea when the button is disabled
                                 onClicked: {
+                                    let sensor_tag = "SENSOR_LEFT";
+                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
                                     console.log("Soft Reset Triggered")
-                                    MOTIONInterface.softResetSensor("SENSOR")
+                                    MOTIONInterface.softResetSensor(sensor_tag)
                                 }
 
                                 onEntered: {

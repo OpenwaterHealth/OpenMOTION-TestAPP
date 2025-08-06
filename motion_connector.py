@@ -285,8 +285,10 @@ class MOTIONConnector(QObject):
     def on_connected(self, descriptor, port):
         """Handle device connection."""
         print(f"Device connected: {descriptor} on port {port}")
-        if descriptor.upper() == "SENSOR":
+        if descriptor.upper() == "SENSOR_LEFT":
             self._leftSensorConnected = True
+        if descriptor.upper() == "SENSOR_RIGHT":
+            self._rightSensorConnected = True
         elif descriptor.upper() == "CONSOLE":
             self._consoleConnected = True
 
@@ -297,8 +299,10 @@ class MOTIONConnector(QObject):
     @pyqtSlot(str, str)
     def on_disconnected(self, descriptor, port):
         """Handle device disconnection."""
-        if descriptor.upper() == "SENSOR":
+        if descriptor.upper() == "SENSOR_LEFT":
             self._leftSensorConnected = False
+        elif descriptor.upper() == "SENSOR_RIGHT":
+            self._rightSensorConnected = False
         elif descriptor.upper() == "CONSOLE":
             self._consoleConnected = False
 
@@ -317,13 +321,18 @@ class MOTIONConnector(QObject):
         logger.info(f"Data received from {descriptor}: {message}")
         self.signalDataReceived.emit(descriptor, message)
 
-    @pyqtSlot()
-    def querySensorInfo(self):
+    @pyqtSlot(str)
+    def querySensorInfo(self, target: str):
         """Fetch and emit device information."""
         try:
-            fw_version = motion_interface.sensors["left"].get_version()
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":                
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for sensor info query: {target}")
+                return
+            fw_version = motion_interface.sensors[sensor_tag].get_version()
             logger.info(f"Version: {fw_version}")
-            hw_id = motion_interface.sensors["left"].get_hardware_id()
+            hw_id = motion_interface.sensors[sensor_tag].get_hardware_id()
             device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
             self.sensorDeviceInfoReceived.emit(fw_version, device_id)
             logger.info(f"Sensor Device Info - Firmware: {fw_version}, Device ID: {device_id}")
@@ -343,11 +352,16 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error querying device info: {e}")
 
-    @pyqtSlot()
-    def querySensorTemperature(self):
+    @pyqtSlot(str)
+    def querySensorTemperature(self, target: str):
         """Fetch and emit Temperature data."""
         try:
-            imu_temp = motion_interface.sensors["left"].imu_get_temperature()  
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":                
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for sensor info query: {target}")
+                return
+            imu_temp = motion_interface.sensors[sensor_tag].imu_get_temperature()  
             logger.info(f"Temperature Data - IMU Temp: {imu_temp}")
             self.temperatureSensorUpdated.emit(imu_temp)
         except Exception as e:
@@ -460,11 +474,16 @@ class MOTIONConnector(QObject):
             self._console_status_thread.stop()
             self._console_status_thread = None
     
-    @pyqtSlot()
-    def querySensorAccelerometer (self):
+    @pyqtSlot(str)
+    def querySensorAccelerometer (self, target: str):
         """Fetch and emit Accelerometer data."""
         try:
-            accel = motion_interface.sensors["left"].imu_get_accelerometer()
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":                
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for sensor info query: {target}")
+                return
+            accel = motion_interface.sensors[sensor_tag].imu_get_accelerometer()
             logger.info(f"Accel (raw): X={accel[0]}, Y={accel[1]}, Z={accel[2]}")
             self.accelerometerSensorUpdated.emit(accel[0], accel[1], accel[2])
         except Exception as e:
@@ -480,21 +499,30 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error querying Gyroscope data: {e}")
 
-    @pyqtSlot(int)
-    def configureCamera(self, cam_mask: int):
+    @pyqtSlot(str, int)
+    def configureCamera(self, target:str, cam_mask: int):
         try:
-            passed = motion_interface.sensors["left"].program_fpga(camera_position=cam_mask, manual_process=False)
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.erro
+            passed = motion_interface.sensors[sensor_tag].program_fpga(camera_position=cam_mask, manual_process=False)
             self.cameraConfigUpdated.emit(cam_mask, passed)
         except Exception as e:
             logger.error(f"Error configuring Camera {cam_mask}: {e}")
             self.cameraConfigUpdated.emit(cam_mask, False)
         
-    @pyqtSlot()
-    def configureAllCameras(self):
+    @pyqtSlot(str)
+    def configureAllCameras(self, target: str):
         for i in range(8):
             bitmask = 1 << i  # 0x01, 0x02, 0x04, ..., 0x80
             try:
-                passed = motion_interface.sensors["left"].program_fpga(camera_position=bitmask, manual_process=False)
+                if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                    sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                else:
+                    logger.error(f"Invalid target for camera configuration: {target}")
+                    return
+                passed = motion_interface.sensors[sensor_tag].program_fpga(camera_position=bitmask, manual_process=False)
                 self.cameraConfigUpdated.emit(bitmask, passed)
             except Exception as e:
                 logger.error(f"Camera {bitmask} failed: {e}")
@@ -511,8 +539,16 @@ class MOTIONConnector(QObject):
                 else:
                     logger.error(f"Failed to send ping command")
                     return False
-            elif target == "SENSOR":
-                if motion_interface.sensors["left"].ping():
+            elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":                
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                if motion_interface.sensors[sensor_tag].ping():
+                    logger.info(f"Ping command sent successfully")
+                    return True
+                else:
+                    logger.error(f"Failed to send ping command")
+                    return False
+            elif target == "SENSOR_RIGHT":
+                if motion_interface.sensors["right"].ping():
                     logger.info(f"Ping command sent successfully")
                     return True
                 else:
@@ -536,8 +572,9 @@ class MOTIONConnector(QObject):
                 else:
                     logger.error(f"Failed to Toggle command")
                     return False
-            elif target == "SENSOR":
-                if motion_interface.sensors["left"].toggle_led():
+            elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                if motion_interface.sensors[sensor_tag].toggle_led():
                     logger.info(f"Toggle command sent successfully")
                     return True
                 else:
@@ -557,8 +594,9 @@ class MOTIONConnector(QObject):
             expected_data = b"Hello FROM Test Application!"
             if target == "CONSOLE":
                 echoed_data, data_len = motion_interface.console_module.echo(echo_data=expected_data)
-            elif target == "SENSOR":
-                echoed_data, data_len = motion_interface.sensors["left"].echo(echo_data=expected_data)
+            elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                echoed_data, data_len = motion_interface.sensors[sensor_tag].echo(echo_data=expected_data)
             else:
                 logger.error(f"Invalid target for Echo command")
                 return False
@@ -615,7 +653,7 @@ class MOTIONConnector(QObject):
                     logger.info(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
                     return list(fpga_data[:fpga_data_len]) 
                 
-            elif target == "SENSOR":
+            elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 logger.error(f"I2C Read Not Implemented")
                 return []
         except Exception as e:
@@ -650,7 +688,7 @@ class MOTIONConnector(QObject):
                 else:
                     logger.error(f"Write I2C Failed")
                     return False
-            elif target == "SENSOR":
+            elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 logger.info(f"I2C Write Not Implemented")
                 return True
         except Exception as e:
@@ -667,8 +705,9 @@ class MOTIONConnector(QObject):
                     logger.info(f"Software Reset Sent")
                 else:
                     logger.error(f"Failed to send Software Reset")
-            elif target == "SENSOR":                    
-                if motion_interface.sensors["left"].soft_reset():
+            elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"                    
+                if motion_interface.sensors[sensor_tag].soft_reset():
                     logger.info(f"Software Reset Sent")
                 else:
                     logger.error(f"Failed to send Software Reset")
@@ -746,10 +785,16 @@ class MOTIONConnector(QObject):
             self._is_streaming = False
             self.isStreamingChanged.emit()
 
-    @pyqtSlot(int, int)
-    def getCameraHistogram(self, camera_index: int, test_pattern_id: int = 4):
+    @pyqtSlot(str, int, int)
+    def getCameraHistogram(self, target:str, camera_index: int, test_pattern_id: int = 4):
+        if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+            sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+        else:
+            logger.error(f"Invalid target for Echo command")
+            return False
         logger.info(f"Getting histogram for camera {camera_index + 1}")
         bins, histo = motion_interface.get_camera_histogram(
+            sensor_side = sensor_tag,
             camera_id=camera_index,
             test_pattern_id=test_pattern_id,
             auto_upload=True
