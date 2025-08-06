@@ -27,7 +27,7 @@ if not logger.hasHandlers():
 
 # Define system states
 DISCONNECTED = 0
-SENSOR_CONNECTED = 1
+SENSOR_CONNECTED  = 1
 CONSOLE_CONNECTED = 2
 READY = 3
 RUNNING = 4
@@ -48,7 +48,7 @@ class CaptureThread(QThread):
             CAMERA_MASK = 0xFF  # All cameras
         else:    
             CAMERA_MASK = 1 << (self.camera_index - 1)
-        status_map = motion_interface.sensor_module.get_camera_status(CAMERA_MASK)
+        status_map = motion_interface.sensors["left"].get_camera_status(CAMERA_MASK)
         if not status_map:
             logger.error("Failed to get camera status map.")
             return None
@@ -69,7 +69,7 @@ class CaptureThread(QThread):
                     logger.debug(f"FPGA configuration started for camera {cam_idx + 1}")
                     start_time = time.time()
 
-                    if not motion_interface.sensor_module.program_fpga(camera_position=(1 << cam_idx), manual_process=False):
+                    if not motion_interface.sensors["left"].program_fpga(camera_position=(1 << cam_idx), manual_process=False):
                         logger.error(f"Failed to program FPGA for camera {cam_idx + 1}")
                         return None
                     logger.debug(f"FPGA programmed for camera {cam_idx + 1} | Time: {(time.time() - start_time) * 1000:.2f} ms")
@@ -77,18 +77,18 @@ class CaptureThread(QThread):
                 if not (status & (1 << 1) and status & (1 << 3)):  # Not configured
                     self.update_status.emit(f"conf {cam_idx + 1}")
                     logger.debug(f"Configuring registers for camera {cam_idx + 1}")
-                    if not motion_interface.sensor_module.camera_configure_registers(1 << cam_idx):
+                    if not motion_interface.sensors["left"].camera_configure_registers(1 << cam_idx):
                         logger.error(f"Failed to configure registers for camera {cam_idx + 1}")
                         return None
                 
         logger.debug("Setting test pattern...")
         self.update_status.emit(f"set live")
-        if not motion_interface.sensor_module.camera_configure_test_pattern(CAMERA_MASK, 0x04):
+        if not motion_interface.sensors["left"].camera_configure_test_pattern(CAMERA_MASK, 0x04):
             logger.error("Failed to set test pattern.")
             return None
         
         # Get status
-        status_map = motion_interface.sensor_module.get_camera_status(CAMERA_MASK)
+        status_map = motion_interface.sensors["left"].get_camera_status(CAMERA_MASK)
         if not status_map:
             logger.error("Failed to get camera status.")
             return None
@@ -100,7 +100,7 @@ class CaptureThread(QThread):
                 if status is None:
                     logger.error(f"Camera {cam_idx + 1} missing in status map.")
                     return None
-                logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {motion_interface.sensor_module.decode_camera_status(status)}")
+                logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {motion_interface.sensors["left"].decode_camera_status(status)}")
 
                 if not (status & (1 << 0) and status & (1 << 1) and status & (1 << 2)):  # Not ready for histo
                     logger.error("Not configured.")
@@ -111,12 +111,12 @@ class CaptureThread(QThread):
             start_time = time.time()
             try:
                 logger.debug("Capturing histogram...")
-                if not motion_interface.sensor_module.camera_capture_histogram(CAMERA_MASK):
+                if not motion_interface.sensors["left"].camera_capture_histogram(CAMERA_MASK):
                     logger.error("Capture failed.")
                 else:                    
                     logger.debug("Capture successful, retrieving histogram...")                    
                     time.sleep(0.005)  # Wait for capture to complete
-                    histogram = motion_interface.sensor_module.camera_get_histogram(CAMERA_MASK)
+                    histogram = motion_interface.sensors["left"].camera_get_histogram(CAMERA_MASK)
                     if histogram is None:
                         logger.error("Histogram retrieval failed.")
                     else:
@@ -179,9 +179,10 @@ class MOTIONConnector(QObject):
         self._interface = motion_interface
 
         # Check if console and sensor are connected
-        console_connected, sensor_connected = motion_interface.is_device_connected()
+        console_connected, left_sensor_connected, right_sensor_connected = motion_interface.is_device_connected()
 
-        self._sensorConnected = sensor_connected
+        self._leftSensorConnected = left_sensor_connected
+        self._rightSensorConnected = right_sensor_connected
         self._consoleConnected = console_connected
         self._laserOn = False
         self._safetyFailure = False
@@ -207,15 +208,15 @@ class MOTIONConnector(QObject):
 
     def update_state(self):
         """Update system state based on connection and configuration."""
-        if not self._consoleConnected and not self._sensorConnected:
+        if not self._consoleConnected and ((not self._leftSensorConnected) or (not self._rightSensorConnected)):
             self._state = DISCONNECTED
-        elif self._sensorConnected and not self._consoleConnected:
+        elif self._leftSensorConnected and not self._consoleConnected:
             self._state = SENSOR_CONNECTED
-        elif self._consoleConnected and not self._sensorConnected:
+        elif self._consoleConnected and not self._leftSensorConnected:
             self._state = CONSOLE_CONNECTED
-        elif self._consoleConnected and self._sensorConnected:
+        elif self._consoleConnected and self._leftSensorConnected:
             self._state = READY
-        elif self._consoleConnected and self._sensorConnected and self._running:
+        elif self._consoleConnected and self._leftSensorConnected and self._running:
             self._state = RUNNING
         self.stateChanged.emit()  # Notify QML of state update
         logger.info(f"Updated state: {self._state}")
@@ -229,7 +230,7 @@ class MOTIONConnector(QObject):
     @pyqtProperty(bool, notify=connectionStatusChanged)
     def sensorConnected(self):
         """Expose Sensor connection status to QML."""
-        return self._sensorConnected
+        return self._leftSensorConnected
 
     @pyqtProperty(bool, notify=connectionStatusChanged)
     def consoleConnected(self):
@@ -280,7 +281,7 @@ class MOTIONConnector(QObject):
         """Handle device connection."""
         print(f"Device connected: {descriptor} on port {port}")
         if descriptor.upper() == "SENSOR":
-            self._sensorConnected = True
+            self._leftSensorConnected = True
         elif descriptor.upper() == "CONSOLE":
             self._consoleConnected = True
 
@@ -292,7 +293,7 @@ class MOTIONConnector(QObject):
     def on_disconnected(self, descriptor, port):
         """Handle device disconnection."""
         if descriptor.upper() == "SENSOR":
-            self._sensorConnected = False
+            self._leftSensorConnected = False
         elif descriptor.upper() == "CONSOLE":
             self._consoleConnected = False
 
@@ -315,9 +316,9 @@ class MOTIONConnector(QObject):
     def querySensorInfo(self):
         """Fetch and emit device information."""
         try:
-            fw_version = motion_interface.sensor_module.get_version()
+            fw_version = motion_interface.sensors["left"].get_version()
             logger.info(f"Version: {fw_version}")
-            hw_id = motion_interface.sensor_module.get_hardware_id()
+            hw_id = motion_interface.sensors["left"].get_hardware_id()
             device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
             self.sensorDeviceInfoReceived.emit(fw_version, device_id)
             logger.info(f"Sensor Device Info - Firmware: {fw_version}, Device ID: {device_id}")
@@ -341,7 +342,7 @@ class MOTIONConnector(QObject):
     def querySensorTemperature(self):
         """Fetch and emit Temperature data."""
         try:
-            imu_temp = motion_interface.sensor_module.imu_get_temperature()  
+            imu_temp = motion_interface.sensors["left"].imu_get_temperature()  
             logger.info(f"Temperature Data - IMU Temp: {imu_temp}")
             self.temperatureSensorUpdated.emit(imu_temp)
         except Exception as e:
@@ -458,7 +459,7 @@ class MOTIONConnector(QObject):
     def querySensorAccelerometer (self):
         """Fetch and emit Accelerometer data."""
         try:
-            accel = motion_interface.sensor_module.imu_get_accelerometer()
+            accel = motion_interface.sensors["left"].imu_get_accelerometer()
             logger.info(f"Accel (raw): X={accel[0]}, Y={accel[1]}, Z={accel[2]}")
             self.accelerometerSensorUpdated.emit(accel[0], accel[1], accel[2])
         except Exception as e:
@@ -468,7 +469,7 @@ class MOTIONConnector(QObject):
     def querySensorGyroscope (self):
         """Fetch and emit Gyroscope data."""
         try:
-            gyro  = motion_interface.sensor_module.imu_get_gyroscope()
+            gyro  = motion_interface.sensors["left"].imu_get_gyroscope()
             logger.info(f"Gyro  (raw): X={gyro[0]}, Y={gyro[1]}, Z={gyro[2]}")
             self.gyroscopeSensorUpdated.emit(gyro[0], gyro[1], gyro[2])
         except Exception as e:
@@ -477,7 +478,7 @@ class MOTIONConnector(QObject):
     @pyqtSlot(int)
     def configureCamera(self, cam_mask: int):
         try:
-            passed = motion_interface.sensor_module.program_fpga(camera_position=cam_mask, manual_process=False)
+            passed = motion_interface.sensors["left"].program_fpga(camera_position=cam_mask, manual_process=False)
             self.cameraConfigUpdated.emit(cam_mask, passed)
         except Exception as e:
             logger.error(f"Error configuring Camera {cam_mask}: {e}")
@@ -488,7 +489,7 @@ class MOTIONConnector(QObject):
         for i in range(8):
             bitmask = 1 << i  # 0x01, 0x02, 0x04, ..., 0x80
             try:
-                passed = motion_interface.sensor_module.program_fpga(camera_position=bitmask, manual_process=False)
+                passed = motion_interface.sensors["left"].program_fpga(camera_position=bitmask, manual_process=False)
                 self.cameraConfigUpdated.emit(bitmask, passed)
             except Exception as e:
                 logger.error(f"Camera {bitmask} failed: {e}")
@@ -506,7 +507,7 @@ class MOTIONConnector(QObject):
                     logger.error(f"Failed to send ping command")
                     return False
             elif target == "SENSOR":
-                if motion_interface.sensor_module.ping():
+                if motion_interface.sensors["left"].ping():
                     logger.info(f"Ping command sent successfully")
                     return True
                 else:
@@ -531,7 +532,7 @@ class MOTIONConnector(QObject):
                     logger.error(f"Failed to Toggle command")
                     return False
             elif target == "SENSOR":
-                if motion_interface.sensor_module.toggle_led():
+                if motion_interface.sensors["left"].toggle_led():
                     logger.info(f"Toggle command sent successfully")
                     return True
                 else:
@@ -552,7 +553,7 @@ class MOTIONConnector(QObject):
             if target == "CONSOLE":
                 echoed_data, data_len = motion_interface.console_module.echo(echo_data=expected_data)
             elif target == "SENSOR":
-                echoed_data, data_len = motion_interface.sensor_module.echo(echo_data=expected_data)
+                echoed_data, data_len = motion_interface.sensors["left"].echo(echo_data=expected_data)
             else:
                 logger.error(f"Invalid target for Echo command")
                 return False
@@ -662,7 +663,7 @@ class MOTIONConnector(QObject):
                 else:
                     logger.error(f"Failed to send Software Reset")
             elif target == "SENSOR":                    
-                if motion_interface.sensor_module.soft_reset():
+                if motion_interface.sensors["left"].soft_reset():
                     logger.info(f"Software Reset Sent")
                 else:
                     logger.error(f"Failed to send Software Reset")
