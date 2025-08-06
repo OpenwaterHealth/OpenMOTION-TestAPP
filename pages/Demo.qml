@@ -1145,7 +1145,7 @@ Rectangle {
                             textRole: "label"
                             Layout.preferredWidth: 140
                             Layout.preferredHeight: 32
-                            enabled: MOTIONInterface.sensorConnected
+                            enabled: MOTIONInterface.leftSensorConnected
 
                             onCurrentIndexChanged: {
                                 updatePatternOptions()
@@ -1158,7 +1158,7 @@ Rectangle {
                             textRole: "label"
                             Layout.preferredWidth: 120
                             Layout.preferredHeight: 32
-                            enabled: MOTIONInterface.sensorConnected
+                            enabled: MOTIONInterface.leftSensorConnected
                             onCurrentIndexChanged: {
                                 
                             }
@@ -1173,7 +1173,7 @@ Rectangle {
                             Layout.preferredWidth: 100
                             Layout.preferredHeight: 45
                             hoverEnabled: true  // Enable hover detection
-                            enabled: MOTIONInterface.sensorConnected 
+                            enabled: MOTIONInterface.leftSensorConnected 
 
                             contentItem: Text {
                                 text: parent.text
@@ -1554,25 +1554,36 @@ Rectangle {
                         }
 
                         RowLayout {
-                            spacing: 20
+                            spacing: 15
                             Layout.alignment: Qt.AlignRight
 
                             // Sensor Indicator
                             ColumnLayout {
-                                spacing: 4
+                                spacing: 2
                                 Layout.alignment: Qt.AlignHCenter
 
                                 Text {
-                                    text: "Sensor"
+                                    text: "Sensors"
                                     font.pixelSize: 14
                                     color: "#BDC3C7"
                                     horizontalAlignment: Text.AlignHCenter
                                 }
 
-                                Rectangle {
-                                    width: 20; height: 20; radius: 10
-                                    color: MOTIONInterface.sensorConnected ? "green" : "red"
-                                    border.color: "black"; border.width: 1
+                                RowLayout {
+                                    spacing: 4
+                                    Layout.alignment: Qt.AlignHCenter
+
+                                    Rectangle {
+                                        width: 20; height: 20; radius: 10
+                                        color: MOTIONInterface.leftSensorConnected ? "green" : "red"
+                                        border.color: "black"; border.width: 1
+                                    }
+
+                                    Rectangle {
+                                        width: 20; height: 20; radius: 10
+                                        color: MOTIONInterface.rightSensorConnected ? "green" : "red"
+                                        border.color: "black"; border.width: 1
+                                    }
                                 }
                             }
 
@@ -1586,12 +1597,14 @@ Rectangle {
                                     font.pixelSize: 14
                                     color: "#BDC3C7"
                                     horizontalAlignment: Text.AlignHCenter
+                                    Layout.alignment: Qt.AlignHCenter
                                 }
 
                                 Rectangle {
                                     width: 20; height: 20; radius: 10
                                     color: MOTIONInterface.consoleConnected ? "green" : "red"
                                     border.color: "black"; border.width: 1
+                                    Layout.alignment: Qt.AlignHCenter
                                 }
                             }
 
@@ -1605,12 +1618,14 @@ Rectangle {
                                     font.pixelSize: 14
                                     color: "#BDC3C7"
                                     horizontalAlignment: Text.AlignHCenter
+                                    Layout.alignment: Qt.AlignHCenter
                                 }
 
                                 Rectangle {
                                     width: 20; height: 20; radius: 10
                                     color: triggerStatus.text === "ON" ? "green" : "red"
                                     border.color: "black"; border.width: 1
+                                    Layout.alignment: Qt.AlignHCenter
                                 }
                             }
 
@@ -1624,12 +1639,14 @@ Rectangle {
                                     font.pixelSize: 14
                                     color: "#BDC3C7"
                                     horizontalAlignment: Text.AlignHCenter
+                                    Layout.alignment: Qt.AlignHCenter
                                 }
 
                                 Rectangle {
                                     width: 20; height: 20; radius: 10
                                     color: MOTIONInterface.safetyFailure ? "red" : "grey"
                                     border.color: "black"; border.width: 1
+                                    Layout.alignment: Qt.AlignHCenter
                                 }
                             }
                         }
@@ -1692,7 +1709,7 @@ Rectangle {
         }
         
         function onConnectionStatusChanged() {          
-            if (MOTIONInterface.sensorConnected) {
+            if (MOTIONInterface.leftSensorConnected) {
             }   
             if (MOTIONInterface.consoleConnected) {
                 consoleUpdateTimer.start()
@@ -1723,7 +1740,7 @@ Rectangle {
 
     // Run refresh logic immediately on page load if Sensor is already connected
     Component.onCompleted: {
-        if (MOTIONInterface.sensorConnected) {
+        if (MOTIONInterface.leftSensorConnected) {
         }   
         if (MOTIONInterface.consoleConnected) {
             consoleUpdateTimer.start()

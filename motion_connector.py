@@ -228,10 +228,15 @@ class MOTIONConnector(QObject):
         return motion_interface
     
     @pyqtProperty(bool, notify=connectionStatusChanged)
-    def sensorConnected(self):
+    def leftSensorConnected(self):
         """Expose Sensor connection status to QML."""
         return self._leftSensorConnected
 
+    @pyqtProperty(bool, notify=connectionStatusChanged)
+    def rightSensorConnected(self):
+        """Expose Sensor connection status to QML."""
+        return self._rightSensorConnected
+    
     @pyqtProperty(bool, notify=connectionStatusChanged)
     def consoleConnected(self):
         """Expose Console connection status to QML."""

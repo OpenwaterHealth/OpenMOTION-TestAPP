@@ -47,7 +47,7 @@ Rectangle {
 
     // Run refresh logic immediately on page load if Sensor is already connected
     Component.onCompleted: {
-        if (MOTIONInterface.sensorConnected) {
+        if (MOTIONInterface.leftSensorConnected) {
             console.log("Page Loaded - Sensor Already Connected. Fetching Info...")
             updateStates()
         }
@@ -68,7 +68,7 @@ Rectangle {
 
         // Handle Sensor Connected state
         function onSensorConnectedChanged() {
-            if (MOTIONInterface.sensorConnected) {
+            if (MOTIONInterface.leftSensorConnected) {
                 infoTimer.start()          // One-time info fetch
             } else {
                 console.log("Sensor Disconnected - Clearing Data...")
@@ -191,7 +191,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.sensorConnected 
+                                enabled: MOTIONInterface.leftSensorConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -245,7 +245,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.sensorConnected 
+                                enabled: MOTIONInterface.leftSensorConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -298,7 +298,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.sensorConnected 
+                                enabled: MOTIONInterface.leftSensorConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -403,7 +403,7 @@ Rectangle {
                                 Layout.preferredHeight: 40
                                 model: ["Camera 0", "Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "All Cameras"]
                                 currentIndex: 8  // Default to "All Cameras"
-                                enabled: MOTIONInterface.sensorConnected
+                                enabled: MOTIONInterface.leftSensorConnected
 
                                 onActivated: {
                                     var selectedIndex = cameraDropdown.currentIndex;
@@ -438,7 +438,7 @@ Rectangle {
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 50
                                 hoverEnabled: true  // Enable hover detection
-                                enabled: MOTIONInterface.sensorConnected 
+                                enabled: MOTIONInterface.leftSensorConnected 
 
                                 contentItem: Text {
                                     text: parent.text
@@ -547,13 +547,13 @@ Rectangle {
                                 width: 20
                                 height: 20
                                 radius: 10
-                                color: MOTIONInterface.sensorConnected ? "green" : "red"
+                                color: MOTIONInterface.leftSensorConnected ? "green" : "red"
                                 border.color: "black"
                                 border.width: 1
                             }
 
                             Text {
-                                text: MOTIONInterface.sensorConnected ? "Connected" : "Not Connected"
+                                text: MOTIONInterface.leftSensorConnected ? "Connected" : "Not Connected"
                                 font.pixelSize: 16
                                 color: "#BDC3C7"
                             }
@@ -571,7 +571,7 @@ Rectangle {
                                 radius: 15
                                 color: enabled ? "#2C3E50" : "#7F8C8D"  // Dim when disabled
                                 Layout.alignment: Qt.AlignRight  
-                                enabled: MOTIONInterface.sensorConnected
+                                enabled: MOTIONInterface.leftSensorConnected
 
                                 // Icon Text
                                 Text {
@@ -654,7 +654,7 @@ Rectangle {
                             height: 40
                             radius: 10
                             color: enabled ? "#E74C3C" : "#7F8C8D"  // Red when enabled, gray when disabled
-                            enabled: MOTIONInterface.sensorConnected
+                            enabled: MOTIONInterface.leftSensorConnected
 
                             Text {
                                 text: "Soft Reset"
