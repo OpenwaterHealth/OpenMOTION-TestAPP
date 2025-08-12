@@ -686,8 +686,46 @@ Rectangle {
                                         }
                                     }
                                 }
-                                
-                                Item { Layout.preferredHeight: 30 } // Empty spacer
+                                 
+                                Button {
+                                    id: btnClearPDCFlagSafety
+                                    text: "Clear PDC"
+                                    Layout.preferredWidth: 100
+                                    Layout.preferredHeight: 40
+                                    hoverEnabled: true
+                                    enabled: MOTIONInterface.consoleConnected 
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {                                    
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B";  // Disabled color
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                        }
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D";  // Disabled border color
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                        }
+                                        radius: 4
+                                    }
+
+                                    onClicked: {
+                                        console.log("Clear Safety Error Flag");
+
+                                        writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "2");
+                                        MOTIONInterface.readSafetyStatus();
+                                    }
+                                }
+
                                 Item { Layout.preferredHeight: 30 } // Empty spacer
 
                                 Text { text: "CW Current:"; color: "white" }
