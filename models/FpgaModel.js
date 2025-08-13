@@ -10,8 +10,8 @@ var fpgaAddressModel = [
         functions: [
             { name: "PULSE WIDTH", desc: "Pulse Width", start_address: 0x00, data_size: "24B", direction: "RW", unit: "us", scale: 0.320 },
             { name: "PERIOD", desc: "Period", start_address: 0x03, data_size: "24B", direction: "RW", unit: "us", scale: 0.320 },
-            { name: "CURRENT DRV", desc: "Current Drive", start_address: 0x06, data_size: "16B", direction: "RW", unit: "uA", scale: 0.030 },
-            { name: "CURRENT LIMIT", desc: "Current Limit", start_address: 0x08, data_size: "16B", direction: "RW", unit: "uA", scale: 0.030 },
+            { name: "CURRENT DRV", desc: "Current Drive", start_address: 0x06, data_size: "16B", direction: "RW", unit: "mA", scale: 0.160 },
+            { name: "CURRENT LIMIT", desc: "Current Limit", start_address: 0x08, data_size: "16B", direction: "RW", unit: "mA", scale: 0.160 },
             { name: "PWM MON CL", desc: "PWM Monitor Current Limit", start_address: 0x0A, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
             { name: "CW MON CL", desc: "CW Monitor Current Limit", start_address: 0x0C, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
             { name: "TEMP Sensor", desc: "Temperature Sensor", start_address: 0x0E, data_size: "16B", direction: "RW" },
