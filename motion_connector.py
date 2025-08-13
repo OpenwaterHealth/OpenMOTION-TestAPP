@@ -923,7 +923,7 @@ class ConsoleStatusThread(QThread):
                 if tcl_raw and pdc_raw:
                     tcm = int(tcm_raw) 
                     tcl = int.from_bytes(tcl_raw, byteorder='little') 
-                    pdc = int.from_bytes(pdc_raw, byteorder='little') * 0.1
+                    pdc = int.from_bytes(pdc_raw, byteorder='little') * 3 # Convert to mA
 
                     logging.info(f"tcl: {tcl} pdc: {pdc}")
 
