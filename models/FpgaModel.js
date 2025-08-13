@@ -67,7 +67,7 @@ var fpgaAddressModel = [
             { name: "PWM MONITOR CL", desc: "PWM Monitor Current Limit", start_address: 0x16, data_size: "16B", direction: "RW", unit: "mA", scale: 0.025 },
             { name: "CW MONITOR CL", desc: "CW Monitor Current Limit", start_address: 0x18, data_size: "16B", direction: "RW", unit: "mA", scale: 0.025 },
             { name: "TEMP Sensor", desc: "Temperature Sensor", start_address: 0x1A, data_size: "16B", direction: "RW" },
-            { name: "ADC DATA", desc: "ADC Data", start_address: 0x1C, data_size: "16B", direction: "RD", unit: "mA", scale: 3.000 },
+            { name: "ADC DATA", desc: "ADC Data", start_address: 0x1C, data_size: "16B", direction: "RD", unit: "mA", scale: 2.500 },
             { name: "STATIC CTRL", desc: "Static control bits", start_address: 0x20, data_size: "16B", direction: "RW" },
             { name: "DYNAMIC CTRL", desc: "Dynamic control bits", start_address: 0x22, data_size: "16B", direction: "WR" },
             { name: "STATUS", desc: "Status Register", start_address: 0x24, data_size: "8B", direction: "RW" },
