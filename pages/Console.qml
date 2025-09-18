@@ -665,8 +665,7 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    var devices = MOTIONInterface.scanI2C(1, 3)
-                                    if (devices && devices.includes("0x49") && devices.includes("0x4c")) {
+                                    if (MOTIONInterface.getTecEnabled()) {
                                         tecResult.text = "TEC SUCCESS"
                                         tecResult.color = "green"
                                     } else {
