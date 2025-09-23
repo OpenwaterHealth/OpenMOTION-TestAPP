@@ -714,6 +714,12 @@ class MOTIONConnector(QObject):
         logger.info(f"Devices found on MUX {mux} channel {chan}: {hex_addresses}")
         return hex_addresses
 
+    @pyqtSlot(result=bool)
+    def getTecEnabled(self) -> bool:
+        tec_enabled = motion_interface.console_module.get_tec_enabled()
+        logger.info(f"TEC Enabled: {tec_enabled}")
+        return tec_enabled
+
     @pyqtSlot(int, result=bool)
     def setFanLevel(self, speed: int):
         """Set Fan Level to device."""
