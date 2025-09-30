@@ -283,13 +283,65 @@ class MOTIONConnector(QObject):
     
     @pyqtSlot()
     def powerCamerasOn(self):
-        """Simple callback that prints when power on is pressed."""
-        logger.info("Power Cameras On pressed")
+        """Enable power to all cameras on all connected sensors (equivalent to scripts/enable_camera_power.py --mask 0xFF)."""
+        try:
+            MASK_ALL = 0xFF
+            logger.info(f"Enabling camera power mask=0x{MASK_ALL:02X} on all connected sensors...")
+            if hasattr(self._interface, "run_on_sensors"):
+                results = self._interface.run_on_sensors("enable_camera_power", MASK_ALL)
+                if isinstance(results, dict):
+                    for side, success in results.items():
+                        if success is True:
+                            logger.info(f"{side.capitalize()}: Power enabled")
+                        elif success is False:
+                            logger.error(f"{side.capitalize()}: Failed to enable power")
+                        else:
+                            logger.warning(f"{side.capitalize()}: No result (possibly disconnected)")
+                else:
+                    logger.info("Power enable command dispatched (no per-side results available).")
+            else:
+                # Fallback: try enabling on each known sensor directly if available
+                for side_key in ("left", "right"):
+                    sensor = getattr(self._interface, "sensors", {}).get(side_key)
+                    if sensor and hasattr(sensor, "enable_camera_power"):
+                        ok = sensor.enable_camera_power(MASK_ALL)
+                        if ok:
+                            logger.info(f"{side_key.capitalize()}: Power enabled")
+                        else:
+                            logger.error(f"{side_key.capitalize()}: Failed to enable power")
+        except Exception as e:
+            logger.error(f"Error enabling camera power: {e}")
 
     @pyqtSlot()
     def powerCamerasOff(self):
-        """Simple callback that prints when power off is pressed."""
-        logger.info("Power Cameras Off pressed")
+        """Disable power to all cameras on all connected sensors (equivalent to scripts/disable_camera_power.py --mask 0xFF)."""
+        try:
+            MASK_ALL = 0xFF
+            logger.info(f"Disabling camera power mask=0x{MASK_ALL:02X} on all connected sensors...")
+            if hasattr(self._interface, "run_on_sensors"):
+                results = self._interface.run_on_sensors("disable_camera_power", MASK_ALL)
+                if isinstance(results, dict):
+                    for side, success in results.items():
+                        if success is True:
+                            logger.info(f"{side.capitalize()}: Power disabled")
+                        elif success is False:
+                            logger.error(f"{side.capitalize()}: Failed to disable power")
+                        else:
+                            logger.warning(f"{side.capitalize()}: No result (possibly disconnected)")
+                else:
+                    logger.info("Power disable command dispatched (no per-side results available).")
+            else:
+                # Fallback: try disabling on each known sensor directly if available
+                for side_key in ("left", "right"):
+                    sensor = getattr(self._interface, "sensors", {}).get(side_key)
+                    if sensor and hasattr(sensor, "disable_camera_power"):
+                        ok = sensor.disable_camera_power(MASK_ALL)
+                        if ok:
+                            logger.info(f"{side_key.capitalize()}: Power disabled")
+                        else:
+                            logger.error(f"{side_key.capitalize()}: Failed to disable power")
+        except Exception as e:
+            logger.error(f"Error disabling camera power: {e}")
     
     @pyqtSlot(str, str)
     def on_connected(self, descriptor, port):
