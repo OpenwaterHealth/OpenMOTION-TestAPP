@@ -125,7 +125,7 @@ Rectangle {
             for (let i = 0; i < 8; i++) {
                 if ((bitmask & (1 << i)) !== 0) {
                     cameraStatusModel.set(i, {
-                        label: "Camera " + i,
+                        label: "Camera " + (i + 1),
                         status: passed ? "Pass" : "Fail",
                         color: passed ? "green" : "red"
                     });
@@ -551,21 +551,31 @@ Rectangle {
                                 rowSpacing: 6
                                 Layout.columnSpan: 5
 
+                                // Custom order: row-wise produces [0,7,1,6,2,5,3,4]
                                 Repeater {
-                                    model: cameraStatusModel
+                                    model: 8
                                     delegate: RowLayout {
                                         spacing: 10
+                                        // Map visual position to camera index per desired layout
+                                        property int mappedIndex: (
+                                            index === 0 ? 0 :
+                                            index === 1 ? 7 :
+                                            index === 2 ? 1 :
+                                            index === 3 ? 6 :
+                                            index === 4 ? 2 :
+                                            index === 5 ? 5 :
+                                            index === 6 ? 3 : 4)
 
                                         Text {
-                                            text: model.label
+                                            text: cameraStatusModel.get(mappedIndex).label
                                             font.pixelSize: 14
                                             color: "#BDC3C7"
                                             Layout.preferredWidth: 100
                                         }
 
                                         Text {
-                                            text: model.status
-                                            color: model.color
+                                            text: cameraStatusModel.get(mappedIndex).status
+                                            color: cameraStatusModel.get(mappedIndex).color
                                             font.pixelSize: 14
                                             Layout.preferredWidth: 120
                                         }
@@ -726,7 +736,7 @@ Rectangle {
                                     // Reset camera test table
                                     for (let i = 0; i < cameraStatusModel.count; i++) {
                                         cameraStatusModel.set(i, {
-                                            label: "Camera " + i,
+                                            label: "Camera " + (i + 1),
                                             status: "Not Tested",
                                             color: "gray"
                                         });
