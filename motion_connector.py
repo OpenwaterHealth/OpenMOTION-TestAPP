@@ -281,6 +281,16 @@ class MOTIONConnector(QObject):
     def get_sdk_version(self):
         return self._interface.get_sdk_version()
     
+    @pyqtSlot()
+    def powerCamerasOn(self):
+        """Simple callback that prints when power on is pressed."""
+        logger.info("Power Cameras On pressed")
+
+    @pyqtSlot()
+    def powerCamerasOff(self):
+        """Simple callback that prints when power off is pressed."""
+        logger.info("Power Cameras Off pressed")
+    
     @pyqtSlot(str, str)
     def on_connected(self, descriptor, port):
         """Handle device connection."""

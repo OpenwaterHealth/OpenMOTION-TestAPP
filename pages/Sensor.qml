@@ -27,7 +27,6 @@ Rectangle {
 
     ListModel {
         id: cameraStatusModel
-        ListElement { label: "Camera 0"; status: "Not Tested"; color: "gray" }
         ListElement { label: "Camera 1"; status: "Not Tested"; color: "gray" }
         ListElement { label: "Camera 2"; status: "Not Tested"; color: "gray" }
         ListElement { label: "Camera 3"; status: "Not Tested"; color: "gray" }
@@ -35,6 +34,7 @@ Rectangle {
         ListElement { label: "Camera 5"; status: "Not Tested"; color: "gray" }
         ListElement { label: "Camera 6"; status: "Not Tested"; color: "gray" }
         ListElement { label: "Camera 7"; status: "Not Tested"; color: "gray" }
+        ListElement { label: "Camera 8"; status: "Not Tested"; color: "gray" }
     }
 
     function updateStates() {
@@ -439,7 +439,7 @@ Rectangle {
                                 id: cameraDropdown
                                 Layout.preferredWidth: 200
                                 Layout.preferredHeight: 40
-                                model: ["Camera 0", "Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "All Cameras"]
+                                model: ["Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "Camera 8", "All Cameras"]
                                 currentIndex: 8  // Default to "All Cameras"
                                 enabled: {
                                     if (sensorSelector.currentIndex === 0) {
@@ -536,6 +536,8 @@ Rectangle {
 
                             }
 
+                            
+
                             // Spacer Row
                             Item {
                                 Layout.columnSpan: 5
@@ -567,6 +569,97 @@ Rectangle {
                                             font.pixelSize: 14
                                             Layout.preferredWidth: 120
                                         }
+                                    }
+                                }
+                            }
+
+                            // Spacer below table
+                            Item {
+                                Layout.columnSpan: 5
+                                height: 10
+                            }
+
+                            // Camera Power Buttons (stacked left, below the list)
+                            ColumnLayout {
+                                Layout.columnSpan: 5
+                                spacing: 8
+                                Layout.alignment: Qt.AlignLeft
+
+                                Button {
+                                    id: camPowerOnBtn
+                                    text: "Power Cameras On"
+                                    Layout.preferredWidth: 160
+                                    Layout.preferredHeight: 40
+                                    hoverEnabled: true
+                                    enabled: {
+                                        if (sensorSelector.currentIndex === 0) {
+                                            return MOTIONInterface.leftSensorConnected
+                                        } else {
+                                            return MOTIONInterface.rightSensorConnected
+                                        }
+                                    }
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    background: Rectangle {
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B"
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                        }
+                                        radius: 4
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D"
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                        }
+                                    }
+                                    onClicked: {
+                                        MOTIONInterface.powerCamerasOn()
+                                    }
+                                }
+
+                                Button {
+                                    id: camPowerOffBtn
+                                    text: "Power Cameras Off"
+                                    Layout.preferredWidth: 160
+                                    Layout.preferredHeight: 40
+                                    hoverEnabled: true
+                                    enabled: {
+                                        if (sensorSelector.currentIndex === 0) {
+                                            return MOTIONInterface.leftSensorConnected
+                                        } else {
+                                            return MOTIONInterface.rightSensorConnected
+                                        }
+                                    }
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    background: Rectangle {
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B"
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                        }
+                                        radius: 4
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D"
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                        }
+                                    }
+                                    onClicked: {
+                                        MOTIONInterface.powerCamerasOff()
                                     }
                                 }
                             }
