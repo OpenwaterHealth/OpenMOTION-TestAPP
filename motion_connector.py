@@ -342,6 +342,138 @@ class MOTIONConnector(QObject):
                             logger.error(f"{side_key.capitalize()}: Failed to disable power")
         except Exception as e:
             logger.error(f"Error disabling camera power: {e}")
+
+    @pyqtSlot(str, int, str)
+    def captureHistogramToCSV(self, sensor_tag: str, camera_index: int, serial_number: str):
+        """Capture histogram from selected camera and save as CSV file named with serial number."""
+        try:
+            # Convert sensor tag to lowercase for interface
+            sensor_side = "left" if sensor_tag == "SENSOR_LEFT" else "right"
+            logger.info(f"Capturing histogram for {sensor_side} camera {camera_index} with SN {serial_number}")
+            
+            # Single camera
+            bins, histo = self._interface.get_camera_histogram(
+                sensor_side=sensor_side,
+                camera_id=camera_index,
+                test_pattern_id=4,
+                auto_upload=True
+            )
+            if bins:
+                filename = f"{serial_number}_histogram.csv"
+                self._save_histogram_csv(bins, filename)
+                logger.info(f"Saved histogram to {filename}")
+            else:
+                logger.error(f"Failed to get histogram for camera {camera_index+1}")
+                    
+        except Exception as e:
+            logger.error(f"Error capturing histogram: {e}")
+
+    @pyqtSlot(str)
+    def captureAllCamerasHistogramToCSV(self, sensor_tag: str):
+        """Capture histogram from all cameras and save each with individual serial numbers."""
+        try:
+            # Convert sensor tag to lowercase for interface
+            sensor_side = "left" if sensor_tag == "SENSOR_LEFT" else "right"
+            logger.info(f"Capturing histograms for all cameras on {sensor_side}")
+            
+            # Map camera indices to their display order (same as in QML)
+            camera_mapping = [0, 7, 1, 6, 2, 5, 3, 4]  # Left column: 1,2,3,4; Right column: 8,7,6,5
+            
+            for display_idx, camera_idx in enumerate(camera_mapping):
+                try:
+                    bins, histo = self._interface.get_camera_histogram(
+                        sensor_side=sensor_side,
+                        camera_id=camera_idx,
+                        test_pattern_id=4,
+                        auto_upload=True
+                    )
+                    if bins:
+                        # Use camera number (1-based) as serial number
+                        # Note: We can't access QML properties from Python, so we use camera numbers
+                        # The QML should handle getting the actual serial numbers for individual cameras
+                        serial_number = str(camera_idx + 1)
+                        filename = f"{serial_number}_histogram.csv"
+                        self._save_histogram_csv(bins, filename)
+                        logger.info(f"Saved histogram for camera {camera_idx+1} to {filename}")
+                    else:
+                        logger.error(f"Failed to get histogram for camera {camera_idx+1}")
+                except Exception as e:
+                    logger.error(f"Error capturing histogram for camera {camera_idx+1}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error capturing all cameras histogram: {e}")
+
+    def _save_histogram_csv(self, bins, filename):
+        """Helper method to save histogram data to CSV file."""
+        try:
+            import os
+            import csv
+            import datetime
+            
+            # Create filename with timestamp if serial_number is empty
+            if not filename or filename.startswith("_histogram"):
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"histogram_{timestamp}.csv"
+            
+            # Ensure filename has .csv extension
+            if not filename.endswith('.csv'):
+                filename += '.csv'
+            
+            # Calculate weighted mean of histogram data
+            weighted_mean = self._calculate_weighted_mean(bins[:1024])
+            print(f"Weighted mean of histogram: {weighted_mean:.2f}")
+            
+            # Save to user's home directory
+            home_dir = os.path.expanduser("~")
+            filepath = os.path.join(home_dir, filename)
+            
+            with open(filepath, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # Create header row with column names
+                header = ["cam_id", "frame_id"]
+                # Add bin numbers (0-1023)
+                header.extend([str(i) for i in range(1024)])
+                header.extend(["temperature", "sum"])
+                writer.writerow(header)
+                
+                # Create data row
+                data_row = ["1", "1"]  # cam_id=1, frame_id=1
+                data_row.extend(bins[:1024])  # Ensure we only take first 1024 bins
+                # Pad with zeros if bins is shorter than 1024
+                while len(data_row) < 1026:  # 2 + 1024
+                    data_row.append(0)
+                # Add temperature and sum (placeholder values)
+                data_row.extend([0.0, sum(bins[:1024])])
+                writer.writerow(data_row)
+            
+            logger.info(f"Histogram saved to {filepath}")
+            
+        except Exception as e:
+            logger.error(f"Failed to save histogram CSV: {e}")
+
+    def _calculate_weighted_mean(self, histogram_data):
+        """Calculate the weighted mean of histogram data."""
+        try:
+            if not histogram_data or len(histogram_data) == 0:
+                return 0.0
+            
+            # Calculate weighted mean: sum(bin_value * bin_index) / sum(bin_values)
+            weighted_sum = 0.0
+            total_count = 0.0
+            
+            for bin_index, bin_value in enumerate(histogram_data):
+                weighted_sum += bin_value * bin_index
+                total_count += bin_value
+            
+            if total_count == 0:
+                return 0.0
+            
+            return weighted_sum / total_count
+            
+        except Exception as e:
+            logger.error(f"Error calculating weighted mean: {e}")
+            return 0.0
     
     @pyqtSlot(str, str)
     def on_connected(self, descriptor, port):

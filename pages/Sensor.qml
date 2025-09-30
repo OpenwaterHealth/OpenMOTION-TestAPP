@@ -25,6 +25,16 @@ Rectangle {
     property int gyro_y: 0.0
     property int gyro_z: 0.0
 
+    // Serial number properties for each camera
+    property string cam1_sn: ""
+    property string cam2_sn: ""
+    property string cam3_sn: ""
+    property string cam4_sn: ""
+    property string cam5_sn: ""
+    property string cam6_sn: ""
+    property string cam7_sn: ""
+    property string cam8_sn: ""
+
     ListModel {
         id: cameraStatusModel
         ListElement { label: "Camera 1"; status: "Not Tested"; color: "gray" }
@@ -466,6 +476,31 @@ Rectangle {
                                             bottomPadding: 2
                                             leftPadding: 6
                                             rightPadding: 6
+                                            text: {
+                                                // Bind to the appropriate camera serial number property
+                                                let camNum = parent.mappedIndex + 1;
+                                                if (camNum === 1) return page1.cam1_sn;
+                                                if (camNum === 2) return page1.cam2_sn;
+                                                if (camNum === 3) return page1.cam3_sn;
+                                                if (camNum === 4) return page1.cam4_sn;
+                                                if (camNum === 5) return page1.cam5_sn;
+                                                if (camNum === 6) return page1.cam6_sn;
+                                                if (camNum === 7) return page1.cam7_sn;
+                                                if (camNum === 8) return page1.cam8_sn;
+                                                return "";
+                                            }
+                                            onTextChanged: {
+                                                // Update the corresponding property when text changes
+                                                let camNum = parent.mappedIndex + 1;
+                                                if (camNum === 1) page1.cam1_sn = text;
+                                                if (camNum === 2) page1.cam2_sn = text;
+                                                if (camNum === 3) page1.cam3_sn = text;
+                                                if (camNum === 4) page1.cam4_sn = text;
+                                                if (camNum === 5) page1.cam5_sn = text;
+                                                if (camNum === 6) page1.cam6_sn = text;
+                                                if (camNum === 7) page1.cam7_sn = text;
+                                                if (camNum === 8) page1.cam8_sn = text;
+                                            }
                                             background: Rectangle {
                                                 radius: 4
                                                 color: "#2C3E50"
@@ -474,7 +509,7 @@ Rectangle {
                                         }
 
                                         // Left-side status (visible for left column rows)
-                                        Text {
+                            Text {
                                             visible: parent.isLeftColumn
                                             text: cameraStatusModel.get(parent.mappedIndex).status
                                             color: cameraStatusModel.get(parent.mappedIndex).color
@@ -500,7 +535,7 @@ Rectangle {
                                                 Text {
                                                     anchors.centerIn: parent
                                                     text: (parent.parent.parent.mappedIndex + 1)
-                                                    color: "#BDC3C7"
+                                color: "#BDC3C7"
                                                     font.pixelSize: 14
                                                     horizontalAlignment: Text.AlignHCenter
                                                     verticalAlignment: Text.AlignVCenter
@@ -532,6 +567,31 @@ Rectangle {
                                             bottomPadding: 2
                                             leftPadding: 6
                                             rightPadding: 6
+                                            text: {
+                                                // Bind to the appropriate camera serial number property
+                                                let camNum = parent.mappedIndex + 1;
+                                                if (camNum === 1) return page1.cam1_sn;
+                                                if (camNum === 2) return page1.cam2_sn;
+                                                if (camNum === 3) return page1.cam3_sn;
+                                                if (camNum === 4) return page1.cam4_sn;
+                                                if (camNum === 5) return page1.cam5_sn;
+                                                if (camNum === 6) return page1.cam6_sn;
+                                                if (camNum === 7) return page1.cam7_sn;
+                                                if (camNum === 8) return page1.cam8_sn;
+                                                return "";
+                                            }
+                                            onTextChanged: {
+                                                // Update the corresponding property when text changes
+                                                let camNum = parent.mappedIndex + 1;
+                                                if (camNum === 1) page1.cam1_sn = text;
+                                                if (camNum === 2) page1.cam2_sn = text;
+                                                if (camNum === 3) page1.cam3_sn = text;
+                                                if (camNum === 4) page1.cam4_sn = text;
+                                                if (camNum === 5) page1.cam5_sn = text;
+                                                if (camNum === 6) page1.cam6_sn = text;
+                                                if (camNum === 7) page1.cam7_sn = text;
+                                                if (camNum === 8) page1.cam8_sn = text;
+                                            }
                                             background: Rectangle {
                                                 radius: 4
                                                 color: "#2C3E50"
@@ -642,42 +702,93 @@ Rectangle {
                                     spacing: 8
                                     Layout.alignment: Qt.AlignTop
 
-                                    ComboBox {
-                                        id: cameraDropdown
-                                        Layout.preferredWidth: 200
-                                        Layout.preferredHeight: 40
-                                        model: ["Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "Camera 8", "All Cameras"]
-                                        currentIndex: 8  // Default to "All Cameras"
-                                        enabled: {
-                                            if (sensorSelector.currentIndex === 0) {
-                                                return MOTIONInterface.leftSensorConnected
-                                            } else {
-                                                return MOTIONInterface.rightSensorConnected
-                                            }
-                                        }
+                            ComboBox {
+                                id: cameraDropdown
+                                Layout.preferredWidth: 200
+                                Layout.preferredHeight: 40
+                                model: ["Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "Camera 8", "All Cameras"]
+                                currentIndex: 8  // Default to "All Cameras"
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
 
-                                        onActivated: {
-                                            var selectedIndex = cameraDropdown.currentIndex;
-                                            switch (selectedIndex) {
-                                                case 0:
-                                                case 1:
-                                                case 2:
-                                                case 3:
-                                                case 4:
-                                                case 5:
-                                                case 6:
-                                                case 7:
-                                                    break;
-                                                default:
-                                                    console.log("All Cameras");
-                                                    break;
-                                            }
+                                onActivated: {
+                                    var selectedIndex = cameraDropdown.currentIndex;
+                                    switch (selectedIndex) {
+                                        case 0: 
+                                        case 1: 
+                                        case 2: 
+                                        case 3: 
+                                        case 4: 
+                                        case 5: 
+                                        case 6: 
+                                        case 7:
+                                            break; 
+                                        default:
+                                            console.log("All Cameras");
+                                            break;
+                                    }
+                                }
+                            }
+
+                            Button {
+                                id: testCameraButton
+                                        text: "Flash"
+                                        Layout.preferredWidth: 120
+                                        Layout.preferredHeight: 40
+                                        hoverEnabled: true
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
+                                contentItem: Text {
+                                    text: parent.text
+                                            color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                background: Rectangle {
+                                    color: {
+                                        if (!parent.enabled) {
+                                                    return "#3A3F4B"
+                                        }
+                                                return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                                    return "#7F8C8D"
+                                        }
+                                                return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                    }
+                                }
+                                onClicked: {
+                                    let selectedIndex = cameraDropdown.currentIndex;
+                                    let cameraMask = 0x01 << selectedIndex;
+                                    if (selectedIndex === 8) {
+                                        cameraMask = 0xFF;  // All Cameras
+                                    }
+                                    let sensor_tag = "SENSOR_LEFT";
+                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                    console.log("Test Camera Mask: " + cameraMask.toString(16));
+                                    if(cameraMask == 0xFF){
+                                        MOTIONInterface.configureAllCameras(sensor_tag);
+                                    }else{
+                                        MOTIONInterface.configureCamera(sensor_tag, cameraMask);
+                                    }
                                         }
                                     }
 
                                     Button {
-                                        id: testCameraButton
-                                        text: "Flash"
+                                        id: captureHistogramButton
+                                        text: "Capture"
                                         Layout.preferredWidth: 120
                                         Layout.preferredHeight: 40
                                         hoverEnabled: true
@@ -711,17 +822,35 @@ Rectangle {
                                         }
                                         onClicked: {
                                             let selectedIndex = cameraDropdown.currentIndex;
-                                            let cameraMask = 0x01 << selectedIndex;
-                                            if (selectedIndex === 8) {
-                                                cameraMask = 0xFF;  // All Cameras
-                                            }
                                             let sensor_tag = "SENSOR_LEFT";
                                             (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                            console.log("Test Camera Mask: " + cameraMask.toString(16));
-                                            if(cameraMask == 0xFF){
-                                                MOTIONInterface.configureAllCameras(sensor_tag);
-                                            }else{
-                                                MOTIONInterface.configureCamera(sensor_tag, cameraMask);
+                                            
+                                            if (selectedIndex < 8) {
+                                                // Single camera - get its serial number from the properties
+                                                let serialNumber = "";
+                                                let camNum = selectedIndex + 1;
+                                                
+                                                // Get the serial number from the appropriate property
+                                                if (camNum === 1) serialNumber = page1.cam1_sn;
+                                                else if (camNum === 2) serialNumber = page1.cam2_sn;
+                                                else if (camNum === 3) serialNumber = page1.cam3_sn;
+                                                else if (camNum === 4) serialNumber = page1.cam4_sn;
+                                                else if (camNum === 5) serialNumber = page1.cam5_sn;
+                                                else if (camNum === 6) serialNumber = page1.cam6_sn;
+                                                else if (camNum === 7) serialNumber = page1.cam7_sn;
+                                                else if (camNum === 8) serialNumber = page1.cam8_sn;
+                                                
+                                                // Use camera number as fallback if serial number is empty
+                                                if (serialNumber === "") {
+                                                    serialNumber = camNum.toString();
+                                                }
+                                                
+                                                console.log("Capturing histogram for camera", selectedIndex, "with SN", serialNumber);
+                                                MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber);
+                                            } else {
+                                                // All cameras - capture each individually with their serial numbers
+                                                console.log("Capturing histograms for all cameras with individual serial numbers");
+                                                MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag);
                                             }
                                         }
                                     }
