@@ -332,7 +332,16 @@ class MOTIONConnector(QObject):
             if bins:
                 suffix = "_dark" if is_dark else ""
                 filename = f"{serial_number}_histogram{suffix}.csv"
-                self._save_histogram_csv(bins, filename)
+                
+                # Get camera temperature
+                try:
+                    temperature = self._interface.sensors[sensor_side].imu_get_temperature()
+                    logger.info(f"Camera temperature: {temperature}°C")
+                except Exception as e:
+                    logger.error(f"Failed to get camera temperature: {e}")
+                    temperature = 0.0  # Fallback to 0 if temperature retrieval fails
+                
+                self._save_histogram_csv(bins, filename, temperature)
                 logger.info(f"Saved {capture_type} to {filename}")
             else:
                 logger.error(f"Failed to get {capture_type} for camera {camera_index+1}")
@@ -367,7 +376,16 @@ class MOTIONConnector(QObject):
                         serial_number = str(camera_idx + 1)
                         suffix = "_dark" if is_dark else ""
                         filename = f"{serial_number}_histogram{suffix}.csv"
-                        self._save_histogram_csv(bins, filename)
+                        
+                        # Get camera temperature
+                        try:
+                            temperature = self._interface.sensors[sensor_side].imu_get_temperature()
+                            logger.info(f"Camera {camera_idx+1} temperature: {temperature}°C")
+                        except Exception as e:
+                            logger.error(f"Failed to get temperature for camera {camera_idx+1}: {e}")
+                            temperature = 0.0  # Fallback to 0 if temperature retrieval fails
+                        
+                        self._save_histogram_csv(bins, filename, temperature)
                         logger.info(f"Saved {capture_type} for camera {camera_idx+1} to {filename}")
                     else:
                         logger.error(f"Failed to get {capture_type} for camera {camera_idx+1}")
@@ -377,7 +395,7 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error capturing all cameras {capture_type}: {e}")
 
-    def _save_histogram_csv(self, bins, filename):
+    def _save_histogram_csv(self, bins, filename, temperature=0.0):
         """Helper method to save histogram data to CSV file."""
         try:
             import os
@@ -417,8 +435,8 @@ class MOTIONConnector(QObject):
                 # Pad with zeros if bins is shorter than 1024
                 while len(data_row) < 1026:  # 2 + 1024
                     data_row.append(0)
-                # Add temperature and sum (placeholder values)
-                data_row.extend([0.0, sum(bins[:1024])])
+                # Add temperature and sum
+                data_row.extend([temperature, sum(bins[:1024])])
                 writer.writerow(data_row)
             
             logger.info(f"Histogram saved to {filepath}")
