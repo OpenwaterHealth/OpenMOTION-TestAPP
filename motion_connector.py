@@ -313,13 +313,14 @@ class MOTIONConnector(QObject):
             logger.error(f"Error disabling camera power: {e}")
 
 
-    @pyqtSlot(str, int, str)
-    def captureHistogramToCSV(self, sensor_tag: str, camera_index: int, serial_number: str):
+    @pyqtSlot(str, int, str, bool)
+    def captureHistogramToCSV(self, sensor_tag: str, camera_index: int, serial_number: str, is_dark: bool = False):
         """Capture histogram from selected camera and save as CSV file named with serial number."""
         try:
             # Convert sensor tag to lowercase for interface
             sensor_side = "left" if sensor_tag == "SENSOR_LEFT" else "right"
-            logger.info(f"Capturing histogram for {sensor_side} camera {camera_index} with SN {serial_number}")
+            capture_type = "dark histogram" if is_dark else "histogram"
+            logger.info(f"Capturing {capture_type} for {sensor_side} camera {camera_index} with SN {serial_number}")
             
             # Single camera
             bins, histo = self._interface.get_camera_histogram(
@@ -329,22 +330,24 @@ class MOTIONConnector(QObject):
                 auto_upload=True
             )
             if bins:
-                filename = f"{serial_number}_histogram.csv"
+                suffix = "_dark" if is_dark else ""
+                filename = f"{serial_number}_histogram{suffix}.csv"
                 self._save_histogram_csv(bins, filename)
-                logger.info(f"Saved histogram to {filename}")
+                logger.info(f"Saved {capture_type} to {filename}")
             else:
-                logger.error(f"Failed to get histogram for camera {camera_index+1}")
+                logger.error(f"Failed to get {capture_type} for camera {camera_index+1}")
                     
         except Exception as e:
-            logger.error(f"Error capturing histogram: {e}")
+            logger.error(f"Error capturing {capture_type}: {e}")
 
-    @pyqtSlot(str)
-    def captureAllCamerasHistogramToCSV(self, sensor_tag: str):
+    @pyqtSlot(str, bool)
+    def captureAllCamerasHistogramToCSV(self, sensor_tag: str, is_dark: bool = False):
         """Capture histogram from all cameras and save each with individual serial numbers."""
         try:
             # Convert sensor tag to lowercase for interface
             sensor_side = "left" if sensor_tag == "SENSOR_LEFT" else "right"
-            logger.info(f"Capturing histograms for all cameras on {sensor_side}")
+            capture_type = "dark histograms" if is_dark else "histograms"
+            logger.info(f"Capturing {capture_type} for all cameras on {sensor_side}")
             
             # Map camera indices to their display order (same as in QML)
             camera_mapping = [0, 7, 1, 6, 2, 5, 3, 4]  # Left column: 1,2,3,4; Right column: 8,7,6,5
@@ -362,16 +365,17 @@ class MOTIONConnector(QObject):
                         # Note: We can't access QML properties from Python, so we use camera numbers
                         # The QML should handle getting the actual serial numbers for individual cameras
                         serial_number = str(camera_idx + 1)
-                        filename = f"{serial_number}_histogram.csv"
+                        suffix = "_dark" if is_dark else ""
+                        filename = f"{serial_number}_histogram{suffix}.csv"
                         self._save_histogram_csv(bins, filename)
-                        logger.info(f"Saved histogram for camera {camera_idx+1} to {filename}")
+                        logger.info(f"Saved {capture_type} for camera {camera_idx+1} to {filename}")
                     else:
-                        logger.error(f"Failed to get histogram for camera {camera_idx+1}")
+                        logger.error(f"Failed to get {capture_type} for camera {camera_idx+1}")
                 except Exception as e:
-                    logger.error(f"Error capturing histogram for camera {camera_idx+1}: {e}")
+                    logger.error(f"Error capturing {capture_type} for camera {camera_idx+1}: {e}")
                     
         except Exception as e:
-            logger.error(f"Error capturing all cameras histogram: {e}")
+            logger.error(f"Error capturing all cameras {capture_type}: {e}")
 
     def _save_histogram_csv(self, bins, filename):
         """Helper method to save histogram data to CSV file."""

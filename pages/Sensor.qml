@@ -608,15 +608,258 @@ Rectangle {
                                 height: 10
                             }
 
-                            // Controls row: Power buttons on left, Camera select/Test stacked on right
+                            // Controls row: Camera select/Test on left, Power buttons on right
                             RowLayout {
                                 Layout.columnSpan: 5
                                 spacing: 20
 
+                                // Camera selection + test column
+                                ColumnLayout {
+                                    spacing: 10
+                                    Layout.alignment: Qt.AlignLeft
+
+                                    // Camera selector dropdown
+                                    ComboBox {
+                                        id: cameraDropdown
+                                        Layout.preferredWidth: 248
+                                        Layout.preferredHeight: 40
+                                        Layout.alignment: Qt.AlignLeft
+                                        model: ["Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "Camera 8", "All Cameras"]
+                                        currentIndex: 8  // Default to "All Cameras"
+                                        enabled: {
+                                            if (sensorSelector.currentIndex === 0) {
+                                                return MOTIONInterface.leftSensorConnected
+                                            } else {
+                                                return MOTIONInterface.rightSensorConnected
+                                            }
+                                        }
+
+                                        onActivated: {
+                                            var selectedIndex = cameraDropdown.currentIndex;
+                                            switch (selectedIndex) {
+                                                case 0: 
+                                                case 1: 
+                                                case 2: 
+                                                case 3: 
+                                                case 4: 
+                                                case 5: 
+                                                case 6: 
+                                                case 7:
+                                                    break; 
+                                                default:
+                                                    console.log("All Cameras");
+                                                    break;
+                                            }
+                                        }
+                                    }
+
+                                    // Flash button
+                                    Button {
+                                        id: testCameraButton
+                                        text: "Flash"
+                                        Layout.preferredWidth: 248
+                                        Layout.preferredHeight: 40
+                                        Layout.alignment: Qt.AlignLeft
+                                        hoverEnabled: true
+                                        enabled: {
+                                            if (sensorSelector.currentIndex === 0) {
+                                                return MOTIONInterface.leftSensorConnected
+                                            } else {
+                                                return MOTIONInterface.rightSensorConnected
+                                            }
+                                        }
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                        }
+                                        background: Rectangle {
+                                            color: {
+                                                if (!parent.enabled) {
+                                                    return "#3A3F4B"
+                                                }
+                                                return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                            }
+                                            radius: 4
+                                            border.color: {
+                                                if (!parent.enabled) {
+                                                    return "#7F8C8D"
+                                                }
+                                                return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                            }
+                                        }
+                                        onClicked: {
+                                            let selectedIndex = cameraDropdown.currentIndex;
+                                            let cameraMask = 0x01 << selectedIndex;
+                                            if (selectedIndex === 8) {
+                                                cameraMask = 0xFF;  // All Cameras
+                                            }
+                                            let sensor_tag = "SENSOR_LEFT";
+                                            (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                            console.log("Test Camera Mask: " + cameraMask.toString(16));
+                                            if(cameraMask == 0xFF){
+                                                MOTIONInterface.configureAllCameras(sensor_tag);
+                                            }else{
+                                                MOTIONInterface.configureCamera(sensor_tag, cameraMask);
+                                            }
+                                        }
+                                    }
+
+                                    // Capture buttons row
+                                    RowLayout {
+                                        spacing: 8
+                                        Layout.alignment: Qt.AlignLeft
+
+                                        Button {
+                                            id: captureHistogramButton
+                                            text: "Capture"
+                                            Layout.preferredWidth: 120
+                                            Layout.preferredHeight: 40
+                                            hoverEnabled: true
+                                            enabled: {
+                                                if (sensorSelector.currentIndex === 0) {
+                                                    return MOTIONInterface.leftSensorConnected
+                                                } else {
+                                                    return MOTIONInterface.rightSensorConnected
+                                                }
+                                            }
+                                            contentItem: Text {
+                                                text: parent.text
+                                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+                                            background: Rectangle {
+                                                color: {
+                                                    if (!parent.enabled) {
+                                                        return "#3A3F4B"
+                                                    }
+                                                    return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                                }
+                                                radius: 4
+                                                border.color: {
+                                                    if (!parent.enabled) {
+                                                        return "#7F8C8D"
+                                                    }
+                                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                                }
+                                            }
+                                            onClicked: {
+                                                let selectedIndex = cameraDropdown.currentIndex;
+                                                let sensor_tag = "SENSOR_LEFT";
+                                                (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                                
+                                                if (selectedIndex < 8) {
+                                                    // Single camera - get its serial number from the properties
+                                                    let serialNumber = "";
+                                                    let camNum = selectedIndex + 1;
+                                                    
+                                                    // Get the serial number from the appropriate property
+                                                    if (camNum === 1) serialNumber = page1.cam1_sn;
+                                                    else if (camNum === 2) serialNumber = page1.cam2_sn;
+                                                    else if (camNum === 3) serialNumber = page1.cam3_sn;
+                                                    else if (camNum === 4) serialNumber = page1.cam4_sn;
+                                                    else if (camNum === 5) serialNumber = page1.cam5_sn;
+                                                    else if (camNum === 6) serialNumber = page1.cam6_sn;
+                                                    else if (camNum === 7) serialNumber = page1.cam7_sn;
+                                                    else if (camNum === 8) serialNumber = page1.cam8_sn;
+                                                    
+                                                    // Use camera number as fallback if serial number is empty
+                                                    if (serialNumber === "") {
+                                                        serialNumber = camNum.toString();
+                                                    }
+                                                    
+                                                    console.log("Capturing histogram for camera", selectedIndex, "with SN", serialNumber);
+                                                    MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber);
+                                                } else {
+                                                    // All cameras - capture each individually with their serial numbers
+                                                    console.log("Capturing histograms for all cameras with individual serial numbers");
+                                                    MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag);
+                                                }
+                                            }
+                                        }
+
+                                        Button {
+                                            id: captureDarkButton
+                                            text: "Capture (Dark)"
+                                            Layout.preferredWidth: 120
+                                            Layout.preferredHeight: 40
+                                            hoverEnabled: true
+                                            enabled: {
+                                                if (sensorSelector.currentIndex === 0) {
+                                                    return MOTIONInterface.leftSensorConnected
+                                                } else {
+                                                    return MOTIONInterface.rightSensorConnected
+                                                }
+                                            }
+                                            contentItem: Text {
+                                                text: parent.text
+                                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+                                            background: Rectangle {
+                                                color: {
+                                                    if (!parent.enabled) {
+                                                        return "#3A3F4B"
+                                                    }
+                                                    return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                                }
+                                                radius: 4
+                                                border.color: {
+                                                    if (!parent.enabled) {
+                                                        return "#7F8C8D"
+                                                    }
+                                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                                }
+                                            }
+                                            onClicked: {
+                                                let selectedIndex = cameraDropdown.currentIndex;
+                                                let sensor_tag = "SENSOR_LEFT";
+                                                (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                                
+                                                if (selectedIndex < 8) {
+                                                    // Single camera - get its serial number from the properties
+                                                    let serialNumber = "";
+                                                    let camNum = selectedIndex + 1;
+                                                    
+                                                    // Get the serial number from the appropriate property
+                                                    if (camNum === 1) serialNumber = page1.cam1_sn;
+                                                    else if (camNum === 2) serialNumber = page1.cam2_sn;
+                                                    else if (camNum === 3) serialNumber = page1.cam3_sn;
+                                                    else if (camNum === 4) serialNumber = page1.cam4_sn;
+                                                    else if (camNum === 5) serialNumber = page1.cam5_sn;
+                                                    else if (camNum === 6) serialNumber = page1.cam6_sn;
+                                                    else if (camNum === 7) serialNumber = page1.cam7_sn;
+                                                    else if (camNum === 8) serialNumber = page1.cam8_sn;
+                                                    
+                                                    // Use camera number as fallback if serial number is empty
+                                                    if (serialNumber === "") {
+                                                        serialNumber = camNum.toString();
+                                                    }
+                                                    
+                                                console.log("Capturing dark histogram for camera", selectedIndex, "with SN", serialNumber);
+                                                MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber, true);
+                                                } else {
+                                                    // All cameras - capture each individually with their serial numbers
+                                                console.log("Capturing dark histograms for all cameras with individual serial numbers");
+                                                MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag, true);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Spacer to push power buttons to the right
+                                Item {
+                                    Layout.fillWidth: true
+                                }
+
                                 // Power buttons column
                                 ColumnLayout {
                                     spacing: 8
-                                    Layout.alignment: Qt.AlignLeft
+                                    Layout.alignment: Qt.AlignBottom | Qt.AlignRight
 
                                     Button {
                                         id: camPowerOnBtn
@@ -696,165 +939,7 @@ Rectangle {
                                         onClicked: {
                                             let target = "left";
                                             (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
-                                            MOTIONInterface.powerCamerasOff(target)                                        }
-                                    }
-                                }
-
-                                // Camera selection + test column
-                                ColumnLayout {
-                                    spacing: 8
-                                    Layout.alignment: Qt.AlignTop
-
-                            ComboBox {
-                                id: cameraDropdown
-                                Layout.preferredWidth: 200
-                                Layout.preferredHeight: 40
-                                model: ["Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "Camera 8", "All Cameras"]
-                                currentIndex: 8  // Default to "All Cameras"
-                                enabled: {
-                                    if (sensorSelector.currentIndex === 0) {
-                                        return MOTIONInterface.leftSensorConnected
-                                    } else {
-                                        return MOTIONInterface.rightSensorConnected
-                                    }
-                                }
-
-                                onActivated: {
-                                    var selectedIndex = cameraDropdown.currentIndex;
-                                    switch (selectedIndex) {
-                                        case 0: 
-                                        case 1: 
-                                        case 2: 
-                                        case 3: 
-                                        case 4: 
-                                        case 5: 
-                                        case 6: 
-                                        case 7:
-                                            break; 
-                                        default:
-                                            console.log("All Cameras");
-                                            break;
-                                    }
-                                }
-                            }
-
-                            Button {
-                                id: testCameraButton
-                                        text: "Flash"
-                                        Layout.preferredWidth: 120
-                                        Layout.preferredHeight: 40
-                                        hoverEnabled: true
-                                enabled: {
-                                    if (sensorSelector.currentIndex === 0) {
-                                        return MOTIONInterface.leftSensorConnected
-                                    } else {
-                                        return MOTIONInterface.rightSensorConnected
-                                    }
-                                }
-                                contentItem: Text {
-                                    text: parent.text
-                                            color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                                background: Rectangle {
-                                    color: {
-                                        if (!parent.enabled) {
-                                                    return "#3A3F4B"
-                                        }
-                                                return parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                    }
-                                    radius: 4
-                                    border.color: {
-                                        if (!parent.enabled) {
-                                                    return "#7F8C8D"
-                                        }
-                                                return parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                    }
-                                }
-                                onClicked: {
-                                    let selectedIndex = cameraDropdown.currentIndex;
-                                    let cameraMask = 0x01 << selectedIndex;
-                                    if (selectedIndex === 8) {
-                                        cameraMask = 0xFF;  // All Cameras
-                                    }
-                                    let sensor_tag = "SENSOR_LEFT";
-                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                    console.log("Test Camera Mask: " + cameraMask.toString(16));
-                                    if(cameraMask == 0xFF){
-                                        MOTIONInterface.configureAllCameras(sensor_tag);
-                                    }else{
-                                        MOTIONInterface.configureCamera(sensor_tag, cameraMask);
-                                    }
-                                        }
-                                    }
-
-                                    Button {
-                                        id: captureHistogramButton
-                                        text: "Capture"
-                                        Layout.preferredWidth: 120
-                                        Layout.preferredHeight: 40
-                                        hoverEnabled: true
-                                        enabled: {
-                                            if (sensorSelector.currentIndex === 0) {
-                                                return MOTIONInterface.leftSensorConnected
-                                            } else {
-                                                return MOTIONInterface.rightSensorConnected
-                                            }
-                                        }
-                                        contentItem: Text {
-                                            text: parent.text
-                                            color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                            horizontalAlignment: Text.AlignHCenter
-                                            verticalAlignment: Text.AlignVCenter
-                                        }
-                                        background: Rectangle {
-                                            color: {
-                                                if (!parent.enabled) {
-                                                    return "#3A3F4B"
-                                                }
-                                                return parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                            }
-                                            radius: 4
-                                            border.color: {
-                                                if (!parent.enabled) {
-                                                    return "#7F8C8D"
-                                                }
-                                                return parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                            }
-                                        }
-                                        onClicked: {
-                                            let selectedIndex = cameraDropdown.currentIndex;
-                                            let sensor_tag = "SENSOR_LEFT";
-                                            (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                            
-                                            if (selectedIndex < 8) {
-                                                // Single camera - get its serial number from the properties
-                                                let serialNumber = "";
-                                                let camNum = selectedIndex + 1;
-                                                
-                                                // Get the serial number from the appropriate property
-                                                if (camNum === 1) serialNumber = page1.cam1_sn;
-                                                else if (camNum === 2) serialNumber = page1.cam2_sn;
-                                                else if (camNum === 3) serialNumber = page1.cam3_sn;
-                                                else if (camNum === 4) serialNumber = page1.cam4_sn;
-                                                else if (camNum === 5) serialNumber = page1.cam5_sn;
-                                                else if (camNum === 6) serialNumber = page1.cam6_sn;
-                                                else if (camNum === 7) serialNumber = page1.cam7_sn;
-                                                else if (camNum === 8) serialNumber = page1.cam8_sn;
-                                                
-                                                // Use camera number as fallback if serial number is empty
-                                                if (serialNumber === "") {
-                                                    serialNumber = camNum.toString();
-                                                }
-                                                
-                                                console.log("Capturing histogram for camera", selectedIndex, "with SN", serialNumber);
-                                                MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber);
-                                            } else {
-                                                // All cameras - capture each individually with their serial numbers
-                                                console.log("Capturing histograms for all cameras with individual serial numbers");
-                                                MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag);
-                                            }
+                                            MOTIONInterface.powerCamerasOff(target)
                                         }
                                     }
                                 }
