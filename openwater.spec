@@ -14,7 +14,7 @@ binaries = []
 for item in ("main.qml",):
     if os.path.exists(item):
         datas.append((item, "."))
-for folder in ("pages", "components", "assets", "config", "processing"):
+for folder in ("pages", "components", "assets", "models"):
     if os.path.isdir(folder):
         datas.append((folder, folder))
 
