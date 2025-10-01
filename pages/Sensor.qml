@@ -653,7 +653,9 @@ Rectangle {
                                             }
                                         }
                                         onClicked: {
-                                            MOTIONInterface.powerCamerasOn()
+                                            let target = "left";
+                                            (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
+                                            MOTIONInterface.powerCamerasOn(target)
                                         }
                                     }
 
@@ -692,8 +694,9 @@ Rectangle {
                                             }
                                         }
                                         onClicked: {
-                                            MOTIONInterface.powerCamerasOff()
-                                        }
+                                            let target = "left";
+                                            (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
+                                            MOTIONInterface.powerCamerasOff(target)                                        }
                                     }
                                 }
 

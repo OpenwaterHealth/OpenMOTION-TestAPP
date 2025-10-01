@@ -281,67 +281,37 @@ class MOTIONConnector(QObject):
     def get_sdk_version(self):
         return self._interface.get_sdk_version()
     
-    @pyqtSlot()
-    def powerCamerasOn(self):
+    @pyqtSlot(str)
+    def powerCamerasOn(self, target: str):
         """Enable power to all cameras on all connected sensors (equivalent to scripts/enable_camera_power.py --mask 0xFF)."""
         try:
             MASK_ALL = 0xFF
-            logger.info(f"Enabling camera power mask=0x{MASK_ALL:02X} on all connected sensors...")
-            if hasattr(self._interface, "run_on_sensors"):
-                results = self._interface.run_on_sensors("enable_camera_power", MASK_ALL)
-                if isinstance(results, dict):
-                    for side, success in results.items():
-                        if success is True:
-                            logger.info(f"{side.capitalize()}: Power enabled")
-                        elif success is False:
-                            logger.error(f"{side.capitalize()}: Failed to enable power")
-                        else:
-                            logger.warning(f"{side.capitalize()}: No result (possibly disconnected)")
-                else:
-                    logger.info("Power enable command dispatched (no per-side results available).")
+            logger.info(f"Enabling camera power mask=0x{MASK_ALL:02X} on {target.capitalize()}")
+
+            ok = motion_interface.sensors[target].enable_camera_power(MASK_ALL)
+            if ok:
+                logger.info(f"{target.capitalize()}: Power enabled")
             else:
-                # Fallback: try enabling on each known sensor directly if available
-                for side_key in ("left", "right"):
-                    sensor = getattr(self._interface, "sensors", {}).get(side_key)
-                    if sensor and hasattr(sensor, "enable_camera_power"):
-                        ok = sensor.enable_camera_power(MASK_ALL)
-                        if ok:
-                            logger.info(f"{side_key.capitalize()}: Power enabled")
-                        else:
-                            logger.error(f"{side_key.capitalize()}: Failed to enable power")
+                logger.error(f"{target.capitalize()}: Failed to enable power")
         except Exception as e:
             logger.error(f"Error enabling camera power: {e}")
 
-    @pyqtSlot()
-    def powerCamerasOff(self):
+
+    @pyqtSlot(str)
+    def powerCamerasOff(self, target: str):
         """Disable power to all cameras on all connected sensors (equivalent to scripts/disable_camera_power.py --mask 0xFF)."""
         try:
             MASK_ALL = 0xFF
-            logger.info(f"Disabling camera power mask=0x{MASK_ALL:02X} on all connected sensors...")
-            if hasattr(self._interface, "run_on_sensors"):
-                results = self._interface.run_on_sensors("disable_camera_power", MASK_ALL)
-                if isinstance(results, dict):
-                    for side, success in results.items():
-                        if success is True:
-                            logger.info(f"{side.capitalize()}: Power disabled")
-                        elif success is False:
-                            logger.error(f"{side.capitalize()}: Failed to disable power")
-                        else:
-                            logger.warning(f"{side.capitalize()}: No result (possibly disconnected)")
-                else:
-                    logger.info("Power disable command dispatched (no per-side results available).")
+            logger.info(f"Disabling camera power mask=0x{MASK_ALL:02X} on {target.capitalize()}")
+
+            ok = motion_interface.sensors[target].disable_camera_power(MASK_ALL)
+            if ok:
+                logger.info(f"{target.capitalize()}: Power disabled")
             else:
-                # Fallback: try disabling on each known sensor directly if available
-                for side_key in ("left", "right"):
-                    sensor = getattr(self._interface, "sensors", {}).get(side_key)
-                    if sensor and hasattr(sensor, "disable_camera_power"):
-                        ok = sensor.disable_camera_power(MASK_ALL)
-                        if ok:
-                            logger.info(f"{side_key.capitalize()}: Power disabled")
-                        else:
-                            logger.error(f"{side_key.capitalize()}: Failed to disable power")
+                logger.error(f"{target.capitalize()}: Failed to disable power")
         except Exception as e:
             logger.error(f"Error disabling camera power: {e}")
+
 
     @pyqtSlot(str, int, str)
     def captureHistogramToCSV(self, sensor_tag: str, camera_index: int, serial_number: str):
@@ -701,6 +671,15 @@ class MOTIONConnector(QObject):
             else:
                 logger.erro
             passed = motion_interface.sensors[sensor_tag].program_fpga(camera_position=cam_mask, manual_process=False)
+            gain = 16
+            exposure = 600
+            print(f"Switching camera to {cam_mask}")
+            passed_sw = motion_interface.sensors[sensor_tag].switch_camera(cam_mask)
+            print(f"Setting gain to {gain}")
+            passed_gain= motion_interface.sensors[sensor_tag].camera_set_gain(gain)
+            print(f"Setting exposure to {exposure}")
+            passed_exposure = motion_interface.sensors[sensor_tag].camera_set_exposure(0,us=exposure)
+            print(f"Camera {sensor_tag} with mask {cam_mask} configured with gain {gain} and exposure {exposure}")
             self.cameraConfigUpdated.emit(cam_mask, passed)
         except Exception as e:
             logger.error(f"Error configuring Camera {cam_mask}: {e}")
@@ -982,14 +961,9 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(str, int, int)
     def getCameraHistogram(self, target:str, camera_index: int, test_pattern_id: int = 4):
-        if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
-            sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
-        else:
-            logger.error(f"Invalid target for Echo command")
-            return False
         logger.info(f"Getting histogram for camera {camera_index + 1}")
         bins, histo = motion_interface.get_camera_histogram(
-            sensor_side = sensor_tag,
+            sensor_side = target,
             camera_id=camera_index,
             test_pattern_id=test_pattern_id,
             auto_upload=True

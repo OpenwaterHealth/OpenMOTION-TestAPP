@@ -1286,8 +1286,8 @@ Rectangle {
                             onClicked: {
                                 let cam = cameraModel.get(cameraSelector.currentIndex)
                                 let tp = filteredPatternModel.get(patternSelector.currentIndex)
-                                let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT"
-                                console.log("Selected: ", sensor_tag)
+                                let target = (sensorSelector.currentIndex === 0) ? "left" : "right"
+                                console.log("Selected: ", target)
 
                                 if (tp && tp.label === "Stream") {
                                     if (MOTIONInterface.isStreaming) {
@@ -1307,7 +1307,7 @@ Rectangle {
                                         cameraCapStatus.color = "orange"
                                     })
 
-                                    MOTIONInterface.getCameraHistogram(sensor_tag, cam.cam_num, tp.tp_id)
+                                    MOTIONInterface.getCameraHistogram(target, cam.cam_num, tp.tp_id)
                                 }
                             }
                         }
