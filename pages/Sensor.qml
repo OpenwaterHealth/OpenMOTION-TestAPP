@@ -142,6 +142,115 @@ Rectangle {
                 }
             }
         }
+
+        function onHistogramCaptureCompleted(cameraIndex, weightedMean) {
+            // Update camera status to show "Average: xxx" in green
+            cameraStatusModel.set(cameraIndex, {
+                label: "Camera " + (cameraIndex + 1),
+                status: "Average: " + weightedMean.toFixed(2),
+                color: "green"
+            });
+        }
+
+        function onCsvOutputDirectoryChanged(directory) {
+            // Update the CSV output path text when directory changes
+            csvOutputPathText.text = directory
+        }
+    }
+
+    // Dialog for CSV output directory selection
+    Dialog {
+        id: csvFolderDialog
+        title: "Select CSV Output Directory"
+        width: 500
+        height: 200
+        modal: true
+        
+        property alias folderPath: folderPathInput.text
+        
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 20
+            
+            Text {
+                text: "Enter the folder path where CSV files should be saved:"
+                color: "#BDC3C7"
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+            
+            TextField {
+                id: folderPathInput
+                text: MOTIONInterface.csvOutputDirectory
+                Layout.fillWidth: true
+                placeholderText: "Enter folder path..."
+                selectByMouse: true
+                
+                background: Rectangle {
+                    color: "#3A3F4B"
+                    border.color: "#BDC3C7"
+                    border.width: 1
+                    radius: 4
+                }
+                
+                color: "#BDC3C7"
+                font.pixelSize: 12
+            }
+            
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: 10
+                
+                Button {
+                    text: "Cancel"
+                    Layout.preferredWidth: 80
+                    Layout.preferredHeight: 30
+                    
+                    background: Rectangle {
+                        color: parent.hovered ? "#E74C3C" : "#3A3F4B"
+                        radius: 4
+                        border.color: "#BDC3C7"
+                    }
+                    
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#BDC3C7"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                    }
+                    
+                    onClicked: csvFolderDialog.close()
+                }
+                
+                Button {
+                    text: "OK"
+                    Layout.preferredWidth: 80
+                    Layout.preferredHeight: 30
+                    
+                    background: Rectangle {
+                        color: parent.hovered ? "#27AE60" : "#3A3F4B"
+                        radius: 4
+                        border.color: "#BDC3C7"
+                    }
+                    
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#BDC3C7"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                    }
+                    
+                    onClicked: {
+                        if (folderPathInput.text.trim() !== "") {
+                            MOTIONInterface.setCsvOutputDirectory(folderPathInput.text.trim())
+                            csvFolderDialog.close()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     ColumnLayout {
@@ -181,7 +290,7 @@ Rectangle {
                     // Communication Tests Box
                     Rectangle {
                         width: 650
-                        height: 195
+                        height: 170
                         radius: 6
                         color: "#1E1E20"
                         border.color: "#3E4E6F"
@@ -203,11 +312,11 @@ Rectangle {
                             anchors.top: parent.top
                             anchors.leftMargin: 20   
                             anchors.topMargin: 60    
-                            columns: 5
+                            columns: 8
                             rowSpacing: 10
                             columnSpacing: 10
 
-                            // Row 1
+                            // Single row with all buttons: Ping, Echo, Toggle LED
                             // Ping Button and Result
                             Button {
                                 id: pingButton
@@ -267,70 +376,6 @@ Rectangle {
                                 Layout.alignment: Qt.AlignVCenter
                             }
 
-                            Item {
-                                Layout.preferredWidth: 200 
-                            }
-
-                            Button {
-                                id: ledButton
-                                text: "Toggle LED"
-                                Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
-                                hoverEnabled: true  // Enable hover detection
-                                enabled: {
-                                    if (sensorSelector.currentIndex === 0) {
-                                        return MOTIONInterface.leftSensorConnected
-                                    } else {
-                                        return MOTIONInterface.rightSensorConnected
-                                    }
-                                }
-
-                                contentItem: Text {
-                                    text: parent.text
-                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-
-                                background: Rectangle {
-                                    id: ledButtonBackground
-                                    color: {
-                                        if (!parent.enabled) {
-                                            return "#3A3F4B";  // Disabled color
-                                        }
-                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
-                                    }
-                                    radius: 4
-                                    border.color: {
-                                        if (!parent.enabled) {
-                                            return "#7F8C8D";  // Disabled border color
-                                        }
-                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
-                                    }
-                                }
-
-                                onClicked: {
-                                    let sensor_tag = "SENSOR_LEFT";
-                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                    if(MOTIONInterface.sendLedToggleCommand(sensor_tag))
-                                    {
-                                        toggleLedResult.text = "LED Toggled"
-                                        toggleLedResult.color = "green"
-                                    }
-                                    else{
-                                        toggleLedResult.text = "LED Toggle FAILED"
-                                        toggleLedResult.color = "red"
-                                    }
-                                }
-                            }
-                            Text {
-                                id: toggleLedResult
-                                Layout.preferredWidth: 80
-                                color: "#BDC3C7"
-                                text: ""
-                            }
-
-                            // Row 2
                             // Echo Button and Result
                             Button {
                                 id: echoButton
@@ -383,7 +428,7 @@ Rectangle {
                                         echoResult.text = "Echo FAILED"
                                         echoResult.color = "red"
                                     }
-                                } 
+                                }
                             }
                             Text {
                                 id: echoResult
@@ -393,17 +438,64 @@ Rectangle {
                                 Layout.alignment: Qt.AlignVCenter
                             }
 
-                            Item {
-                                Layout.preferredWidth: 200 
-                            }
+                            // Toggle LED Button and Result
+                            Button {
+                                id: ledButton
+                                text: "Toggle LED"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 50
+                                hoverEnabled: true  // Enable hover detection
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
 
-                            Item {
-                                
-                            }
-                            
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
 
-                            Item {
-                                
+                                background: Rectangle {
+                                    id: ledButtonBackground
+                                    color: {
+                                        if (!parent.enabled) {
+                                            return "#3A3F4B";  // Disabled color
+                                        }
+                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                            return "#7F8C8D";  // Disabled border color
+                                        }
+                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                    }
+                                }
+
+                                onClicked: {
+                                    let sensor_tag = "SENSOR_LEFT";
+                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                    if(MOTIONInterface.sendLedToggleCommand(sensor_tag))
+                                    {
+                                        toggleLedResult.text = "LED Toggled"
+                                        toggleLedResult.color = "green"
+                                    }
+                                    else{
+                                        toggleLedResult.text = "LED Toggle FAILED"
+                                        toggleLedResult.color = "red"
+                                    }
+                                } 
+                            }
+                            Text {
+                                id: toggleLedResult
+                                Layout.preferredWidth: 80
+                                color: "#BDC3C7"
+                                text: ""
                             }
                         }
                     }
@@ -411,7 +503,7 @@ Rectangle {
                     // Camera Tests
                     Rectangle {
                         width: 650
-                        height: 390
+                        height: 415
                         radius: 6
                         color: "#1E1E20"
                         border.color: "#3E4E6F"
@@ -515,7 +607,7 @@ Rectangle {
                                             color: cameraStatusModel.get(parent.mappedIndex).color
                                             font.pixelSize: 14
                                             Layout.preferredWidth: 90
-                                            horizontalAlignment: Text.AlignRight
+                                            horizontalAlignment: Text.AlignCenter
                                         }
 
                                         // Camera number badge (always visible)
@@ -608,6 +700,7 @@ Rectangle {
                                 height: 10
                             }
 
+
                             // Controls row: Camera select/Test on left, Power buttons on right
                             RowLayout {
                                 Layout.columnSpan: 5
@@ -619,43 +712,43 @@ Rectangle {
                                     Layout.alignment: Qt.AlignLeft
 
                                     // Camera selector dropdown
-                                    ComboBox {
-                                        id: cameraDropdown
+                            ComboBox {
+                                id: cameraDropdown
                                         Layout.preferredWidth: 248
-                                        Layout.preferredHeight: 40
+                                Layout.preferredHeight: 40
                                         Layout.alignment: Qt.AlignLeft
-                                        model: ["Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "Camera 8", "All Cameras"]
-                                        currentIndex: 8  // Default to "All Cameras"
-                                        enabled: {
-                                            if (sensorSelector.currentIndex === 0) {
-                                                return MOTIONInterface.leftSensorConnected
-                                            } else {
-                                                return MOTIONInterface.rightSensorConnected
-                                            }
-                                        }
-
-                                        onActivated: {
-                                            var selectedIndex = cameraDropdown.currentIndex;
-                                            switch (selectedIndex) {
-                                                case 0: 
-                                                case 1: 
-                                                case 2: 
-                                                case 3: 
-                                                case 4: 
-                                                case 5: 
-                                                case 6: 
-                                                case 7:
-                                                    break; 
-                                                default:
-                                                    console.log("All Cameras");
-                                                    break;
-                                            }
-                                        }
+                                model: ["Camera 1", "Camera 2", "Camera 3", "Camera 4", "Camera 5", "Camera 6", "Camera 7", "Camera 8", "All Cameras"]
+                                currentIndex: 8  // Default to "All Cameras"
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
                                     }
+                                }
+
+                                onActivated: {
+                                    var selectedIndex = cameraDropdown.currentIndex;
+                                    switch (selectedIndex) {
+                                        case 0: 
+                                        case 1: 
+                                        case 2: 
+                                        case 3: 
+                                        case 4: 
+                                        case 5: 
+                                        case 6: 
+                                        case 7:
+                                            break; 
+                                        default:
+                                            console.log("All Cameras");
+                                            break;
+                                    }
+                                }
+                            }
 
                                     // Flash button
                                     Button {
-                                        id: testCameraButton
+                                id: testCameraButton
                                         text: "Flash"
                                         Layout.preferredWidth: 248
                                         Layout.preferredHeight: 40
@@ -690,19 +783,19 @@ Rectangle {
                                             }
                                         }
                                         onClicked: {
-                                            let selectedIndex = cameraDropdown.currentIndex;
-                                            let cameraMask = 0x01 << selectedIndex;
-                                            if (selectedIndex === 8) {
-                                                cameraMask = 0xFF;  // All Cameras
-                                            }
-                                            let sensor_tag = "SENSOR_LEFT";
-                                            (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                            console.log("Test Camera Mask: " + cameraMask.toString(16));
-                                            if(cameraMask == 0xFF){
-                                                MOTIONInterface.configureAllCameras(sensor_tag);
-                                            }else{
-                                                MOTIONInterface.configureCamera(sensor_tag, cameraMask);
-                                            }
+                                    let selectedIndex = cameraDropdown.currentIndex;
+                                    let cameraMask = 0x01 << selectedIndex;
+                                    if (selectedIndex === 8) {
+                                        cameraMask = 0xFF;  // All Cameras
+                                    }
+                                    let sensor_tag = "SENSOR_LEFT";
+                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                    console.log("Test Camera Mask: " + cameraMask.toString(16));
+                                    if(cameraMask == 0xFF){
+                                        MOTIONInterface.configureAllCameras(sensor_tag);
+                                    }else{
+                                        MOTIONInterface.configureCamera(sensor_tag, cameraMask);
+                                    }
                                         }
                                     }
 
@@ -711,70 +804,70 @@ Rectangle {
                                         spacing: 8
                                         Layout.alignment: Qt.AlignLeft
 
-                                        Button {
-                                            id: captureHistogramButton
-                                            text: "Capture"
-                                            Layout.preferredWidth: 120
-                                            Layout.preferredHeight: 40
-                                            hoverEnabled: true
-                                            enabled: {
-                                                if (sensorSelector.currentIndex === 0) {
-                                                    return MOTIONInterface.leftSensorConnected
-                                                } else {
-                                                    return MOTIONInterface.rightSensorConnected
-                                                }
+                                    Button {
+                                        id: captureHistogramButton
+                                        text: "Capture"
+                                        Layout.preferredWidth: 120
+                                        Layout.preferredHeight: 40
+                                        hoverEnabled: true
+                                        enabled: {
+                                            if (sensorSelector.currentIndex === 0) {
+                                                return MOTIONInterface.leftSensorConnected
+                                            } else {
+                                                return MOTIONInterface.rightSensorConnected
                                             }
-                                            contentItem: Text {
-                                                text: parent.text
-                                                color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                                horizontalAlignment: Text.AlignHCenter
-                                                verticalAlignment: Text.AlignVCenter
-                                            }
-                                            background: Rectangle {
-                                                color: {
-                                                    if (!parent.enabled) {
-                                                        return "#3A3F4B"
-                                                    }
-                                                    return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                        }
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                        }
+                                        background: Rectangle {
+                                            color: {
+                                                if (!parent.enabled) {
+                                                    return "#3A3F4B"
                                                 }
-                                                radius: 4
-                                                border.color: {
-                                                    if (!parent.enabled) {
-                                                        return "#7F8C8D"
-                                                    }
-                                                    return parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                                }
+                                                return parent.hovered ? "#4A90E2" : "#3A3F4B"
                                             }
-                                            onClicked: {
-                                                let selectedIndex = cameraDropdown.currentIndex;
-                                                let sensor_tag = "SENSOR_LEFT";
-                                                (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                            radius: 4
+                                            border.color: {
+                                                if (!parent.enabled) {
+                                                    return "#7F8C8D"
+                                                }
+                                                return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                            }
+                                        }
+                                        onClicked: {
+                                            let selectedIndex = cameraDropdown.currentIndex;
+                                            let sensor_tag = "SENSOR_LEFT";
+                                            (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
+                                            
+                                            if (selectedIndex < 8) {
+                                                // Single camera - get its serial number from the properties
+                                                let serialNumber = "";
+                                                let camNum = selectedIndex + 1;
                                                 
-                                                if (selectedIndex < 8) {
-                                                    // Single camera - get its serial number from the properties
-                                                    let serialNumber = "";
-                                                    let camNum = selectedIndex + 1;
-                                                    
-                                                    // Get the serial number from the appropriate property
-                                                    if (camNum === 1) serialNumber = page1.cam1_sn;
-                                                    else if (camNum === 2) serialNumber = page1.cam2_sn;
-                                                    else if (camNum === 3) serialNumber = page1.cam3_sn;
-                                                    else if (camNum === 4) serialNumber = page1.cam4_sn;
-                                                    else if (camNum === 5) serialNumber = page1.cam5_sn;
-                                                    else if (camNum === 6) serialNumber = page1.cam6_sn;
-                                                    else if (camNum === 7) serialNumber = page1.cam7_sn;
-                                                    else if (camNum === 8) serialNumber = page1.cam8_sn;
-                                                    
-                                                    // Use camera number as fallback if serial number is empty
-                                                    if (serialNumber === "") {
-                                                        serialNumber = camNum.toString();
-                                                    }
-                                                    
-                                                    console.log("Capturing histogram for camera", selectedIndex, "with SN", serialNumber);
+                                                // Get the serial number from the appropriate property
+                                                if (camNum === 1) serialNumber = page1.cam1_sn;
+                                                else if (camNum === 2) serialNumber = page1.cam2_sn;
+                                                else if (camNum === 3) serialNumber = page1.cam3_sn;
+                                                else if (camNum === 4) serialNumber = page1.cam4_sn;
+                                                else if (camNum === 5) serialNumber = page1.cam5_sn;
+                                                else if (camNum === 6) serialNumber = page1.cam6_sn;
+                                                else if (camNum === 7) serialNumber = page1.cam7_sn;
+                                                else if (camNum === 8) serialNumber = page1.cam8_sn;
+                                                
+                                                // Use camera number as fallback if serial number is empty
+                                                if (serialNumber === "") {
+                                                    serialNumber = camNum.toString();
+                                                }
+                                                
+                                                console.log("Capturing histogram for camera", selectedIndex, "with SN", serialNumber);
                                                     MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber, false);
-                                                } else {
-                                                    // All cameras - capture each individually with their serial numbers
-                                                    console.log("Capturing histograms for all cameras with individual serial numbers");
+                                            } else {
+                                                // All cameras - capture each individually with their serial numbers
+                                                console.log("Capturing histograms for all cameras with individual serial numbers");
                                                     MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag, false);
                                                 }
                                             }
@@ -784,15 +877,15 @@ Rectangle {
                                             id: captureDarkButton
                                             text: "Capture (Dark)"
                                             Layout.preferredWidth: 120
-                                            Layout.preferredHeight: 40
+                                Layout.preferredHeight: 40
                                             hoverEnabled: true
-                                            enabled: {
-                                                if (sensorSelector.currentIndex === 0) {
-                                                    return MOTIONInterface.leftSensorConnected
-                                                } else {
-                                                    return MOTIONInterface.rightSensorConnected
-                                                }
-                                            }
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
                                             contentItem: Text {
                                                 text: parent.text
                                                 color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
@@ -861,41 +954,41 @@ Rectangle {
                                     spacing: 8
                                     Layout.alignment: Qt.AlignBottom | Qt.AlignRight
 
-                                    Button {
+                            Button {
                                         id: camPowerOnBtn
                                         text: "Power Cameras On"
                                         Layout.preferredWidth: 160
                                         Layout.preferredHeight: 40
                                         hoverEnabled: true
-                                        enabled: {
-                                            if (sensorSelector.currentIndex === 0) {
-                                                return MOTIONInterface.leftSensorConnected
-                                            } else {
-                                                return MOTIONInterface.rightSensorConnected
-                                            }
-                                        }
-                                        contentItem: Text {
-                                            text: parent.text
+                                enabled: {
+                                    if (sensorSelector.currentIndex === 0) {
+                                        return MOTIONInterface.leftSensorConnected
+                                    } else {
+                                        return MOTIONInterface.rightSensorConnected
+                                    }
+                                }
+                                contentItem: Text {
+                                    text: parent.text
                                             color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                            horizontalAlignment: Text.AlignHCenter
-                                            verticalAlignment: Text.AlignVCenter
-                                        }
-                                        background: Rectangle {
-                                            color: {
-                                                if (!parent.enabled) {
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                background: Rectangle {
+                                    color: {
+                                        if (!parent.enabled) {
                                                     return "#3A3F4B"
-                                                }
-                                                return parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                            }
-                                            radius: 4
-                                            border.color: {
-                                                if (!parent.enabled) {
-                                                    return "#7F8C8D"
-                                                }
-                                                return parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                            }
                                         }
-                                        onClicked: {
+                                                return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                    }
+                                    radius: 4
+                                    border.color: {
+                                        if (!parent.enabled) {
+                                                    return "#7F8C8D"
+                                        }
+                                                return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                    }
+                                }
+                                onClicked: {
                                             let target = "left";
                                             (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
                                             MOTIONInterface.powerCamerasOn(target)
@@ -941,6 +1034,65 @@ Rectangle {
                                             (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
                                             MOTIONInterface.powerCamerasOff(target)
                                         }
+                                    }
+                                }
+                            }
+                            
+                            // CSV Output Directory Controls (below capture buttons)
+                            RowLayout {
+                                Layout.columnSpan: 5
+                                spacing: 10
+                                Layout.alignment: Qt.AlignLeft
+                                Layout.topMargin: 15
+
+                                Text {
+                                    text: "CSV Output:"
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 14
+                                }
+
+                                Text {
+                                    id: csvOutputPathText
+                                    text: MOTIONInterface.csvOutputDirectory
+                                    color: "#3498DB"
+                                    font.pixelSize: 12
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideMiddle
+                                    onTextChanged: {
+                                        // Update text when directory changes
+                                        text = MOTIONInterface.csvOutputDirectory
+                                    }
+                                }
+
+                                Button {
+                                    text: "Change Directory"
+                                    Layout.preferredWidth: 140
+                                    Layout.preferredHeight: 30
+                                    hoverEnabled: true
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 12
+                                    }
+                                    background: Rectangle {
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B"
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                        }
+                                        radius: 4
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D"
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                        }
+                                    }
+                                    onClicked: {
+                                        csvFolderDialog.open()
                                     }
                                 }
                             }

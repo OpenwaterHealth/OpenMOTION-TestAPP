@@ -153,6 +153,8 @@ class MOTIONConnector(QObject):
     gyroscopeSensorUpdated = pyqtSignal(int, int, int)  # (imu_accel)
 
     cameraConfigUpdated = pyqtSignal(int, bool)  # camera_mask, passed=True/False
+    histogramCaptureCompleted = pyqtSignal(int, float)  # (camera_index, weighted_mean)
+    csvOutputDirectoryChanged = pyqtSignal(str)  # (directory_path)
 
     triggerStateChanged = pyqtSignal(str)  # 🔹 New signal for trigger state change
 
@@ -177,6 +179,10 @@ class MOTIONConnector(QObject):
     def __init__(self):
         super().__init__()
         self._interface = motion_interface
+        
+        # Initialize CSV output directory to user's home directory
+        import os
+        self._csv_output_directory = os.path.expanduser("~")
 
         # Check if console and sensor are connected
         console_connected, left_sensor_connected, right_sensor_connected = motion_interface.is_device_connected()
@@ -205,6 +211,30 @@ class MOTIONConnector(QObject):
         motion_interface.signal_disconnect.connect(self.on_disconnected)
         motion_interface.signal_data_received.connect(self.on_data_received)
 
+    @pyqtProperty(str, notify=csvOutputDirectoryChanged)
+    def csvOutputDirectory(self):
+        """Get the current CSV output directory."""
+        return self._csv_output_directory
+
+    @csvOutputDirectory.setter
+    def csvOutputDirectory(self, directory):
+        """Set the CSV output directory."""
+        if directory != self._csv_output_directory:
+            self._csv_output_directory = directory
+            self.csvOutputDirectoryChanged.emit(directory)
+            logger.info(f"CSV output directory changed to: {directory}")
+
+    @pyqtSlot()
+    def selectCsvOutputDirectory(self):
+        """Signal QML to open directory selection dialog."""
+        # Emit signal to trigger QML folder dialog
+        self.csvOutputDirectoryChanged.emit("SELECT_DIRECTORY")
+
+    @pyqtSlot(str)
+    def setCsvOutputDirectory(self, directory):
+        """Set the CSV output directory from QML."""
+        if directory and directory != "SELECT_DIRECTORY":
+            self.csvOutputDirectory = directory
 
     def update_state(self):
         """Update system state based on connection and configuration."""
@@ -341,8 +371,15 @@ class MOTIONConnector(QObject):
                     logger.error(f"Failed to get camera temperature: {e}")
                     temperature = 0.0  # Fallback to 0 if temperature retrieval fails
                 
+                # Calculate weighted mean
+                weighted_mean = self._calculate_weighted_mean(bins[:1024])
+                print(f"Weighted mean of histogram: {weighted_mean:.2f}")
+                
                 self._save_histogram_csv(bins, filename, temperature)
                 logger.info(f"Saved {capture_type} to {filename}")
+                
+                # Emit signal with weighted mean
+                self.histogramCaptureCompleted.emit(camera_index, weighted_mean)
             else:
                 logger.error(f"Failed to get {capture_type} for camera {camera_index+1}")
                     
@@ -385,8 +422,15 @@ class MOTIONConnector(QObject):
                             logger.error(f"Failed to get temperature for camera {camera_idx+1}: {e}")
                             temperature = 0.0  # Fallback to 0 if temperature retrieval fails
                         
+                        # Calculate weighted mean
+                        weighted_mean = self._calculate_weighted_mean(bins[:1024])
+                        print(f"Weighted mean of histogram for camera {camera_idx+1}: {weighted_mean:.2f}")
+                        
                         self._save_histogram_csv(bins, filename, temperature)
                         logger.info(f"Saved {capture_type} for camera {camera_idx+1} to {filename}")
+                        
+                        # Emit signal with weighted mean
+                        self.histogramCaptureCompleted.emit(camera_idx, weighted_mean)
                     else:
                         logger.error(f"Failed to get {capture_type} for camera {camera_idx+1}")
                 except Exception as e:
@@ -415,9 +459,8 @@ class MOTIONConnector(QObject):
             weighted_mean = self._calculate_weighted_mean(bins[:1024])
             print(f"Weighted mean of histogram: {weighted_mean:.2f}")
             
-            # Save to user's home directory
-            home_dir = os.path.expanduser("~")
-            filepath = os.path.join(home_dir, filename)
+            # Save to configured CSV output directory
+            filepath = os.path.join(self._csv_output_directory, filename)
             
             with open(filepath, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
