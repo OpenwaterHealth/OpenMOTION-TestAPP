@@ -771,11 +771,11 @@ Rectangle {
                                                     }
                                                     
                                                     console.log("Capturing histogram for camera", selectedIndex, "with SN", serialNumber);
-                                                    MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber);
+                                                    MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber, false);
                                                 } else {
                                                     // All cameras - capture each individually with their serial numbers
                                                     console.log("Capturing histograms for all cameras with individual serial numbers");
-                                                    MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag);
+                                                    MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag, false);
                                                 }
                                             }
                                         }
