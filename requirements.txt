@@ -5,6 +5,7 @@ PySide6==6.8.1
 PyQt6-Charts==6.8.0
 qasync==0.27.1
 base58==2.1.1
+PyInstaller==6.15.0
 
 # Optional tools for development and testing
 pytest==7.4.0
