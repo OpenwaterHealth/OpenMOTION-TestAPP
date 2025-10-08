@@ -35,6 +35,16 @@ Rectangle {
     property string cam7_sn: ""
     property string cam8_sn: ""
 
+    // Camera power status properties
+    property bool camera1_powered: false
+    property bool camera2_powered: false
+    property bool camera3_powered: false
+    property bool camera4_powered: false
+    property bool camera5_powered: false
+    property bool camera6_powered: false
+    property bool camera7_powered: false
+    property bool camera8_powered: false
+
     ListModel {
         id: cameraStatusModel
         ListElement { label: "Camera 1"; status: "Not Tested"; color: "gray" }
@@ -155,6 +165,18 @@ Rectangle {
         function onCsvOutputDirectoryChanged(directory) {
             // Update the CSV output path text when directory changes
             csvOutputPathText.text = directory
+        }
+
+        function onCameraPowerStatusUpdated(powerStatusList) {
+            console.log("Power status updated:", powerStatusList);
+            // Store power status globally for use in circle colors
+            for (let i = 0; i < 8; i++) {
+                const isPowered = powerStatusList[i] || false;
+                console.log("Camera " + (i + 1) + " power status:", isPowered ? "On" : "Off");
+                // Store in a global property that can be accessed by the circles
+                page1["camera" + (i + 1) + "_powered"] = isPowered;
+                console.log("Set page1.camera" + (i + 1) + "_powered =", page1["camera" + (i + 1) + "_powered"]);
+            }
         }
     }
 
@@ -953,6 +975,59 @@ Rectangle {
                                 ColumnLayout {
                                     spacing: 8
                                     Layout.alignment: Qt.AlignBottom | Qt.AlignRight
+
+                                    // Power status indicator and refresh button row
+                                    RowLayout {
+                                        spacing: 8
+                                        Layout.alignment: Qt.AlignHCenter
+                                        
+                                        Rectangle {
+                                            width: 16
+                                            height: 16
+                                            radius: 8
+                                            color: {
+                                                // Check if all cameras are powered
+                                                const allPowered = page1.camera1_powered && page1.camera2_powered && 
+                                                                   page1.camera3_powered && page1.camera4_powered && 
+                                                                   page1.camera5_powered && page1.camera6_powered && 
+                                                                   page1.camera7_powered && page1.camera8_powered;
+                                                return allPowered ? "#2ECC71" : "#E74C3C"; // Green if all on, Red if any off
+                                            }
+                                            border.color: "#BDC3C7"
+                                            border.width: 1
+                                        }
+
+                                        Button {
+                                            id: getPowerStatusBtn
+                                            text: "Get Camera Power Status"
+                                            Layout.preferredWidth: 160
+                                            Layout.preferredHeight: 40
+                                            hoverEnabled: true
+                                            enabled: {
+                                                if (sensorSelector.currentIndex === 0) {
+                                                    return MOTIONInterface.leftSensorConnected
+                                                } else {
+                                                    return MOTIONInterface.rightSensorConnected
+                                                }
+                                            }
+                                            onClicked: {
+                                                let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                                MOTIONInterface.queryCameraPowerStatus(sensor_tag)
+                                            }
+                                            background: Rectangle {
+                                                radius: 4
+                                                color: parent.enabled ? (parent.pressed ? "#34495E" : "#2C3E50") : "#1E1E20"
+                                                border.color: parent.enabled ? "#3E4E6F" : "#555555"
+                                            }
+                                            contentItem: Text {
+                                                text: parent.text
+                                                color: parent.enabled ? "#BDC3C7" : "#666666"
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                font.pixelSize: 14
+                                            }
+                                        }
+                                    }
 
                             Button {
                                         id: camPowerOnBtn

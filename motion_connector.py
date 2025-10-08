@@ -154,6 +154,7 @@ class MOTIONConnector(QObject):
 
     cameraConfigUpdated = pyqtSignal(int, bool)  # camera_mask, passed=True/False
     histogramCaptureCompleted = pyqtSignal(int, float)  # (camera_index, weighted_mean)
+    cameraPowerStatusUpdated = pyqtSignal(list)  # (power_status_list)
     csvOutputDirectoryChanged = pyqtSignal(str)  # (directory_path)
 
     triggerStateChanged = pyqtSignal(str)  # 🔹 New signal for trigger state change
@@ -1082,6 +1083,41 @@ class MOTIONConnector(QObject):
 
         except Exception as e:
             logging.error(f"Console status query failed: {e}")
+
+    @pyqtSlot(str)
+    def queryCameraPowerStatus(self, target: str):
+        """Query camera power status for all cameras on the specified sensor."""
+        try:
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for camera power status query: {target}")
+                self.cameraPowerStatusUpdated.emit([False] * 8)
+                return
+                
+            logger.info(f"Querying camera power status for {sensor_tag} sensor")
+            
+            # Query power status for all cameras
+            sensor = motion_interface.sensors[sensor_tag]
+            power_status = sensor.get_camera_power_status()
+            
+            if power_status is not None:
+                # Convert to list of booleans for QML
+                power_status_list = list(power_status)
+                logger.info(f"Camera power status: {power_status_list}")
+                logger.info(f"Power status list type: {type(power_status_list)}, length: {len(power_status_list)}")
+                
+                # Emit signal to update UI
+                self.cameraPowerStatusUpdated.emit(power_status_list)
+            else:
+                logger.error("Failed to retrieve camera power status")
+                # Emit empty status (all False)
+                self.cameraPowerStatusUpdated.emit([False] * 8)
+                
+        except Exception as e:
+            logger.error(f"Error querying camera power status: {e}")
+            # Emit empty status (all False) on error
+            self.cameraPowerStatusUpdated.emit([False] * 8)
                 
     @pyqtSlot()
     def shutdown(self):
