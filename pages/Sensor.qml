@@ -172,10 +172,8 @@ Rectangle {
             // Store power status globally for use in circle colors
             for (let i = 0; i < 8; i++) {
                 const isPowered = powerStatusList[i] || false;
-                console.log("Camera " + (i + 1) + " power status:", isPowered ? "On" : "Off");
                 // Store in a global property that can be accessed by the circles
                 page1["camera" + (i + 1) + "_powered"] = isPowered;
-                console.log("Set page1.camera" + (i + 1) + "_powered =", page1["camera" + (i + 1) + "_powered"]);
             }
         }
     }
@@ -924,7 +922,31 @@ Rectangle {
                                             } else {
                                                 // All cameras - capture each individually with their serial numbers
                                                 console.log("Capturing histograms for all cameras with individual serial numbers");
-                                                    MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag, false);
+                                                
+                                                // Collect all serial numbers in display order
+                                                let serialNumbers = [];
+                                                // Map display order: [0,7,1,6,2,5,3,4] corresponds to cameras [1,8,2,7,3,6,4,5]
+                                                let displayOrder = [0, 7, 1, 6, 2, 5, 3, 4];
+                                                for (let i = 0; i < 8; i++) {
+                                                    let camNum = displayOrder[i] + 1;
+                                                    let serialNumber = "";
+                                                    if (camNum === 1) serialNumber = page1.cam1_sn;
+                                                    else if (camNum === 2) serialNumber = page1.cam2_sn;
+                                                    else if (camNum === 3) serialNumber = page1.cam3_sn;
+                                                    else if (camNum === 4) serialNumber = page1.cam4_sn;
+                                                    else if (camNum === 5) serialNumber = page1.cam5_sn;
+                                                    else if (camNum === 6) serialNumber = page1.cam6_sn;
+                                                    else if (camNum === 7) serialNumber = page1.cam7_sn;
+                                                    else if (camNum === 8) serialNumber = page1.cam8_sn;
+                                                    
+                                                    // Use camera number as fallback if serial number is empty
+                                                    if (serialNumber === "") {
+                                                        serialNumber = camNum.toString();
+                                                    }
+                                                    serialNumbers.push(serialNumber);
+                                                }
+                                                
+                                                MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag, false, serialNumbers);
                                                 }
                                             }
                                         }
@@ -993,7 +1015,31 @@ Rectangle {
                                                 } else {
                                                     // All cameras - capture each individually with their serial numbers
                                                 console.log("Capturing dark histograms for all cameras with individual serial numbers");
-                                                MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag, true);
+                                                
+                                                // Collect all serial numbers in display order
+                                                let serialNumbers = [];
+                                                // Map display order: [0,7,1,6,2,5,3,4] corresponds to cameras [1,8,2,7,3,6,4,5]
+                                                let displayOrder = [0, 7, 1, 6, 2, 5, 3, 4];
+                                                for (let i = 0; i < 8; i++) {
+                                                    let camNum = displayOrder[i] + 1;
+                                                    let serialNumber = "";
+                                                    if (camNum === 1) serialNumber = page1.cam1_sn;
+                                                    else if (camNum === 2) serialNumber = page1.cam2_sn;
+                                                    else if (camNum === 3) serialNumber = page1.cam3_sn;
+                                                    else if (camNum === 4) serialNumber = page1.cam4_sn;
+                                                    else if (camNum === 5) serialNumber = page1.cam5_sn;
+                                                    else if (camNum === 6) serialNumber = page1.cam6_sn;
+                                                    else if (camNum === 7) serialNumber = page1.cam7_sn;
+                                                    else if (camNum === 8) serialNumber = page1.cam8_sn;
+                                                    
+                                                    // Use camera number as fallback if serial number is empty
+                                                    if (serialNumber === "") {
+                                                        serialNumber = camNum.toString();
+                                                    }
+                                                    serialNumbers.push(serialNumber);
+                                                }
+                                                
+                                                MOTIONInterface.captureAllCamerasHistogramToCSV(sensor_tag, true, serialNumbers);
                                                 }
                                             }
                                         }

@@ -387,8 +387,8 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error capturing {capture_type}: {e}")
 
-    @pyqtSlot(str, bool)
-    def captureAllCamerasHistogramToCSV(self, sensor_tag: str, is_dark: bool = False):
+    @pyqtSlot(str, bool, 'QStringList')
+    def captureAllCamerasHistogramToCSV(self, sensor_tag: str, is_dark: bool = False, serial_numbers: list = None):
         """Capture histogram from all cameras and save each with individual serial numbers."""
         try:
             # Convert sensor tag to lowercase for interface
@@ -400,45 +400,11 @@ class MOTIONConnector(QObject):
             camera_mapping = [0, 7, 1, 6, 2, 5, 3, 4]  # Left column: 1,2,3,4; Right column: 8,7,6,5
             
             for display_idx, camera_idx in enumerate(camera_mapping):
-                try:
-                    bins, histo = self._interface.get_camera_histogram(
-                        sensor_side=sensor_side,
-                        camera_id=camera_idx,
-                        test_pattern_id=4,
-                        auto_upload=True
-                    )
-                    if bins:
-                        # Use camera number (1-based) as serial number
-                        # Note: We can't access QML properties from Python, so we use camera numbers
-                        # The QML should handle getting the actual serial numbers for individual cameras
-                        serial_number = str(camera_idx + 1)
-                        suffix = "_dark" if is_dark else ""
-                        filename = f"{serial_number}_histogram{suffix}.csv"
-                        
-                        # Get camera temperature
-                        try:
-                            temperature = self._interface.sensors[sensor_side].imu_get_temperature()
-                            logger.info(f"Camera {camera_idx+1} temperature: {temperature}°C")
-                        except Exception as e:
-                            logger.error(f"Failed to get temperature for camera {camera_idx+1}: {e}")
-                            temperature = 0.0  # Fallback to 0 if temperature retrieval fails
-                        
-                        # Calculate weighted mean
-                        weighted_mean = self._calculate_weighted_mean(bins[:1024])
-                        print(f"Weighted mean of histogram for camera {camera_idx+1}: {weighted_mean:.2f}")
-                        
-                        self._save_histogram_csv(bins, filename, temperature)
-                        logger.info(f"Saved {capture_type} for camera {camera_idx+1} to {filename}")
-                        
-                        # Emit signal with weighted mean
-                        self.histogramCaptureCompleted.emit(camera_idx, weighted_mean)
-                    else:
-                        logger.error(f"Failed to get {capture_type} for camera {camera_idx+1}")
-                except Exception as e:
-                    logger.error(f"Error capturing {capture_type} for camera {camera_idx+1}: {e}")
-                    
+               self.captureHistogramToCSV(sensor_tag, camera_idx, serial_numbers[display_idx] if serial_numbers else "", is_dark)
         except Exception as e:
-            logger.error(f"Error capturing all cameras {capture_type}: {e}")
+            logger.error(f"Error capturing {capture_type}: {e}")
+            self.histogramCaptureFailed.emit(camera_idx)
+
 
     def _save_histogram_csv(self, bins, filename, temperature=0.0):
         """Helper method to save histogram data to CSV file."""
@@ -735,12 +701,15 @@ class MOTIONConnector(QObject):
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
             else:
-                logger.erro
+                logger.error(f"Invalid target for camera configuration: {target}")
+                return
             passed = motion_interface.sensors[sensor_tag].program_fpga(camera_position=cam_mask, manual_process=False)
+            passed = motion_interface.sensors[sensor_tag].camera_configure_registers(camera_position=cam_mask)
             gain = 16
             exposure = 600
             print(f"Switching camera to {cam_mask}")
-            passed_sw = motion_interface.sensors[sensor_tag].switch_camera(cam_mask)
+            cam_position = cam_mask.bit_length() 
+            passed_sw = motion_interface.sensors[sensor_tag].switch_camera(cam_position)
             print(f"Setting gain to {gain}")
             passed_gain= motion_interface.sensors[sensor_tag].camera_set_gain(gain)
             print(f"Setting exposure to {exposure}")
@@ -755,17 +724,7 @@ class MOTIONConnector(QObject):
     def configureAllCameras(self, target: str):
         for i in range(8):
             bitmask = 1 << i  # 0x01, 0x02, 0x04, ..., 0x80
-            try:
-                if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
-                    sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
-                else:
-                    logger.error(f"Invalid target for camera configuration: {target}")
-                    return
-                passed = motion_interface.sensors[sensor_tag].program_fpga(camera_position=bitmask, manual_process=False)
-                self.cameraConfigUpdated.emit(bitmask, passed)
-            except Exception as e:
-                logger.error(f"Camera {bitmask} failed: {e}")
-                self.cameraConfigUpdated.emit(bitmask, False)
+            self.configureCamera(target, bitmask)
 
     @pyqtSlot(str, result=bool)
     def sendPingCommand(self, target: str):
