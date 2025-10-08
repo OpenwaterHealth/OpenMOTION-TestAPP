@@ -545,11 +545,45 @@ Rectangle {
                         GridLayout {
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.top: parent.top
-                            anchors.topMargin: 60
+                            anchors.topMargin: 10
                             columns: 5
                             rowSpacing: 8
                             columnSpacing: 8
 
+                            // Clear button positioned above the grid
+                            Button {
+                                id: clearSerialNumbersButton
+                                text: "Clear SN"
+                                Layout.preferredWidth: 80
+                                Layout.preferredHeight: 30
+                                Layout.columnSpan: 5
+                                Layout.alignment: Qt.AlignRight
+                                Layout.topMargin: 10
+                                hoverEnabled: true
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "#BDC3C7"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    font.pixelSize: 12
+                                }
+                                background: Rectangle {
+                                    color: parent.hovered ? "#E74C3C" : "#3A3F4B"
+                                    radius: 4
+                                    border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                }
+                                onClicked: {
+                                    // Clear all serial number fields
+                                    page1.cam1_sn = "";
+                                    page1.cam2_sn = "";
+                                    page1.cam3_sn = "";
+                                    page1.cam4_sn = "";
+                                    page1.cam5_sn = "";
+                                    page1.cam6_sn = "";
+                                    page1.cam7_sn = "";
+                                    page1.cam8_sn = "";
+                                }
+                            }
 
                             // Camera Test Status Table
                             GridLayout {
