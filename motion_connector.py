@@ -708,7 +708,7 @@ class MOTIONConnector(QObject):
             gain = 16
             exposure = 600
             print(f"Switching camera to {cam_mask}")
-            cam_position = cam_mask.bit_length() 
+            cam_position = cam_mask.bit_length() - 1
             passed_sw = motion_interface.sensors[sensor_tag].switch_camera(cam_position)
             print(f"Setting gain to {gain}")
             passed_gain= motion_interface.sensors[sensor_tag].camera_set_gain(gain)
