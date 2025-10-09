@@ -45,6 +45,9 @@ Rectangle {
     property bool camera7_powered: false
     property bool camera8_powered: false
 
+    // Fan control properties
+    property bool fanControlOn: false
+
     ListModel {
         id: cameraStatusModel
         ListElement { label: "Camera 1"; status: "Not Tested"; color: "gray" }
@@ -88,6 +91,8 @@ Rectangle {
             // Also query camera power status for the selected sensor
             let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
             MOTIONInterface.queryCameraPowerStatus(sensor_tag);
+            // Start fan status polling
+            fanStatusTimer.start();
         }
     }
 
@@ -101,6 +106,27 @@ Rectangle {
         }
     }
 
+    Timer {
+        id: fanStatusTimer
+        interval: 1000   // Poll fan status every second
+        running: false
+        repeat: true
+        onTriggered: {
+            let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+            let isConnected = (sensorSelector.currentIndex === 0)
+                ? MOTIONInterface.leftSensorConnected
+                : MOTIONInterface.rightSensorConnected;
+            
+            if (isConnected) {
+                let currentFanStatus = MOTIONInterface.getFanControlStatus(sensor_tag);
+                if (currentFanStatus !== fanControlOn) {
+                    fanControlOn = currentFanStatus;
+                    console.log("Fan status updated:", currentFanStatus ? "ON" : "OFF");
+                }
+            }
+        }
+    }
+
     Connections {
         target: MOTIONInterface
 
@@ -111,6 +137,8 @@ Rectangle {
                 // Automatically query camera power status when sensor connects
                 let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
                 MOTIONInterface.queryCameraPowerStatus(sensor_tag);
+                // Start fan status polling
+                fanStatusTimer.start();
             } else {
                 console.log("Sensor Disconnected - Clearing Data...")
                 firmwareVersion = "N/A"
@@ -121,6 +149,7 @@ Rectangle {
                 pingResult.text = ""
                 echoResult.text = ""
                 toggleLedResult.text = ""
+                fanControlResult.text = ""
                 
                 // Clear camera power status when disconnected
                 camera1_powered = false;
@@ -131,6 +160,10 @@ Rectangle {
                 camera6_powered = false;
                 camera7_powered = false;
                 camera8_powered = false;
+                
+                // Clear fan control status and stop polling
+                fanControlOn = false;
+                fanStatusTimer.stop();
             }
         }
 
@@ -344,195 +377,250 @@ Rectangle {
                         }
 
                         // Content for comms tests
-                        GridLayout {
+                        ColumnLayout {
                             anchors.left: parent.left
                             anchors.top: parent.top
                             anchors.leftMargin: 20   
-                            anchors.topMargin: 60    
-                            columns: 8
-                            rowSpacing: 10
-                            columnSpacing: 10
+                            anchors.topMargin: 40    
+                            spacing: 10
 
-                            // Single row with all buttons: Ping, Echo, Toggle LED
-                            // Ping Button and Result
-                            Button {
-                                id: pingButton
-                                text: "Ping"
-                                Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
-                                hoverEnabled: true  // Enable hover detection
-                                enabled: {
-                                    if (sensorSelector.currentIndex === 0) {
-                                        return MOTIONInterface.leftSensorConnected
-                                    } else {
-                                        return MOTIONInterface.rightSensorConnected
-                                    }
-                                }
-
-                                contentItem: Text {
-                                    text: parent.text
-                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-
-                                background: Rectangle {
-                                    id: pingButtonBackground
-                                    color: {
-                                        if (!parent.enabled) {
-                                            return "#3A3F4B";  // Disabled color
+                            // Top row: Ping, Echo, Toggle LED
+                            RowLayout {
+                                spacing: 10
+                                
+                                // Ping Button and Result
+                                Button {
+                                    id: pingButton
+                                    text: "Ping"
+                                    Layout.preferredWidth: 80
+                                    Layout.preferredHeight: 50
+                                    hoverEnabled: true
+                                    enabled: {
+                                        if (sensorSelector.currentIndex === 0) {
+                                            return MOTIONInterface.leftSensorConnected
+                                        } else {
+                                            return MOTIONInterface.rightSensorConnected
                                         }
-                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
                                     }
-                                    radius: 4
-                                    border.color: {
-                                        if (!parent.enabled) {
-                                            return "#7F8C8D";  // Disabled border color
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B"
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
                                         }
-                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
+                                        radius: 4
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D"
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                        }
+                                    }
+
+                                    onClicked: {
+                                        let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                        if(MOTIONInterface.sendPingCommand(sensor_tag)){                                        
+                                            pingResult.text = "Ping SUCCESS"
+                                            pingResult.color = "green"
+                                        }else{
+                                            pingResult.text = "Ping FAILED"
+                                            pingResult.color = "red"
+                                        }
                                     }
                                 }
+                                Text {
+                                    id: pingResult
+                                    Layout.preferredWidth: 80
+                                    text: ""
+                                    color: "#BDC3C7"
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
 
-                                onClicked: {
-                                    let sensor_tag = "SENSOR_LEFT";
-                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                    if(MOTIONInterface.sendPingCommand(sensor_tag)){                                        
-                                        pingResult.text = "Ping SUCCESS"
-                                        pingResult.color = "green"
-                                    }else{
-                                        pingResult.text = "Ping FAILED"
-                                        pingResult.color = "red"
+                                // Echo Button and Result
+                                Button {
+                                    id: echoButton
+                                    text: "Echo"
+                                    Layout.preferredWidth: 80
+                                    Layout.preferredHeight: 50
+                                    hoverEnabled: true
+                                    enabled: {
+                                        if (sensorSelector.currentIndex === 0) {
+                                            return MOTIONInterface.leftSensorConnected
+                                        } else {
+                                            return MOTIONInterface.rightSensorConnected
+                                        }
                                     }
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B"
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                        }
+                                        radius: 4
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D"
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                        }
+                                    }
+
+                                    onClicked: {
+                                        let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                        if(MOTIONInterface.sendEchoCommand(sensor_tag)) {
+                                            echoResult.text = "Echo SUCCESS"
+                                            echoResult.color = "green"
+                                        } else {
+                                            echoResult.text = "Echo FAILED"
+                                            echoResult.color = "red"
+                                        }
+                                    }
+                                }
+                                Text {
+                                    id: echoResult
+                                    Layout.preferredWidth: 80
+                                    text: ""
+                                    color: "#BDC3C7"
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+
+                                // Toggle LED Button and Result
+                                Button {
+                                    id: ledButton
+                                    text: "Toggle LED"
+                                    Layout.preferredWidth: 80
+                                    Layout.preferredHeight: 50
+                                    hoverEnabled: true
+                                    enabled: {
+                                        if (sensorSelector.currentIndex === 0) {
+                                            return MOTIONInterface.leftSensorConnected
+                                        } else {
+                                            return MOTIONInterface.rightSensorConnected
+                                        }
+                                    }
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B"
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                        }
+                                        radius: 4
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D"
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                        }
+                                    }
+
+                                    onClicked: {
+                                        let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                        if(MOTIONInterface.sendLedToggleCommand(sensor_tag)) {
+                                            toggleLedResult.text = "LED Toggled"
+                                            toggleLedResult.color = "green"
+                                        } else {
+                                            toggleLedResult.text = "LED Toggle FAILED"
+                                            toggleLedResult.color = "red"
+                                        }
+                                    }
+                                }
+                                Text {
+                                    id: toggleLedResult
+                                    Layout.preferredWidth: 80
+                                    color: "#BDC3C7"
+                                    text: ""
                                 }
                             }
-                            Text {
-                                id: pingResult
-                                Layout.preferredWidth: 80
-                                text: ""
-                                color: "#BDC3C7"
-                                Layout.alignment: Qt.AlignVCenter
-                            }
 
-                            // Echo Button and Result
-                            Button {
-                                id: echoButton
-                                text: "Echo"
-                                Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
-                                hoverEnabled: true  // Enable hover detection
-                                enabled: {
-                                    if (sensorSelector.currentIndex === 0) {
-                                        return MOTIONInterface.leftSensorConnected
-                                    } else {
-                                        return MOTIONInterface.rightSensorConnected
-                                    }
-                                }
-
-                                contentItem: Text {
-                                    text: parent.text
-                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-
-                                background: Rectangle {
-                                    id: echoButtonBackground
-                                    color: {
-                                        if (!parent.enabled) {
-                                            return "#3A3F4B";  // Disabled color
+                            // Bottom row: Fan Control
+                            RowLayout {
+                                spacing: 10
+                                
+                                // Fan Control Button and Result
+                                Button {
+                                    id: fanControlButton
+                                    text: fanControlOn ? "Fan OFF" : "Fan ON"
+                                    Layout.preferredWidth: 80
+                                    Layout.preferredHeight: 50
+                                    hoverEnabled: true
+                                    enabled: {
+                                        if (sensorSelector.currentIndex === 0) {
+                                            return MOTIONInterface.leftSensorConnected
+                                        } else {
+                                            return MOTIONInterface.rightSensorConnected
                                         }
-                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
                                     }
-                                    radius: 4
-                                    border.color: {
-                                        if (!parent.enabled) {
-                                            return "#7F8C8D";  // Disabled border color
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    background: Rectangle {
+                                        color: {
+                                            if (!parent.enabled) {
+                                                return "#3A3F4B"
+                                            }
+                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
                                         }
-                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
-                                    }
-                                }
-
-                                onClicked: {
-                                    let sensor_tag = "SENSOR_LEFT";
-                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-
-                                    if(MOTIONInterface.sendEchoCommand(sensor_tag))
-                                    {
-                                        echoResult.text = "Echo SUCCESS"
-                                        echoResult.color = "green"
-                                    }
-                                    else{
-                                        echoResult.text = "Echo FAILED"
-                                        echoResult.color = "red"
-                                    }
-                                }
-                            }
-                            Text {
-                                id: echoResult
-                                Layout.preferredWidth: 80
-                                text: ""
-                                color: "#BDC3C7"
-                                Layout.alignment: Qt.AlignVCenter
-                            }
-
-                            // Toggle LED Button and Result
-                            Button {
-                                id: ledButton
-                                text: "Toggle LED"
-                                Layout.preferredWidth: 80
-                                Layout.preferredHeight: 50
-                                hoverEnabled: true  // Enable hover detection
-                                enabled: {
-                                    if (sensorSelector.currentIndex === 0) {
-                                        return MOTIONInterface.leftSensorConnected
-                                    } else {
-                                        return MOTIONInterface.rightSensorConnected
-                                    }
-                                }
-
-                                contentItem: Text {
-                                    text: parent.text
-                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"  // Gray out text when disabled
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-
-                                background: Rectangle {
-                                    id: ledButtonBackground
-                                    color: {
-                                        if (!parent.enabled) {
-                                            return "#3A3F4B";  // Disabled color
+                                        radius: 4
+                                        border.color: {
+                                            if (!parent.enabled) {
+                                                return "#7F8C8D"
+                                            }
+                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
                                         }
-                                        return parent.hovered ? "#4A90E2" : "#3A3F4B";  // Blue on hover, default otherwise
                                     }
-                                    radius: 4
-                                    border.color: {
-                                        if (!parent.enabled) {
-                                            return "#7F8C8D";  // Disabled border color
+
+                                    onClicked: {
+                                        let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                        let newFanState = !fanControlOn;
+                                        
+                                        if (MOTIONInterface.setFanControl(sensor_tag, newFanState)) {
+                                            fanControlOn = newFanState;
+                                            fanControlResult.text = newFanState ? "Fan ON" : "Fan OFF";
+                                            fanControlResult.color = newFanState ? "green" : "orange";
+                                        } else {
+                                            fanControlResult.text = "Fan Control FAILED";
+                                            fanControlResult.color = "red";
                                         }
-                                        return parent.hovered ? "#FFFFFF" : "#BDC3C7";  // White border on hover, default otherwise
                                     }
                                 }
-
-                                onClicked: {
-                                    let sensor_tag = "SENSOR_LEFT";
-                                    (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                    if(MOTIONInterface.sendLedToggleCommand(sensor_tag))
-                                    {
-                                        toggleLedResult.text = "LED Toggled"
-                                        toggleLedResult.color = "green"
-                                    }
-                                    else{
-                                        toggleLedResult.text = "LED Toggle FAILED"
-                                        toggleLedResult.color = "red"
-                                    }
-                                } 
-                            }
-                            Text {
-                                id: toggleLedResult
-                                Layout.preferredWidth: 80
-                                color: "#BDC3C7"
-                                text: ""
+                                Text {
+                                    id: fanControlResult
+                                    Layout.preferredWidth: 80
+                                    color: "#BDC3C7"
+                                    text: ""
+                                }
                             }
                         }
                     }
@@ -1319,6 +1407,7 @@ Rectangle {
                                     pingResult.text = ""
                                     echoResult.text = ""
                                     toggleLedResult.text = ""
+                                    fanControlResult.text = ""
 
                                     // Clear sensor data
                                     firmwareVersion = "N/A"
@@ -1346,6 +1435,9 @@ Rectangle {
                                     camera6_powered = false;
                                     camera7_powered = false;
                                     camera8_powered = false;
+
+                                    // Clear fan control status
+                                    fanControlOn = false;
 
                                     // Fetch new sensor states
                                     updateStates()

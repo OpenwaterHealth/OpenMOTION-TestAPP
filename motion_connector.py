@@ -1089,6 +1089,53 @@ class MOTIONConnector(QObject):
             logger.error(f"Error querying camera power status: {e}")
             # Emit empty status (all False) on error
             self.cameraPowerStatusUpdated.emit([False] * 8)
+
+    @pyqtSlot(str, bool, result=bool)
+    def setFanControl(self, target: str, fan_on: bool):
+        """Set fan control state on the specified sensor."""
+        try:
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for fan control: {target}")
+                return False
+                
+            logger.info(f"Setting fan control to {'ON' if fan_on else 'OFF'} on {sensor_tag} sensor")
+            
+            # Set fan control state
+            sensor = motion_interface.sensors[sensor_tag]
+            result = sensor.set_fan_control(fan_on)
+            
+            if result:
+                logger.info(f"Fan control set to {'ON' if fan_on else 'OFF'} successfully")
+            else:
+                logger.error(f"Failed to set fan control to {'ON' if fan_on else 'OFF'}")
+                
+            return result
+                
+        except Exception as e:
+            logger.error(f"Error setting fan control: {e}")
+            return False
+
+    @pyqtSlot(str, result=bool)
+    def getFanControlStatus(self, target: str):
+        """Get fan control status from the specified sensor."""
+        try:
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for fan control status: {target}")
+                return False
+                
+            # Get fan control status
+            sensor = motion_interface.sensors[sensor_tag]
+            status = sensor.get_fan_control_status()
+            
+            return status
+                
+        except Exception as e:
+            logger.error(f"Error getting fan control status: {e}")
+            return False
                 
     @pyqtSlot()
     def shutdown(self):
