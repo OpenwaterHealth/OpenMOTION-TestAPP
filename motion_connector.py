@@ -153,7 +153,7 @@ class MOTIONConnector(QObject):
     gyroscopeSensorUpdated = pyqtSignal(int, int, int)  # (imu_accel)
 
     cameraConfigUpdated = pyqtSignal(int, bool)  # camera_mask, passed=True/False
-    histogramCaptureCompleted = pyqtSignal(int, float)  # (camera_index, weighted_mean)
+    histogramCaptureCompleted = pyqtSignal(int, float, float)  # (camera_index, weighted_mean, std_dev)
     cameraPowerStatusUpdated = pyqtSignal(list)  # (power_status_list)
     csvOutputDirectoryChanged = pyqtSignal(str)  # (directory_path)
 
@@ -373,14 +373,15 @@ class MOTIONConnector(QObject):
                     temperature = 0.0  # Fallback to 0 if temperature retrieval fails
                 
                 # Calculate weighted mean
-                weighted_mean = self._calculate_weighted_mean(bins[:1024])
+                weighted_mean, std_dev = self._calculate_weighted_mean_std_dev(bins[:1024])
                 print(f"Weighted mean of histogram: {weighted_mean:.2f}")
+                print(f"Standard deviation of histogram: {std_dev:.2f}")
                 
-                self._save_histogram_csv(bins, filename, temperature)
+                self._save_histogram_csv(bins, filename, temperature,camera_index)
                 logger.info(f"Saved {capture_type} to {filename}")
                 
                 # Emit signal with weighted mean
-                self.histogramCaptureCompleted.emit(camera_index, weighted_mean)
+                self.histogramCaptureCompleted.emit(camera_index, weighted_mean, std_dev)
             else:
                 logger.error(f"Failed to get {capture_type} for camera {camera_index+1}")
                     
@@ -406,7 +407,7 @@ class MOTIONConnector(QObject):
             self.histogramCaptureFailed.emit(camera_idx)
 
 
-    def _save_histogram_csv(self, bins, filename, temperature=0.0):
+    def _save_histogram_csv(self, bins, filename, temperature=0.0, camera_index=0):
         """Helper method to save histogram data to CSV file with incremental counter to prevent overwriting."""
         try:
             import os
@@ -437,10 +438,6 @@ class MOTIONConnector(QObject):
                 filename = f"{name_part}_{counter}.{extension}"
                 counter += 1
             
-            # Calculate weighted mean of histogram data
-            weighted_mean = self._calculate_weighted_mean(bins[:1024])
-            print(f"Weighted mean of histogram: {weighted_mean:.2f}")
-            
             with open(filepath, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 
@@ -452,7 +449,7 @@ class MOTIONConnector(QObject):
                 writer.writerow(header)
                 
                 # Create data row
-                data_row = ["1", "1"]  # cam_id=1, frame_id=1
+                data_row = [camera_index, "1"]  # cam_id=1, frame_id=1
                 data_row.extend(bins[:1024])  # Ensure we only take first 1024 bins
                 # Pad with zeros if bins is shorter than 1024
                 while len(data_row) < 1026:  # 2 + 1024
@@ -466,12 +463,20 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Failed to save histogram CSV: {e}")
 
-    def _calculate_weighted_mean(self, histogram_data):
+    def _calculate_weighted_mean_std_dev(self, histogram_data):
         """Calculate the weighted mean of histogram data."""
         try:
-            if not histogram_data or len(histogram_data) == 0:
+            if not histogram_data or len(histogram_data) == 0 or len(histogram_data) != 1024:
                 return 0.0
             
+            # Rule 1: zero out the 1024th bin
+            histogram_data[1023] = 0
+
+            #Rule 2: if a bin has less than 100 in it, set it to 0
+            for bin_index, bin_value in enumerate(histogram_data):
+                if bin_value < 100:
+                    histogram_data[bin_index] = 0
+
             # Calculate weighted mean: sum(bin_value * bin_index) / sum(bin_values)
             weighted_sum = 0.0
             total_count = 0.0
@@ -481,13 +486,19 @@ class MOTIONConnector(QObject):
                 total_count += bin_value
             
             if total_count == 0:
-                return 0.0
+                return 0.0, 0.0
             
-            return weighted_sum / total_count
+            weighted_mean = weighted_sum / total_count
+
+            # Calculate standard deviation
+            variance = sum((bin_value - weighted_mean) ** 2 for bin_value in histogram_data) / total_count
+            std_dev = variance ** 0.5
+
+            return weighted_mean, std_dev
             
         except Exception as e:
             logger.error(f"Error calculating weighted mean: {e}")
-            return 0.0
+            return 0.0, 0.0
     
     @pyqtSlot(str, str)
     def on_connected(self, descriptor, port):

@@ -203,11 +203,11 @@ Rectangle {
             }
         }
 
-        function onHistogramCaptureCompleted(cameraIndex, weightedMean) {
+        function onHistogramCaptureCompleted(cameraIndex, weightedMean, std_dev) {
             // Update camera status to show "Average: xxx" in green
             cameraStatusModel.set(cameraIndex, {
                 label: "Camera " + (cameraIndex + 1),
-                status: "Average: " + weightedMean.toFixed(2),
+                status: "μ: " + weightedMean.toFixed(1) + " 𝜎: "+ std_dev.toFixed(1),
                 color: "green"
             });
         }
