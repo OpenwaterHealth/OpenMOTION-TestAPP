@@ -464,37 +464,47 @@ class MOTIONConnector(QObject):
             logger.error(f"Failed to save histogram CSV: {e}")
 
     def _calculate_weighted_mean_std_dev(self, histogram_data):
-        """Calculate the weighted mean of histogram data."""
+        """Calculate the weighted mean and standard deviation of histogram data using numpy algorithm."""
         try:
             if not histogram_data or len(histogram_data) == 0 or len(histogram_data) != 1024:
-                return 0.0
+                return 0.0, 0.0
             
-            # Rule 1: zero out the 1024th bin
-            histogram_data[1023] = 0
-
-            #Rule 2: if a bin has less than 100 in it, set it to 0
-            for bin_index, bin_value in enumerate(histogram_data):
-                if bin_value < 100:
-                    histogram_data[bin_index] = 0
-
-            # Calculate weighted mean: sum(bin_value * bin_index) / sum(bin_values)
-            weighted_sum = 0.0
-            total_count = 0.0
+            # Create a copy to avoid modifying the original data
+            hist = histogram_data.copy()
             
-            for bin_index, bin_value in enumerate(histogram_data):
-                weighted_sum += bin_value * bin_index
-                total_count += bin_value
+            # Rule 1: zero out the 1024th bin (index 1023)
+            hist[1023] = 0
+
+            # Rule 2: if a bin has less than 100 in it, set it to 0 (equivalent to noisyBinMin = 100)
+            noisyBinMin = 100
+            for i in range(len(hist)):
+                if hist[i] < noisyBinMin:
+                    hist[i] = 0
+
+            # Create bin indices array (0 to 1023)
+            bins = list(range(len(hist)))
+            
+            # Calculate weighted mean: np.dot(hist,bins)/np.sum(hist)
+            weighted_sum = sum(hist[i] * bins[i] for i in range(len(hist)))
+            total_count = sum(hist)
             
             if total_count == 0:
                 return 0.0, 0.0
             
-            weighted_mean = weighted_sum / total_count
+            mean = weighted_sum / total_count
+            
+            # Calculate bins squared: np.multiply(bins,bins)
+            bins_sq = [bins[i] * bins[i] for i in range(len(bins))]
+            
+            # Calculate variance using sample formula: 
+            # var = (np.dot(hist,binsSq)-mean*mean*np.sum(hist))/(np.sum(hist)-1)
+            hist_dot_bins_sq = sum(hist[i] * bins_sq[i] for i in range(len(hist)))
+            variance = (hist_dot_bins_sq - mean * mean * total_count) / (total_count - 1)
+            
+            # Calculate standard deviation: np.sqrt(var)
+            std = variance ** 0.5 if variance >= 0 else 0.0
 
-            # Calculate standard deviation
-            variance = sum((bin_value - weighted_mean) ** 2 for bin_value in histogram_data) / total_count
-            std_dev = variance ** 0.5
-
-            return weighted_mean, std_dev
+            return mean, std
             
         except Exception as e:
             logger.error(f"Error calculating weighted mean: {e}")
