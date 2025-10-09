@@ -75,6 +75,7 @@ Rectangle {
         MOTIONInterface.querySensorInfo(sensor_tag)
         MOTIONInterface.querySensorTemperature(sensor_tag)
         MOTIONInterface.querySensorAccelerometer(sensor_tag)
+        MOTIONInterface.queryCameraPowerStatus(sensor_tag)
         //MOTIONInterface.queryTriggerInfo()
     }
 
@@ -84,6 +85,9 @@ Rectangle {
         if (MOTIONInterface.leftSensorConnected || MOTIONInterface.rightSensorConnected) {
             console.log("Page Loaded - Sensor Already Connected. Fetching Info...");
             updateStates();
+            // Also query camera power status for the selected sensor
+            let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+            MOTIONInterface.queryCameraPowerStatus(sensor_tag);
         }
     }
 
@@ -104,6 +108,9 @@ Rectangle {
         function onSensorConnectedChanged() {
             if (MOTIONInterface.leftSensorConnected) {
                 infoTimer.start()          // One-time info fetch
+                // Automatically query camera power status when sensor connects
+                let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                MOTIONInterface.queryCameraPowerStatus(sensor_tag);
             } else {
                 console.log("Sensor Disconnected - Clearing Data...")
                 firmwareVersion = "N/A"
@@ -114,6 +121,16 @@ Rectangle {
                 pingResult.text = ""
                 echoResult.text = ""
                 toggleLedResult.text = ""
+                
+                // Clear camera power status when disconnected
+                camera1_powered = false;
+                camera2_powered = false;
+                camera3_powered = false;
+                camera4_powered = false;
+                camera5_powered = false;
+                camera6_powered = false;
+                camera7_powered = false;
+                camera8_powered = false;
             }
         }
 
@@ -1319,6 +1336,16 @@ Rectangle {
                                             color: "gray"
                                         });
                                     }
+
+                                    // Clear camera power status
+                                    camera1_powered = false;
+                                    camera2_powered = false;
+                                    camera3_powered = false;
+                                    camera4_powered = false;
+                                    camera5_powered = false;
+                                    camera6_powered = false;
+                                    camera7_powered = false;
+                                    camera8_powered = false;
 
                                     // Fetch new sensor states
                                     updateStates()
