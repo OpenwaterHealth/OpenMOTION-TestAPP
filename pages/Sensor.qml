@@ -105,8 +105,8 @@ Rectangle {
         target: MOTIONInterface
 
         // Handle Sensor Connected state
-        function onSensorConnectedChanged() {
-            if (MOTIONInterface.leftSensorConnected) {
+        function onConnectionStatusChanged() {
+            if (MOTIONInterface.leftSensorConnected || MOTIONInterface.rightSensorConnected) {
                 infoTimer.start()          // One-time info fetch
                 // Automatically query camera power status when sensor connects
                 let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
