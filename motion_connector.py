@@ -361,7 +361,7 @@ class MOTIONConnector(QObject):
                 auto_upload=True
             )
             if bins:
-                suffix = "_dark" if is_dark else ""
+                suffix = "_dark" if is_dark else "_light"
                 filename = f"{serial_number}_histogram{suffix}.csv"
                 
                 # Get camera temperature
@@ -407,7 +407,7 @@ class MOTIONConnector(QObject):
 
 
     def _save_histogram_csv(self, bins, filename, temperature=0.0):
-        """Helper method to save histogram data to CSV file."""
+        """Helper method to save histogram data to CSV file with incremental counter to prevent overwriting."""
         try:
             import os
             import csv
@@ -422,12 +422,24 @@ class MOTIONConnector(QObject):
             if not filename.endswith('.csv'):
                 filename += '.csv'
             
+            # Generate unique filename with incremental counter if file exists
+            base_filename = filename
+            counter = 1
+            
+            while True:
+                filepath = os.path.join(self._csv_output_directory, filename)
+                if not os.path.exists(filepath):
+                    break
+                
+                # File exists, increment counter and try again
+                name_part = base_filename.rsplit('.', 1)[0]  # Remove .csv extension
+                extension = base_filename.rsplit('.', 1)[1] if '.' in base_filename else 'csv'
+                filename = f"{name_part}_{counter}.{extension}"
+                counter += 1
+            
             # Calculate weighted mean of histogram data
             weighted_mean = self._calculate_weighted_mean(bins[:1024])
             print(f"Weighted mean of histogram: {weighted_mean:.2f}")
-            
-            # Save to configured CSV output directory
-            filepath = os.path.join(self._csv_output_directory, filename)
             
             with open(filepath, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
