@@ -1184,8 +1184,8 @@ Rectangle {
 
                                         Button {
                                             id: getPowerStatusBtn
-                                            text: "Get Camera Power Status"
-                                            Layout.preferredWidth: 160
+                                            text: "Get Power Status"
+                                            Layout.preferredWidth: 134
                                             Layout.preferredHeight: 40
                                             hoverEnabled: true
                                             enabled: {
@@ -1199,17 +1199,26 @@ Rectangle {
                                                 let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
                                                 MOTIONInterface.queryCameraPowerStatus(sensor_tag)
                                             }
-                                            background: Rectangle {
-                                                radius: 4
-                                                color: parent.enabled ? (parent.pressed ? "#34495E" : "#2C3E50") : "#1E1E20"
-                                                border.color: parent.enabled ? "#3E4E6F" : "#555555"
-                                            }
                                             contentItem: Text {
                                                 text: parent.text
-                                                color: parent.enabled ? "#BDC3C7" : "#666666"
+                                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
                                                 horizontalAlignment: Text.AlignHCenter
                                                 verticalAlignment: Text.AlignVCenter
-                                                font.pixelSize: 14
+                                            }
+                                            background: Rectangle {
+                                                color: {
+                                                    if (!parent.enabled) {
+                                                                return "#3A3F4B"
+                                                    }
+                                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
+                                                }
+                                                radius: 4
+                                                border.color: {
+                                                    if (!parent.enabled) {
+                                                                return "#7F8C8D"
+                                                    }
+                                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                                                }
                                             }
                                         }
                                     }
