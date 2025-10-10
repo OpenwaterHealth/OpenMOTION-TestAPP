@@ -718,9 +718,7 @@ Rectangle {
                                             visible: parent.isLeftColumn
                                             Layout.preferredWidth: 110
                                             Layout.preferredHeight: 28
-                                            inputMethodHints: Qt.ImhDigitsOnly
-                                            validator: IntValidator { bottom: 0; top: 999999 }
-                                            maximumLength: 6
+                                            maximumLength: 12
                                             placeholderText: text.length === 0 ? ("SN #" + (parent.mappedIndex + 1)) : ""
                                             color: "#BDC3C7"
                                             topPadding: 2
@@ -809,9 +807,7 @@ Rectangle {
                                             visible: !parent.isLeftColumn
                                             Layout.preferredWidth: 110
                                             Layout.preferredHeight: 28
-                                            inputMethodHints: Qt.ImhDigitsOnly
-                                            validator: IntValidator { bottom: 0; top: 999999 }
-                                            maximumLength: 6
+                                            maximumLength: 8
                                             placeholderText: text.length === 0 ? ("SN #" + (parent.mappedIndex + 1)) : ""
                                             color: "#BDC3C7"
                                             topPadding: 2
