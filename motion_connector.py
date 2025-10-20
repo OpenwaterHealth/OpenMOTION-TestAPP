@@ -404,7 +404,6 @@ class MOTIONConnector(QObject):
                self.captureHistogramToCSV(sensor_tag, camera_idx, serial_numbers[display_idx] if serial_numbers else "", is_dark)
         except Exception as e:
             logger.error(f"Error capturing {capture_type}: {e}")
-            self.histogramCaptureFailed.emit(camera_idx)
 
 
     def _save_histogram_csv(self, bins, filename, temperature=0.0, camera_index=0):
