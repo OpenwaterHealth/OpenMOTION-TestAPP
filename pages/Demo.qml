@@ -50,15 +50,14 @@ Rectangle {
 
     ListModel {
         id: cameraModel
-        ListElement { label: "Camera 1"; cam_num: 1; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
-        ListElement { label: "Camera 2"; cam_num: 2; cam_mask: 0x02; channel: 1; i2c_addr: 0x41 }
-        ListElement { label: "Camera 3"; cam_num: 3; cam_mask: 0x04; channel: 2; i2c_addr: 0x41 }
-        ListElement { label: "Camera 4"; cam_num: 4; cam_mask: 0x08; channel: 3; i2c_addr: 0x41 }
-        ListElement { label: "Camera 5"; cam_num: 5; cam_mask: 0x10; channel: 4; i2c_addr: 0x41 }
-        ListElement { label: "Camera 6"; cam_num: 6; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
-        ListElement { label: "Camera 7"; cam_num: 7; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
-        ListElement { label: "Camera 8"; cam_num: 8; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
-        ListElement { label: "Camera ALL"; cam_num: 9; cam_mask: 0xFF; channel: 7; i2c_addr: 0x41 }
+        ListElement { label: "Camera 1"; cam_num: 0; cam_mask: 0x01; channel: 0; i2c_addr: 0x41 }
+        ListElement { label: "Camera 2"; cam_num: 1; cam_mask: 0x02; channel: 1; i2c_addr: 0x41 }
+        ListElement { label: "Camera 3"; cam_num: 2; cam_mask: 0x04; channel: 2; i2c_addr: 0x41 }
+        ListElement { label: "Camera 4"; cam_num: 3; cam_mask: 0x08; channel: 3; i2c_addr: 0x41 }
+        ListElement { label: "Camera 5"; cam_num: 4; cam_mask: 0x10; channel: 4; i2c_addr: 0x41 }
+        ListElement { label: "Camera 6"; cam_num: 5; cam_mask: 0x20; channel: 5; i2c_addr: 0x41 }
+        ListElement { label: "Camera 7"; cam_num: 6; cam_mask: 0x40; channel: 6; i2c_addr: 0x41 }
+        ListElement { label: "Camera 8"; cam_num: 7; cam_mask: 0x80; channel: 7; i2c_addr: 0x41 }
     }
     
     ListModel {
@@ -1286,8 +1285,8 @@ Rectangle {
                             onClicked: {
                                 let cam = cameraModel.get(cameraSelector.currentIndex)
                                 let tp = filteredPatternModel.get(patternSelector.currentIndex)
-                                let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT"
-                                console.log("Selected: ", sensor_tag)
+                                let target = (sensorSelector.currentIndex === 0) ? "left" : "right"
+                                console.log("Selected: ", target)
 
                                 if (tp && tp.label === "Stream") {
                                     if (MOTIONInterface.isStreaming) {
@@ -1307,7 +1306,7 @@ Rectangle {
                                         cameraCapStatus.color = "orange"
                                     })
 
-                                    MOTIONInterface.getCameraHistogram(sensor_tag, cam.cam_num, tp.tp_id)
+                                    MOTIONInterface.getCameraHistogram(target, cam.cam_num, tp.tp_id)
                                 }
                             }
                         }
