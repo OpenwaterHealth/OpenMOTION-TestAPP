@@ -8,6 +8,7 @@ from PyQt6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonInstance
 from qasync import QEventLoop
 
 from motion_connector import MOTIONConnector
+from pathlib import Path
 
 # set PYTHONPATH=%cd%\..\OpenMOTION-PyLib;%PYTHONPATH%
 # python main.py
@@ -17,6 +18,11 @@ logging.basicConfig(level=logging.INFO)
 
 # Suppress PyQt6 DeprecationWarnings related to SIP
 warnings.simplefilter("ignore", DeprecationWarning)
+
+def resource_path(rel: str) -> str:
+    import sys, os
+    base = getattr(sys, "_MEIPASS", os.path.abspath(os.path.dirname(sys.executable if getattr(sys,"frozen",False) else __file__)))
+    return os.path.join(base, rel)
 
 def main():
     os.environ["QT_QUICK_CONTROLS_STYLE"] = "Material"
@@ -34,11 +40,10 @@ def main():
     # Expose to QML
     connector = MOTIONConnector()
     qmlRegisterSingletonInstance("OpenMotion", 1, 0, "MOTIONInterface", connector)
-    engine.rootContext().setContextProperty("appVersion", "1.2.1")
+    engine.rootContext().setContextProperty("appVersion", "1.2.2")
 
     # Load the QML file
-    engine.load("main.qml")
-
+    engine.load(resource_path("main.qml"))
 
     if not engine.rootObjects():
         print("Error: Failed to load QML file")

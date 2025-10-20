@@ -38,3 +38,9 @@ Python example UI for OPEN Motion used for Hardware Testing and Basic Usage
    cd OpenMOTION-TestAPP
    python main.py
    ```
+
+
+## Run packager
+```
+python -m PyInstaller -y openwater.spec
+```

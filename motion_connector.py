@@ -153,6 +153,9 @@ class MOTIONConnector(QObject):
     gyroscopeSensorUpdated = pyqtSignal(int, int, int)  # (imu_accel)
 
     cameraConfigUpdated = pyqtSignal(int, bool)  # camera_mask, passed=True/False
+    histogramCaptureCompleted = pyqtSignal(int, float, float)  # (camera_index, weighted_mean, std_dev)
+    cameraPowerStatusUpdated = pyqtSignal(list)  # (power_status_list)
+    csvOutputDirectoryChanged = pyqtSignal(str)  # (directory_path)
 
     triggerStateChanged = pyqtSignal(str)  # 🔹 New signal for trigger state change
 
@@ -177,6 +180,10 @@ class MOTIONConnector(QObject):
     def __init__(self):
         super().__init__()
         self._interface = motion_interface
+        
+        # Initialize CSV output directory to user's home directory
+        import os
+        self._csv_output_directory = os.path.expanduser("~")
 
         # Check if console and sensor are connected
         console_connected, left_sensor_connected, right_sensor_connected = motion_interface.is_device_connected()
@@ -205,6 +212,30 @@ class MOTIONConnector(QObject):
         motion_interface.signal_disconnect.connect(self.on_disconnected)
         motion_interface.signal_data_received.connect(self.on_data_received)
 
+    @pyqtProperty(str, notify=csvOutputDirectoryChanged)
+    def csvOutputDirectory(self):
+        """Get the current CSV output directory."""
+        return self._csv_output_directory
+
+    @csvOutputDirectory.setter
+    def csvOutputDirectory(self, directory):
+        """Set the CSV output directory."""
+        if directory != self._csv_output_directory:
+            self._csv_output_directory = directory
+            self.csvOutputDirectoryChanged.emit(directory)
+            logger.info(f"CSV output directory changed to: {directory}")
+
+    @pyqtSlot()
+    def selectCsvOutputDirectory(self):
+        """Signal QML to open directory selection dialog."""
+        # Emit signal to trigger QML folder dialog
+        self.csvOutputDirectoryChanged.emit("SELECT_DIRECTORY")
+
+    @pyqtSlot(str)
+    def setCsvOutputDirectory(self, directory):
+        """Set the CSV output directory from QML."""
+        if directory and directory != "SELECT_DIRECTORY":
+            self.csvOutputDirectory = directory
 
     def update_state(self):
         """Update system state based on connection and configuration."""
@@ -280,6 +311,203 @@ class MOTIONConnector(QObject):
     @pyqtSlot(result=str)
     def get_sdk_version(self):
         return self._interface.get_sdk_version()
+    
+    @pyqtSlot(str)
+    def powerCamerasOn(self, target: str):
+        """Enable power to all cameras on all connected sensors (equivalent to scripts/enable_camera_power.py --mask 0xFF)."""
+        try:
+            MASK_ALL = 0xFF
+            logger.info(f"Enabling camera power mask=0x{MASK_ALL:02X} on {target.capitalize()}")
+
+            ok = motion_interface.sensors[target].enable_camera_power(MASK_ALL)
+            if ok:
+                logger.info(f"{target.capitalize()}: Power enabled")
+            else:
+                logger.error(f"{target.capitalize()}: Failed to enable power")
+        except Exception as e:
+            logger.error(f"Error enabling camera power: {e}")
+
+
+    @pyqtSlot(str)
+    def powerCamerasOff(self, target: str):
+        """Disable power to all cameras on all connected sensors (equivalent to scripts/disable_camera_power.py --mask 0xFF)."""
+        try:
+            MASK_ALL = 0xFF
+            logger.info(f"Disabling camera power mask=0x{MASK_ALL:02X} on {target.capitalize()}")
+
+            ok = motion_interface.sensors[target].disable_camera_power(MASK_ALL)
+            if ok:
+                logger.info(f"{target.capitalize()}: Power disabled")
+            else:
+                logger.error(f"{target.capitalize()}: Failed to disable power")
+        except Exception as e:
+            logger.error(f"Error disabling camera power: {e}")
+
+
+    @pyqtSlot(str, int, str, bool)
+    def captureHistogramToCSV(self, sensor_tag: str, camera_index: int, serial_number: str, is_dark: bool = False):
+        """Capture histogram from selected camera and save as CSV file named with serial number."""
+        try:
+            # Convert sensor tag to lowercase for interface
+            sensor_side = "left" if sensor_tag == "SENSOR_LEFT" else "right"
+            capture_type = "dark histogram" if is_dark else "histogram"
+            logger.info(f"Capturing {capture_type} for {sensor_side} camera {camera_index} with SN {serial_number}")
+            
+            # Single camera
+            bins, histo = self._interface.get_camera_histogram(
+                sensor_side=sensor_side,
+                camera_id=camera_index,
+                test_pattern_id=4,
+                auto_upload=True
+            )
+            if bins:
+                suffix = "_dark" if is_dark else "_light"
+                filename = f"{serial_number}_histogram{suffix}.csv"
+                
+                # Get camera temperature
+                try:
+                    temperature = self._interface.sensors[sensor_side].imu_get_temperature()
+                    logger.info(f"Camera temperature: {temperature}°C")
+                except Exception as e:
+                    logger.error(f"Failed to get camera temperature: {e}")
+                    temperature = 0.0  # Fallback to 0 if temperature retrieval fails
+                
+                # Calculate weighted mean
+                weighted_mean, std_dev = self._calculate_weighted_mean_std_dev(bins[:1024])
+                print(f"Weighted mean of histogram: {weighted_mean:.2f}")
+                print(f"Standard deviation of histogram: {std_dev:.2f}")
+                
+                self._save_histogram_csv(bins, filename, temperature,camera_index)
+                logger.info(f"Saved {capture_type} to {filename}")
+                
+                # Emit signal with weighted mean
+                self.histogramCaptureCompleted.emit(camera_index, weighted_mean, std_dev)
+            else:
+                logger.error(f"Failed to get {capture_type} for camera {camera_index+1}")
+                    
+        except Exception as e:
+            logger.error(f"Error capturing {capture_type}: {e}")
+
+    @pyqtSlot(str, bool, 'QStringList')
+    def captureAllCamerasHistogramToCSV(self, sensor_tag: str, is_dark: bool = False, serial_numbers: list = None):
+        """Capture histogram from all cameras and save each with individual serial numbers."""
+        try:
+            # Convert sensor tag to lowercase for interface
+            sensor_side = "left" if sensor_tag == "SENSOR_LEFT" else "right"
+            capture_type = "dark histograms" if is_dark else "histograms"
+            logger.info(f"Capturing {capture_type} for all cameras on {sensor_side}")
+            
+            # Map camera indices to their display order (same as in QML)
+            camera_mapping = [0, 7, 1, 6, 2, 5, 3, 4]  # Left column: 1,2,3,4; Right column: 8,7,6,5
+            
+            for display_idx, camera_idx in enumerate(camera_mapping):
+               self.captureHistogramToCSV(sensor_tag, camera_idx, serial_numbers[display_idx] if serial_numbers else "", is_dark)
+        except Exception as e:
+            logger.error(f"Error capturing {capture_type}: {e}")
+
+
+    def _save_histogram_csv(self, bins, filename, temperature=0.0, camera_index=0):
+        """Helper method to save histogram data to CSV file with incremental counter to prevent overwriting."""
+        try:
+            import os
+            import csv
+            import datetime
+            
+            # Create filename with timestamp if serial_number is empty
+            if not filename or filename.startswith("_histogram"):
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"histogram_{timestamp}.csv"
+            
+            # Ensure filename has .csv extension
+            if not filename.endswith('.csv'):
+                filename += '.csv'
+            
+            # Generate unique filename with incremental counter if file exists
+            base_filename = filename
+            counter = 1
+            
+            while True:
+                filepath = os.path.join(self._csv_output_directory, filename)
+                if not os.path.exists(filepath):
+                    break
+                
+                # File exists, increment counter and try again
+                name_part = base_filename.rsplit('.', 1)[0]  # Remove .csv extension
+                extension = base_filename.rsplit('.', 1)[1] if '.' in base_filename else 'csv'
+                filename = f"{name_part}_{counter}.{extension}"
+                counter += 1
+            
+            with open(filepath, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # Create header row with column names
+                header = ["cam_id", "frame_id"]
+                # Add bin numbers (0-1023)
+                header.extend([str(i) for i in range(1024)])
+                header.extend(["temperature", "sum"])
+                writer.writerow(header)
+                
+                # Create data row
+                data_row = [camera_index, "1"]  # cam_id=1, frame_id=1
+                data_row.extend(bins[:1024])  # Ensure we only take first 1024 bins
+                # Pad with zeros if bins is shorter than 1024
+                while len(data_row) < 1026:  # 2 + 1024
+                    data_row.append(0)
+                # Add temperature and sum
+                data_row.extend([temperature, sum(bins[:1024])])
+                writer.writerow(data_row)
+            
+            logger.info(f"Histogram saved to {filepath}")
+            
+        except Exception as e:
+            logger.error(f"Failed to save histogram CSV: {e}")
+
+    def _calculate_weighted_mean_std_dev(self, histogram_data):
+        """Calculate the weighted mean and standard deviation of histogram data using numpy algorithm."""
+        try:
+            if not histogram_data or len(histogram_data) == 0 or len(histogram_data) != 1024:
+                return 0.0, 0.0
+            
+            # Create a copy to avoid modifying the original data
+            hist = histogram_data.copy()
+            
+            # Rule 1: zero out the 1024th bin (index 1023)
+            hist[1023] = 0
+
+            # Rule 2: if a bin has less than 100 in it, set it to 0 (equivalent to noisyBinMin = 100)
+            noisyBinMin = 100
+            for i in range(len(hist)):
+                if hist[i] < noisyBinMin:
+                    hist[i] = 0
+
+            # Create bin indices array (0 to 1023)
+            bins = list(range(len(hist)))
+            
+            # Calculate weighted mean: np.dot(hist,bins)/np.sum(hist)
+            weighted_sum = sum(hist[i] * bins[i] for i in range(len(hist)))
+            total_count = sum(hist)
+            
+            if total_count == 0:
+                return 0.0, 0.0
+            
+            mean = weighted_sum / total_count
+            
+            # Calculate bins squared: np.multiply(bins,bins)
+            bins_sq = [bins[i] * bins[i] for i in range(len(bins))]
+            
+            # Calculate variance using sample formula: 
+            # var = (np.dot(hist,binsSq)-mean*mean*np.sum(hist))/(np.sum(hist)-1)
+            hist_dot_bins_sq = sum(hist[i] * bins_sq[i] for i in range(len(hist)))
+            variance = (hist_dot_bins_sq - mean * mean * total_count) / (total_count - 1)
+            
+            # Calculate standard deviation: np.sqrt(var)
+            std = variance ** 0.5 if variance >= 0 else 0.0
+
+            return mean, std
+            
+        except Exception as e:
+            logger.error(f"Error calculating weighted mean: {e}")
+            return 0.0, 0.0
     
     @pyqtSlot(str, str)
     def on_connected(self, descriptor, port):
@@ -505,8 +733,20 @@ class MOTIONConnector(QObject):
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
             else:
-                logger.erro
+                logger.error(f"Invalid target for camera configuration: {target}")
+                return
             passed = motion_interface.sensors[sensor_tag].program_fpga(camera_position=cam_mask, manual_process=False)
+            passed = motion_interface.sensors[sensor_tag].camera_configure_registers(camera_position=cam_mask)
+            gain = 16
+            exposure = 600
+            print(f"Switching camera to {cam_mask}")
+            cam_position = cam_mask.bit_length() - 1
+            passed_sw = motion_interface.sensors[sensor_tag].switch_camera(cam_position)
+            print(f"Setting gain to {gain}")
+            passed_gain= motion_interface.sensors[sensor_tag].camera_set_gain(gain)
+            print(f"Setting exposure to {exposure}")
+            passed_exposure = motion_interface.sensors[sensor_tag].camera_set_exposure(0,us=exposure)
+            print(f"Camera {sensor_tag} with mask {cam_mask} configured with gain {gain} and exposure {exposure}")
             self.cameraConfigUpdated.emit(cam_mask, passed)
         except Exception as e:
             logger.error(f"Error configuring Camera {cam_mask}: {e}")
@@ -516,17 +756,7 @@ class MOTIONConnector(QObject):
     def configureAllCameras(self, target: str):
         for i in range(8):
             bitmask = 1 << i  # 0x01, 0x02, 0x04, ..., 0x80
-            try:
-                if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
-                    sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
-                else:
-                    logger.error(f"Invalid target for camera configuration: {target}")
-                    return
-                passed = motion_interface.sensors[sensor_tag].program_fpga(camera_position=bitmask, manual_process=False)
-                self.cameraConfigUpdated.emit(bitmask, passed)
-            except Exception as e:
-                logger.error(f"Camera {bitmask} failed: {e}")
-                self.cameraConfigUpdated.emit(bitmask, False)
+            self.configureCamera(target, bitmask)
 
     @pyqtSlot(str, result=bool)
     def sendPingCommand(self, target: str):
@@ -788,14 +1018,9 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(str, int, int)
     def getCameraHistogram(self, target:str, camera_index: int, test_pattern_id: int = 4):
-        if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
-            sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
-        else:
-            logger.error(f"Invalid target for Echo command")
-            return False
         logger.info(f"Getting histogram for camera {camera_index + 1}")
         bins, histo = motion_interface.get_camera_histogram(
-            sensor_side = sensor_tag,
+            sensor_side = target,
             camera_id=camera_index,
             test_pattern_id=test_pattern_id,
             auto_upload=True
@@ -849,6 +1074,88 @@ class MOTIONConnector(QObject):
 
         except Exception as e:
             logging.error(f"Console status query failed: {e}")
+
+    @pyqtSlot(str)
+    def queryCameraPowerStatus(self, target: str):
+        """Query camera power status for all cameras on the specified sensor."""
+        try:
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for camera power status query: {target}")
+                self.cameraPowerStatusUpdated.emit([False] * 8)
+                return
+                
+            logger.info(f"Querying camera power status for {sensor_tag} sensor")
+            
+            # Query power status for all cameras
+            sensor = motion_interface.sensors[sensor_tag]
+            power_status = sensor.get_camera_power_status()
+            
+            if power_status is not None:
+                # Convert to list of booleans for QML
+                power_status_list = list(power_status)
+                logger.info(f"Camera power status: {power_status_list}")
+                logger.info(f"Power status list type: {type(power_status_list)}, length: {len(power_status_list)}")
+                
+                # Emit signal to update UI
+                self.cameraPowerStatusUpdated.emit(power_status_list)
+            else:
+                logger.error("Failed to retrieve camera power status")
+                # Emit empty status (all False)
+                self.cameraPowerStatusUpdated.emit([False] * 8)
+                
+        except Exception as e:
+            logger.error(f"Error querying camera power status: {e}")
+            # Emit empty status (all False) on error
+            self.cameraPowerStatusUpdated.emit([False] * 8)
+
+    @pyqtSlot(str, bool, result=bool)
+    def setFanControl(self, target: str, fan_on: bool):
+        """Set fan control state on the specified sensor."""
+        try:
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for fan control: {target}")
+                return False
+                
+            logger.info(f"Setting fan control to {'ON' if fan_on else 'OFF'} on {sensor_tag} sensor")
+            
+            # Set fan control state
+            sensor = motion_interface.sensors[sensor_tag]
+            result = sensor.set_fan_control(fan_on)
+            
+            if result:
+                logger.info(f"Fan control set to {'ON' if fan_on else 'OFF'} successfully")
+            else:
+                logger.error(f"Failed to set fan control to {'ON' if fan_on else 'OFF'}")
+                
+            return result
+                
+        except Exception as e:
+            logger.error(f"Error setting fan control: {e}")
+            return False
+
+    @pyqtSlot(str, result=bool)
+    def getFanControlStatus(self, target: str):
+        """Get fan control status from the specified sensor."""
+        try:
+            if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
+                sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+            else:
+                logger.error(f"Invalid target for fan control status: {target}")
+                return False
+                
+            # Get fan control status
+            sensor = motion_interface.sensors[sensor_tag]
+            status = sensor.get_fan_control_status()
+            
+            return status
+                
+        except Exception as e:
+            logger.error(f"Error getting fan control status: {e}")
+            return False
                 
     @pyqtSlot()
     def shutdown(self):
