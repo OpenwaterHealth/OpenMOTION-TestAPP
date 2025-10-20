@@ -718,7 +718,7 @@ Rectangle {
                                             visible: parent.isLeftColumn
                                             Layout.preferredWidth: 110
                                             Layout.preferredHeight: 28
-                                            maximumLength: 12
+                                            maximumLength: 16
                                             placeholderText: text.length === 0 ? ("SN #" + (parent.mappedIndex + 1)) : ""
                                             color: "#BDC3C7"
                                             topPadding: 2
@@ -807,7 +807,7 @@ Rectangle {
                                             visible: !parent.isLeftColumn
                                             Layout.preferredWidth: 110
                                             Layout.preferredHeight: 28
-                                            maximumLength: 8
+                                            maximumLength: 16
                                             placeholderText: text.length === 0 ? ("SN #" + (parent.mappedIndex + 1)) : ""
                                             color: "#BDC3C7"
                                             topPadding: 2
