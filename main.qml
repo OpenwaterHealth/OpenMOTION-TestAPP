@@ -15,7 +15,7 @@ ApplicationWindow {
     color: "transparent" // Make the window background transparent to apply rounded corners
 
     // State to track which content to show
-    property int activeMenu: 1
+    property int activeMenu: 0
 
     Rectangle {
         anchors.fill: parent
