@@ -1122,9 +1122,13 @@ Rectangle {
                             color: "#1E1E20"
 
                             function refresh() {
-                                // Do your TEC reads here
-                                // e.g. MOTIONInterface.getTecStatus();
-                                console.log("TEC: refresh");
+                                try {
+                                    const v = MOTIONInterface.tec_voltage();   // GET (no args)
+                                    tecSetpoint.text = Number(v).toFixed(4);   // format for display
+                                    console.log("TEC: refresh, voltage=", tecSetpoint.text);
+                                } catch (e) {
+                                    console.log("TEC refresh failed:", e);
+                                }
                             }
 
                             Component.onCompleted: if (safetyStack.currentIndex === 2) refresh()
@@ -1263,8 +1267,23 @@ Rectangle {
                                             Layout.preferredHeight: 30
                                             enabled: MOTIONInterface.consoleConnected
                                             font.pixelSize: 12
-                                            validator: IntValidator { bottom: 0; top: 1000000 }
-                                            background: Rectangle { radius: 6; color: "#2B2B2E"; border.color: "#555" }
+
+                                            // UI-level guard: only allow 0.0–2.5
+                                            validator: DoubleValidator {
+                                                bottom: 0.0
+                                                top: 2.5
+                                                decimals: 6
+                                                notation: DoubleValidator.StandardNotation
+                                            }
+
+                                            // flag + visual feedback if out of range
+                                            property bool hasError: false
+                                            background: Rectangle {
+                                                radius: 6
+                                                color: "#2B2B2E"
+                                                border.color: tecSetpoint.hasError ? "#E74C3C" : "#555"
+                                                border.width: tecSetpoint.hasError ? 2 : 1
+                                            }
                                         }
 
                                         // spacer pushes the button to the far right
@@ -1277,7 +1296,35 @@ Rectangle {
                                             Layout.alignment: Qt.AlignRight
                                             Layout.rightMargin: 30  
                                             Layout.preferredWidth: 100
-                                            onTriggered: console.log("Update TEC Temperature Setpoint")
+                                            onTriggered: {
+                                                const val = Number(tecSetpoint.text);
+                                                const inRange = isFinite(val) && val >= 0.0 && val <= 2.5;
+
+                                                if (!inRange) {
+                                                    tecSetpoint.hasError = true;
+                                                    console.log("TEC set blocked: value out of range (0–2.5 V).");
+                                                    return;
+                                                }
+
+                                                tecSetpoint.hasError = false;
+
+                                                try {
+                                                    const ok = MOTIONInterface.tec_voltage(val); // SET
+                                                    if (ok) {
+                                                        // brief defer, then read back and display
+                                                        Qt.callLater(() => {
+                                                            const rb = MOTIONInterface.tec_voltage(); // GET
+                                                            tecSetpoint.text = Number(rb).toFixed(3);
+                                                        });
+                                                    } else {
+                                                        tecSetpoint.hasError = true;
+                                                        console.log("TEC set failed (backend returned false).");
+                                                    }
+                                                } catch (e) {
+                                                    tecSetpoint.hasError = true;
+                                                    console.log("TEC set threw:", e);
+                                                }
+                                            }
                                         }
                                     }
                                 }

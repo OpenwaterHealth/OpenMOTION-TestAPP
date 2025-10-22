@@ -1172,6 +1172,27 @@ class MOTIONConnector(QObject):
             logger.error(f"Error getting fan control status: {e}")
             return False
                 
+    @pyqtSlot(result=float)          # GET: no parameter → float
+    @pyqtSlot(float, result=bool)    # SET: float parameter → bool
+    def tec_voltage(self, value=None):
+        try:
+            if value is None:
+                # GET operation
+                tec_dac = motion_interface.console_module.tec_voltage()
+                logger.info(f"TEC DAC Setting: {tec_dac}")
+                return tec_dac
+            else:
+                # SET operation
+                motion_interface.console_module.tec_voltage(value)
+                logger.info(f"TEC voltage set to: {value}")
+                return True                
+        except Exception as e:
+            logger.error(f"Error in TEC voltage operation: {e}")
+            if value is None:
+                return 0.0
+            else:
+                return False
+
     @pyqtSlot()
     def shutdown(self):
         logger.info("Shutting down MOTIONConnector...")
