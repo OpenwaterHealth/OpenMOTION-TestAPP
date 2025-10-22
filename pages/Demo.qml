@@ -553,19 +553,10 @@ Rectangle {
                     TabBar {
                         id: safetyTabs
                         Layout.fillWidth: true
-                        implicitHeight: 32  // smaller height
-
-                        TabButton {
-                            text: "Safety OPT"
-                            font.pixelSize: 12
-                            padding: 6
-                        }
-
-                        TabButton {
-                            text: "Safety EE"
-                            font.pixelSize: 12
-                            padding: 6
-                        }
+                        implicitHeight: 32
+                        TabButton { text: "Safety OPT"; font.pixelSize: 12; padding: 6 }
+                        TabButton { text: "Safety EE";  font.pixelSize: 12; padding: 6 }
+                        TabButton { text: "TEC CTRL";   font.pixelSize: 12; padding: 6 }
                     }
 
                     StackLayout {
@@ -573,7 +564,9 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         currentIndex: safetyTabs.currentIndex
+                        
                         Rectangle {
+                            id: pageOpt
                             color: "#1E1E20"
                             GridLayout {
                                 columns: 4
@@ -869,6 +862,7 @@ Rectangle {
                         }
 
                         Rectangle {
+                            id: pageEe
                             color: "#1E1E20"
                             GridLayout {
                                 columns: 4
@@ -1120,6 +1114,173 @@ Rectangle {
                                     }
                                 }
                                 Item { Layout.preferredHeight: 30 } // Empty spacer
+                            }
+                        }
+
+                        Rectangle {
+                            id: pageTec
+                            color: "#1E1E20"
+
+                            function refresh() {
+                                // Do your TEC reads here
+                                // e.g. MOTIONInterface.getTecStatus();
+                                console.log("TEC: refresh");
+                            }
+
+                            Component.onCompleted: if (safetyStack.currentIndex === 2) refresh()
+                            
+                            GridLayout {
+                                columns: 4
+                                width: parent.width
+                                columnSpacing: 6
+                                rowSpacing: 20
+
+                                RowLayout {
+                                    Layout.row: 0
+                                    Layout.column: 0
+                                    Layout.columnSpan: 4
+                                    Layout.fillWidth: true
+                                Layout.topMargin: 20
+                                    spacing: 8
+
+                                    // Left label cell (fixed width to line up with other labels)
+                                    Text {
+                                        text: "TEC Status:"
+                                        color: "white"
+                                        Layout.preferredWidth: 100
+                                        Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                    }
+
+                                    // Current card
+                                    Rectangle {
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 44
+                                        radius: 6
+                                        color: "#2B2B2E"
+                                        border.color: "#555"
+
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 2
+
+                                            Text { text: "Current (mA)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text {
+                                                // Bind to your live value:
+                                                text: Number(MOTIONInterface.tecCurrent || 0).toFixed(3)
+                                                color: "white"
+                                                font.pixelSize: 14
+                                            }
+                                        }
+                                    }
+
+                                    // Voltage card
+                                    Rectangle {
+                                        Layout.preferredWidth: 100
+                                        Layout.preferredHeight: 44
+                                        radius: 6
+                                        color: "#2B2B2E"
+                                        border.color: "#555"
+
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 2
+
+                                            Text { text: "Voltage (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text {
+                                                // Bind to your live value:
+                                                text: Number(MOTIONInterface.tecVoltage || 0).toFixed(3)
+                                                color: "white"
+                                                font.pixelSize: 14
+                                            }
+                                        }
+                                    }
+
+                                    // Spacer pushes indicator to the far right
+                                    Item { Layout.fillWidth: true }
+
+                                    // Temperature indicator (your original, placed on the right)
+                                    ColumnLayout {
+                                        spacing: 4
+                                        Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                        Layout.rightMargin: 30  
+
+                                        Text {
+                                            text: "Temperature"
+                                            font.pixelSize: 14
+                                            color: "#BDC3C7"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            Layout.alignment: Qt.AlignHCenter
+                                        }
+
+                                        Rectangle {
+                                            width: 20; height: 20; radius: 10
+                                            color: MOTIONInterface.consoleConnected ? "green" : "red"
+                                            border.color: "black"; border.width: 1
+                                            Layout.alignment: Qt.AlignHCenter
+                                        }
+                                    }
+                                }
+
+
+                                // Left label (col 0)
+                                Text {
+                                    text: "TEC Temperature:"
+                                    color: "white"
+                                    Layout.row: 1
+                                    Layout.column: 0
+                                    Layout.preferredWidth: 100   
+                                    Layout.topMargin: 15
+                                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                }
+
+                                // Right side (cols 1..3 on the same row)
+                                ColumnLayout {
+                                    Layout.row: 1
+                                    Layout.column: 1
+                                    Layout.columnSpan: 3
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    // Small caption above the inputs (optional)
+                                    Text {
+                                        text: "Setpoint (v)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        // fixed-size text field
+                                        TextField {
+                                            id: tecSetpoint
+                                            Layout.preferredWidth: 80
+                                            Layout.minimumWidth: 80
+                                            Layout.maximumWidth: 80
+                                            Layout.preferredHeight: 30
+                                            enabled: MOTIONInterface.consoleConnected
+                                            font.pixelSize: 12
+                                            validator: IntValidator { bottom: 0; top: 1000000 }
+                                            background: Rectangle { radius: 6; color: "#2B2B2E"; border.color: "#555" }
+                                        }
+
+                                        // spacer pushes the button to the far right
+                                        Item { Layout.fillWidth: true }
+
+                                        ActionButton {
+                                            id: btnTecSetpoint
+                                            text: "Update Setpoint"
+                                            enabled: MOTIONInterface.consoleConnected
+                                            Layout.alignment: Qt.AlignRight
+                                            Layout.rightMargin: 30  
+                                            Layout.preferredWidth: 100
+                                            onTriggered: console.log("Update TEC Temperature Setpoint")
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1835,5 +1996,16 @@ Rectangle {
 
     Component.onDestruction: {
         console.log("Closing UI, clearing MOTIONInterface...");
+    }
+
+    Connections {
+        target: safetyStack
+        function onCurrentIndexChanged() {
+            switch (safetyStack.currentIndex) {
+            case 0: break;
+            case 1: break;
+            case 2: pageTec.refresh(); break;
+            }
+        }
     }
 }
