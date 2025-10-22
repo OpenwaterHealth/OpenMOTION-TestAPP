@@ -160,6 +160,7 @@ class MOTIONConnector(QObject):
     triggerStateChanged = pyqtSignal(str)  # 🔹 New signal for trigger state change
 
     connectionStatusChanged = pyqtSignal()  # 🔹 New signal for connection updates
+    consoleTemperatureUpdated = pyqtSignal(float, float, float)  # (temp1, temp2, temp3)
 
     laserStateChanged = pyqtSignal(bool)  # 🔹 New signal for laser state change
     safetyFailureStateChanged = pyqtSignal(bool)  # 🔹 New signal for safety failure state chang
@@ -580,6 +581,16 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error querying device info: {e}")
 
+    @pyqtSlot()
+    def queryConsoleTemperature(self):
+        """Fetch and emit Console Temperature data."""
+        try:
+            temp1, temp2, temp3 = motion_interface.console_module.get_temperatures()  
+            logger.info(f"Console Temperature Data - Temp1: {temp1}, Temp2: {temp2}, Temp3: {temp3}")
+            self.consoleTemperatureUpdated.emit(temp1, temp2, temp3)
+        except Exception as e:
+            logger.error(f"Error querying Console Temperature data: {e}")
+
     @pyqtSlot(str)
     def querySensorTemperature(self, target: str):
         """Fetch and emit Temperature data."""
@@ -946,9 +957,13 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(result=bool)
     def getTecEnabled(self) -> bool:
-        tec_enabled = motion_interface.console_module.get_tec_enabled()
-        logger.info(f"TEC Enabled: {tec_enabled}")
-        return tec_enabled
+        try:            
+            tec_dac = motion_interface.console_module.tec_voltage()
+            logger.info(f"TEC DAC Setting: {tec_dac}")
+            return True
+        except Exception as e:
+            logger.error(f"Error setting Fan Speed: {e}")
+            return False
 
     @pyqtSlot(int, result=bool)
     def setFanLevel(self, speed: int):

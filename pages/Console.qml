@@ -18,6 +18,9 @@ Rectangle {
     property string firmwareVersion: "N/A"
     property string deviceId: "N/A"
     property string rgbState: "Off" // Add property for Indicator state
+    property real temperature1: 0.0
+    property real temperature2: 0.0
+    property real temperature3: 0.0
     property int fan_speed: 0
     property var fn: null
     property int rawValue: 0 
@@ -91,8 +94,8 @@ Rectangle {
         console.log("Console Updating all states...")
         MOTIONInterface.queryConsoleInfo()
         MOTIONInterface.queryRGBState() // Query Indicator state
-        MOTIONInterface.queryFans() // Query Indicator state
-        
+        MOTIONInterface.queryFans() // Query Indicator state        
+        MOTIONInterface.queryConsoleTemperature()
     }
 
 
@@ -127,6 +130,9 @@ Rectangle {
                 deviceId = "N/A"
                 rgbState = "Off" // Indicator off
                 fan_speed = 0
+                temperature1 = 0.0
+                temperature2 = 0.0
+                temperature3 = 0.0
                 
                 pingResult.text = ""
                 echoResult.text = ""
@@ -160,6 +166,12 @@ Rectangle {
         function onFanSpeedsReceived(fanVal) {
             fan_speed = fanVal
             fanSlider.value = fanVal;
+        }
+
+        function onConsoleTemperatureUpdated(temp1, temp2, temp3) {
+            temperature1 = temp1
+            temperature2 = temp2
+            temperature3 = temp3
         }
     }
 
@@ -1167,12 +1179,35 @@ Rectangle {
                         }
 
 
+
                         ColumnLayout {
                             Layout.alignment: Qt.AlignHCenter 
                             spacing: 25  
 
-                        }
+                            // TEMP #1 Widget
+                            MiniTemperatureWidget {
+                                id: tempWidget1
+                                temperature: temperature1
+                                tempName: "MCU Temp"
+                                Layout.alignment: Qt.AlignHCenter
+                            }
 
+                            // TEMP #2 Widget
+                            MiniTemperatureWidget {
+                                id: tempWidget2
+                                temperature: temperature2
+                                tempName: "Safety Temp"
+                                Layout.alignment: Qt.AlignHCenter
+                            }
+
+                            // TEMP #3 Widget
+                            MiniTemperatureWidget {
+                                id: tempWidget3
+                                temperature: temperature3
+                                tempName: "TA Temp"
+                                Layout.alignment: Qt.AlignHCenter
+                            }
+                        }
 
                         // Soft Reset Button
                         Rectangle {
