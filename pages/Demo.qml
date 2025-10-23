@@ -1126,14 +1126,22 @@ Rectangle {
                             property real tecCurr: 0.0
                             property real tecVolt: 0.0
                             property bool tecGood: false
-
+                            property int tecTabIndex: 2
+                            property bool isEntryRefresh: true
+                            property bool isRefreshing: false
+                            property bool isSetting: false
 
                             function refresh() {
+                                if (isSetting || isRefreshing) return
+                                isRefreshing = true
                                 try {
-                                    tecSet = MOTIONInterface.tec_voltage();   // GET (no args)
-                                    tecSetpoint.text = Number(tecSet).toFixed(4);   // format for display
-                                    console.log("TEC: refresh, voltage=", tecSetpoint.text);
-                                    const s = MOTIONInterface.tec_status();
+                                    if(pageTec.isEntryRefresh){
+                                        pageTec.isEntryRefresh = false;
+                                        const v = MOTIONInterface.tec_voltage()        // GET (no args)
+                                        tecSetpoint.text = Number(v).toFixed(4)
+                                    }
+
+                                    const s = MOTIONInterface.tec_status()         // GET status
                                     if (s && s.ok) {
                                         // assign from your Python keys exactly
                                         pageTec.tecCurr = Number(s.tec_c) || 0; 
@@ -1143,12 +1151,105 @@ Rectangle {
                                         console.warn("TEC status failed:", s ? s.error : "unknown");
                                     }
                                 } catch (e) {
-                                    console.log("TEC refresh failed:", e);
+                                    console.log("TEC refresh failed:", e)
+                                } finally {
+                                    isRefreshing = false
                                 }
                             }
 
-                            Component.onCompleted: if (safetyStack.currentIndex === 2) refresh()
-                            
+                            function applyTecSetpoint() {
+                                if (isRefreshing || isSetting) return
+                                // Parse & clamp check
+                                const val = parseFloat(tecSetpoint.text)
+                                if (isNaN(val) || val < 0 || val > 2.5) {
+                                    console.log("Invalid TEC setpoint; must be 0.0000–2.5000 V")
+                                    return
+                                }
+
+                                isSetting = true
+
+                                // Pause periodic refresh while we set
+                                const wasRunning = refreshTimer.running
+                                refreshTimer.running = false
+
+                                try {
+                                    // SET (with parameter)
+                                    MOTIONInterface.tec_voltage(val)
+
+                                    // Short settle before readback (firmware may update asynchronously)
+                                    settleTimer.start()
+                                } catch (e) {
+                                    console.log("TEC set failed:", e)
+                                    isSetting = false
+                                    refreshTimer.running = wasRunning
+                                }
+                            }
+
+                            // --- TIMERS ---
+                            // Kick off a refresh every second *only* when this tab is active and not setting
+                            Timer {
+                                id: refreshTimer
+                                interval: 5000
+                                repeat: true
+                                running: (typeof safetyStack !== "undefined"
+                                            ? safetyStack.currentIndex === pageTec.tecTabIndex
+                                            : pageTec.visible) && !pageTec.isSetting
+                                onTriggered: pageTec.refresh()
+                            }
+
+                            // After setting, wait briefly, read back, unlock, and resume periodic refresh if still on tab
+                            Timer {
+                                id: settleTimer
+                                interval: 100
+                                repeat: false
+                                onTriggered: {
+                                    try {
+                                        const readback = MOTIONInterface.tec_voltage() // GET
+                                        tecSetpoint.text = Number(readback).toFixed(4)
+                                    } catch (e) {
+                                        console.log("TEC readback failed:", e)
+                                    } finally {
+                                        pageTec.isSetting = false
+                                        // Only resume if we’re still on this tab
+                                        if (typeof safetyStack !== "undefined" && safetyStack.currentIndex === pageTec.tecTabIndex)
+                                            refreshTimer.start()
+                                    }
+                                }
+                            }
+                                                                            
+
+                            // --- TAB ENTRY/EXIT HOOKS ---
+                            // Do an immediate refresh the moment this tab is selected
+                            // (works if your parent exposes `safetyStack`)
+                            Connections {
+                                target: typeof safetyStack !== "undefined" ? safetyStack : null
+                                function onCurrentIndexChanged() {
+                                    if (safetyStack.currentIndex === pageTec.tecTabIndex) {
+                                        pageTec.refresh()        // initial refresh on entry
+                                        refreshTimer.start()     // start periodic updates
+                                    } else {
+                                        refreshTimer.stop()      // stop when leaving tab                                        
+                                        pageTec.isEntryRefresh = true;
+                                    }
+                                }
+                            }
+
+                            // Fallback: if you don’t have safetyStack, do an initial refresh when created
+                            Component.onCompleted: {
+                                if (typeof safetyStack !== "undefined") {
+                                    if (safetyStack.currentIndex === tecTabIndex) {
+                                        refresh()                // initial if already on this tab
+                                        refreshTimer.start()
+                                    }
+                                } else {
+                                    // If your UI uses visible to indicate tab selection:
+                                    if (pageTec.visible) {
+                                        refresh()
+                                        refreshTimer.start()
+                                    }
+                                }
+                            }
+                                                    
                             GridLayout {
                                 columns: 4
                                 width: parent.width
@@ -1308,39 +1409,11 @@ Rectangle {
                                         ActionButton {
                                             id: btnTecSetpoint
                                             text: "Update Setpoint"
-                                            enabled: MOTIONInterface.consoleConnected
                                             Layout.alignment: Qt.AlignRight
                                             Layout.rightMargin: 30  
                                             Layout.preferredWidth: 100
-                                            onTriggered: {
-                                                const val = Number(tecSetpoint.text);
-                                                const inRange = isFinite(val) && val >= 0.0 && val <= 2.5;
-
-                                                if (!inRange) {
-                                                    tecSetpoint.hasError = true;
-                                                    console.log("TEC set blocked: value out of range (0–2.5 V).");
-                                                    return;
-                                                }
-
-                                                tecSetpoint.hasError = false;
-
-                                                try {
-                                                    const ok = MOTIONInterface.tec_voltage(val); // SET
-                                                    if (ok) {
-                                                        // brief defer, then read back and display
-                                                        Qt.callLater(() => {
-                                                            const rb = MOTIONInterface.tec_voltage(); // GET
-                                                            tecSetpoint.text = Number(rb).toFixed(3);
-                                                        });
-                                                    } else {
-                                                        tecSetpoint.hasError = true;
-                                                        console.log("TEC set failed (backend returned false).");
-                                                    }
-                                                } catch (e) {
-                                                    tecSetpoint.hasError = true;
-                                                    console.log("TEC set threw:", e);
-                                                }
-                                            }
+                                            enabled: MOTIONInterface.consoleConnected && !pageTec.isRefreshing && !pageTec.isSetting
+                                            onTriggered: pageTec.applyTecSetpoint()                                            
                                         }
                                     }
                                 }
