@@ -1123,6 +1123,7 @@ Rectangle {
 
                             // Local state for display
                             property real tecSet: 0.0
+                            property real tempSet: 0.0
                             property real tecCurr: 0.0
                             property real tecVolt: 0.0
                             property bool tecGood: false
@@ -1144,6 +1145,7 @@ Rectangle {
                                     const s = MOTIONInterface.tec_status()         // GET status
                                     if (s && s.ok) {
                                         // assign from your Python keys exactly
+                                        pageTec.tempSet = Number(s.temp) || 0; 
                                         pageTec.tecCurr = Number(s.tec_c) || 0; 
                                         pageTec.tecVolt = Number(s.tec_v) || 0; 
                                         pageTec.tecGood     = !!s.good;
@@ -1206,6 +1208,16 @@ Rectangle {
                                     try {
                                         const readback = MOTIONInterface.tec_voltage() // GET
                                         tecSetpoint.text = Number(readback).toFixed(4)
+                                        const s = MOTIONInterface.tec_status()         // GET status
+                                        if (s && s.ok) {
+                                            // assign from your Python keys exactly
+                                            pageTec.tempSet = Number(s.temp) || 0; 
+                                            pageTec.tecCurr = Number(s.tec_c) || 0; 
+                                            pageTec.tecVolt = Number(s.tec_v) || 0; 
+                                            pageTec.tecGood     = !!s.good;
+                                        } else {
+                                            console.warn("TEC status failed:", s ? s.error : "unknown");
+                                        }
                                     } catch (e) {
                                         console.log("TEC readback failed:", e)
                                     } finally {
@@ -1272,9 +1284,32 @@ Rectangle {
                                         Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                                     }
 
+                                    // Setpoint card
+                                    Rectangle {
+                                        Layout.preferredWidth: 80
+                                        Layout.preferredHeight: 44
+                                        radius: 6
+                                        color: "#2B2B2E"
+                                        border.color: "#555"
+
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 2
+
+                                            Text { text: "Setpoint (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text {
+                                                // Bind to your live value:
+                                                text: Number(pageTec.tempSet || 0).toFixed(3)
+                                                color: "white"
+                                                font.pixelSize: 14
+                                            }
+                                        }
+                                    }
+
                                     // Current card
                                     Rectangle {
-                                        Layout.preferredWidth: 100
+                                        Layout.preferredWidth: 80
                                         Layout.preferredHeight: 44
                                         radius: 6
                                         color: "#2B2B2E"
@@ -1288,7 +1323,7 @@ Rectangle {
                                             Text { text: "Current (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
-                                                text: Number(pageTec.tecCurr || 0).toFixed(4)
+                                                text: Number(pageTec.tecCurr || 0).toFixed(3)
                                                 color: "white"
                                                 font.pixelSize: 14
                                             }
@@ -1297,7 +1332,7 @@ Rectangle {
 
                                     // Voltage card
                                     Rectangle {
-                                        Layout.preferredWidth: 100
+                                        Layout.preferredWidth: 80
                                         Layout.preferredHeight: 44
                                         radius: 6
                                         color: "#2B2B2E"
@@ -1311,7 +1346,7 @@ Rectangle {
                                             Text { text: "Voltage (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
-                                                text: Number(pageTec.tecVolt || 0).toFixed(4)
+                                                text: Number(pageTec.tecVolt || 0).toFixed(3)
                                                 color: "white"
                                                 font.pixelSize: 14
                                             }
