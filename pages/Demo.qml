@@ -1121,11 +1121,27 @@ Rectangle {
                             id: pageTec
                             color: "#1E1E20"
 
+                            // Local state for display
+                            property real tecSet: 0.0
+                            property real tecCurr: 0.0
+                            property real tecVolt: 0.0
+                            property bool tecGood: false
+
+
                             function refresh() {
                                 try {
-                                    const v = MOTIONInterface.tec_voltage();   // GET (no args)
-                                    tecSetpoint.text = Number(v).toFixed(4);   // format for display
+                                    tecSet = MOTIONInterface.tec_voltage();   // GET (no args)
+                                    tecSetpoint.text = Number(tecSet).toFixed(4);   // format for display
                                     console.log("TEC: refresh, voltage=", tecSetpoint.text);
+                                    const s = MOTIONInterface.tec_status();
+                                    if (s && s.ok) {
+                                        // assign from your Python keys exactly
+                                        pageTec.tecCurr = Number(s.tec_c) || 0; 
+                                        pageTec.tecVolt = Number(s.tec_v) || 0; 
+                                        pageTec.tecGood     = !!s.good;
+                                    } else {
+                                        console.warn("TEC status failed:", s ? s.error : "unknown");
+                                    }
                                 } catch (e) {
                                     console.log("TEC refresh failed:", e);
                                 }
@@ -1168,10 +1184,10 @@ Rectangle {
                                             anchors.margins: 8
                                             spacing: 2
 
-                                            Text { text: "Current (mA)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text { text: "Current (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
-                                                text: Number(MOTIONInterface.tecCurrent || 0).toFixed(3)
+                                                text: Number(pageTec.tecCurr || 0).toFixed(4)
                                                 color: "white"
                                                 font.pixelSize: 14
                                             }
@@ -1194,7 +1210,7 @@ Rectangle {
                                             Text { text: "Voltage (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
-                                                text: Number(MOTIONInterface.tecVoltage || 0).toFixed(3)
+                                                text: Number(pageTec.tecVolt || 0).toFixed(4)
                                                 color: "white"
                                                 font.pixelSize: 14
                                             }
@@ -1220,7 +1236,7 @@ Rectangle {
 
                                         Rectangle {
                                             width: 20; height: 20; radius: 10
-                                            color: MOTIONInterface.consoleConnected ? "green" : "red"
+                                            color: pageTec.tecGood ? "green" : "red"
                                             border.color: "black"; border.width: 1
                                             Layout.alignment: Qt.AlignHCenter
                                         }

@@ -1193,6 +1193,29 @@ class MOTIONConnector(QObject):
             else:
                 return False
 
+    @pyqtSlot(result=QVariant)
+    def tec_status(self):
+        """
+        Returns a dict suitable for QML:
+        On error: { ok: False, error: "..." }
+        """
+        try:
+            v, i, p, t, ok = motion_interface.console_module.tec_status()
+
+            return {
+                "ok": True,
+                # raw
+                "volt": float(v),
+                "temp": float(i),
+                "tec_c": float(p),
+                "tec_v": float(t),
+                "good": bool(ok),
+            }
+
+        except Exception as e:
+            logger.error(f"Error in TEC status operation: {e}")
+            return {"ok": False, "error": str(e)}
+
     @pyqtSlot()
     def shutdown(self):
         logger.info("Shutting down MOTIONConnector...")
