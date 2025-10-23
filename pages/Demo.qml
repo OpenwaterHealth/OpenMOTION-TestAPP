@@ -1236,7 +1236,7 @@ Rectangle {
 
                                         Rectangle {
                                             width: 20; height: 20; radius: 10
-                                            color: pageTec.tecGood ? "red" : "green"
+                                            color: pageTec.tecGood ? "green" : "red"
                                             border.color: "black"; border.width: 1
                                             Layout.alignment: Qt.AlignHCenter
                                         }
