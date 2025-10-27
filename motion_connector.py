@@ -178,6 +178,9 @@ class MOTIONConnector(QObject):
     tclChanged = pyqtSignal()
     pdcChanged = pyqtSignal()
 
+    tecStatusChanged = pyqtSignal()
+    tecDacChanged = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self._interface = motion_interface
@@ -204,6 +207,14 @@ class MOTIONConnector(QObject):
         self._tcm = 0.0
         self._tcl = 0.0
         self._pdc = 0.0
+
+        self._tec_voltage   = 0.0
+        self._tec_temp      = 0.0
+        self._tec_monV      = 0.0
+        self._tec_monC      = 0.0
+        self._tec_good      = False
+
+        self._tec_dac       = 0.0
 
         self.connect_signals()
 
@@ -308,7 +319,31 @@ class MOTIONConnector(QObject):
     @pyqtProperty(str, notify=triggerStateChanged)
     def triggerState(self):
         return self._trigger_state
+    
+    @pyqtProperty(float, notify=tecStatusChanged)
+    def tecVoltage(self):
+        return self._tec_voltage
 
+    @pyqtProperty(float, notify=tecStatusChanged)
+    def tecTemp(self):
+        return self._tec_temp
+
+    @pyqtProperty(float, notify=tecStatusChanged)
+    def tecMonV(self):
+        return self._tec_monV
+
+    @pyqtProperty(float, notify=tecStatusChanged)
+    def tecMonC(self):
+        return self._tec_monC
+
+    @pyqtProperty(bool, notify=tecStatusChanged)
+    def tecGood(self):
+        return self._tec_good
+    
+    @pyqtProperty(float, notify=tecDacChanged)
+    def tecDAC(self):
+        return self._tec_dac
+        
     @pyqtSlot(result=str)
     def get_sdk_version(self):
         return self._interface.get_sdk_version()
@@ -958,8 +993,9 @@ class MOTIONConnector(QObject):
     @pyqtSlot(result=bool)
     def getTecEnabled(self) -> bool:
         try:            
-            tec_dac = motion_interface.console_module.tec_voltage()
-            logger.info(f"TEC DAC Setting: {tec_dac}")
+            self._tec_dac = motion_interface.console_module.tec_voltage()
+            logger.info(f"TEC DAC Setting: {self._tec_dac}")
+            self.tecDacChanged.emit()
             return True
         except Exception as e:
             logger.error(f"Error setting Fan Speed: {e}")
@@ -1172,26 +1208,25 @@ class MOTIONConnector(QObject):
             logger.error(f"Error getting fan control status: {e}")
             return False
                 
-    @pyqtSlot(result=float)          # GET: no parameter → float
+    @pyqtSlot(result=bool)          # GET: no parameter → float
     @pyqtSlot(float, result=bool)    # SET: float parameter → bool
     def tec_voltage(self, value=None):
         try:
             if value is None:
                 # GET operation
-                tec_dac = motion_interface.console_module.tec_voltage()
-                logger.info(f"TEC DAC Setting: {tec_dac}")
-                return tec_dac
+                self._tec_dac = motion_interface.console_module.tec_voltage()
+                logger.info(f"TEC DAC Setting: {self._tec_dac}")
             else:
                 # SET operation
                 motion_interface.console_module.tec_voltage(value)
                 logger.info(f"TEC voltage set to: {value}")
-                return True                
+                self._tec_dac = value
+            
+            self.tecDacChanged.emit()
+            return True                
         except Exception as e:
             logger.error(f"Error in TEC voltage operation: {e}")
-            if value is None:
-                return 0.0
-            else:
-                return False
+            return False
 
     @pyqtSlot(result=QVariant)
     def tec_status(self):

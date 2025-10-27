@@ -1139,7 +1139,6 @@ Rectangle {
                                     if(pageTec.isEntryRefresh){
                                         pageTec.isEntryRefresh = false;
                                         const v = MOTIONInterface.tec_voltage()        // GET (no args)
-                                        tecSetpoint.text = Number(v).toFixed(4)
                                     }
 
                                     const s = MOTIONInterface.tec_status()         // GET status
@@ -1167,23 +1166,9 @@ Rectangle {
                                     console.log("Invalid TEC setpoint; must be 0.0000–2.5000 V")
                                     return
                                 }
-
-                                isSetting = true
-
-                                // Pause periodic refresh while we set
-                                const wasRunning = refreshTimer.running
-                                refreshTimer.running = false
-
-                                try {
-                                    // SET (with parameter)
-                                    MOTIONInterface.tec_voltage(val)
-
-                                    // Short settle before readback (firmware may update asynchronously)
-                                    settleTimer.start()
-                                } catch (e) {
-                                    console.log("TEC set failed:", e)
-                                    isSetting = false
-                                    refreshTimer.running = wasRunning
+                                    
+                                if(!MOTIONInterface.tec_voltage(val)){
+                                    console.log("Failed to write TEC DAC");
                                 }
                             }
 
@@ -1207,7 +1192,6 @@ Rectangle {
                                 onTriggered: {
                                     try {
                                         const readback = MOTIONInterface.tec_voltage() // GET
-                                        tecSetpoint.text = Number(readback).toFixed(4)
                                         const s = MOTIONInterface.tec_status()         // GET status
                                         if (s && s.ok) {
                                             // assign from your Python keys exactly
@@ -1419,6 +1403,7 @@ Rectangle {
                                             Layout.preferredHeight: 30
                                             enabled: MOTIONInterface.consoleConnected
                                             font.pixelSize: 12
+                                            text: MOTIONInterface.tecDAC.toFixed(3)
 
                                             // UI-level guard: only allow 0.0–2.5
                                             validator: DoubleValidator {
@@ -2151,6 +2136,10 @@ Rectangle {
         function onUpdateCapStatus(message) {
             cameraCapStatus.text = message
             cameraCapStatus.color = "orange"
+        }
+
+        function onTecDacChanged() {
+            console.log("DAC Changed")
         }
 
     }
