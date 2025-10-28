@@ -1,4 +1,8 @@
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty, pyqtSlot, QVariant, QThread, QWaitCondition, QMutex, QMutexLocker
+from PyQt6.QtCore import ( 
+    QObject, pyqtSignal, pyqtProperty, pyqtSlot, 
+    QVariant, QThread, QWaitCondition, QMutex, QMutexLocker,
+    QRecursiveMutex,
+)
 from typing import List
 import logging
 import base58
@@ -216,6 +220,8 @@ class MOTIONConnector(QObject):
 
         self._tec_dac       = 0.0
 
+        self._console_mutex = QRecursiveMutex()
+        
         self.connect_signals()
 
     def connect_signals(self):
@@ -581,7 +587,7 @@ class MOTIONConnector(QObject):
     
     @pyqtSlot(str, str)
     def on_data_received(self, descriptor, message):
-        """Handle incoming data from the LIFU device."""
+        """Handle incoming data from the MOTION device."""
         logger.info(f"Data received from {descriptor}: {message}")
         self.signalDataReceived.emit(descriptor, message)
 
@@ -605,7 +611,8 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot()
     def queryConsoleInfo(self):
-        """Fetch and emit device information."""
+        """Fetch and emit device information."""        
+        self._console_mutex.lock()
         try:
             fw_version = motion_interface.console_module.get_version()
             logger.info(f"Version: {fw_version}")
@@ -615,16 +622,21 @@ class MOTIONConnector(QObject):
             logger.info(f"Console Device Info - Firmware: {fw_version}, Device ID: {device_id}")
         except Exception as e:
             logger.error(f"Error querying device info: {e}")
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot()
     def queryConsoleTemperature(self):
-        """Fetch and emit Console Temperature data."""
+        """Fetch and emit Console Temperature data."""   
+        self._console_mutex.lock()
         try:
             temp1, temp2, temp3 = motion_interface.console_module.get_temperatures()  
             logger.info(f"Console Temperature Data - Temp1: {temp1}, Temp2: {temp2}, Temp3: {temp3}")
             self.consoleTemperatureUpdated.emit(temp1, temp2, temp3)
         except Exception as e:
             logger.error(f"Error querying Console Temperature data: {e}")
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot(str)
     def querySensorTemperature(self, target: str):
@@ -644,6 +656,7 @@ class MOTIONConnector(QObject):
     @pyqtSlot(int)
     def setRGBState(self, state):
         """Set the RGB state using integer values."""
+        self._console_mutex.lock()
         try:
             valid_states = [0, 1, 2, 3]
             if state not in valid_states:
@@ -656,10 +669,13 @@ class MOTIONConnector(QObject):
                 logger.error(f"Failed to set RGB state to: {state}")
         except Exception as e:
             logger.error(f"Error setting RGB state: {e}")
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot()
     def queryRGBState(self):
         """Fetch and emit RGB state."""
+        self._console_mutex.lock()
         try:
             state = motion_interface.console_module.get_rgb_led()
             state_text = {0: "Off", 1: "IND1", 2: "IND2", 3: "IND3"}.get(state, "Unknown")
@@ -668,10 +684,13 @@ class MOTIONConnector(QObject):
             self.rgbStateReceived.emit(state, state_text)  # Emit both values
         except Exception as e:
             logger.error(f"Error querying RGB state: {e}")
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot()
     def queryFans(self):
         """Fetch and emit Fan Speed."""
+        self._console_mutex.lock()
         try:
             fan_speed = motion_interface.console_module.get_fan_speed()
 
@@ -679,27 +698,36 @@ class MOTIONConnector(QObject):
             self.fanSpeedsReceived.emit(fan_speed)  # Emit both values
         except Exception as e:
             logger.error(f"Error querying Fan Speeds: {e}")
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot(result=QVariant)
     def queryTriggerConfig(self):
-        trigger_setting = motion_interface.console_module.get_trigger_json()
-        if trigger_setting:
-            if isinstance(trigger_setting, str):
-                updateTrigger = json.loads(trigger_setting)
-            else:
-                updateTrigger = trigger_setting
-            if updateTrigger["TriggerStatus"] == 2:               
-                self._trigger_state = "ON"
-                self.triggerStateChanged.emit("ON")            
-                return trigger_setting or {}
-       
-        self._trigger_state = "OFF"
-        self.triggerStateChanged.emit("OFF")
-                
-        return trigger_setting or {}
+        self._console_mutex.lock()
+        try:
+            trigger_setting = motion_interface.console_module.get_trigger_json()
+            if trigger_setting:
+                if isinstance(trigger_setting, str):
+                    updateTrigger = json.loads(trigger_setting)
+                else:
+                    updateTrigger = trigger_setting
+                if updateTrigger["TriggerStatus"] == 2:               
+                    self._trigger_state = "ON"
+                    self.triggerStateChanged.emit("ON")            
+                    return trigger_setting or {}
+        
+            self._trigger_state = "OFF"
+            self.triggerStateChanged.emit("OFF")
+                    
+            return trigger_setting or {}
+        except Exception as e:
+            logger.error(f"Error querying trigger configuration: {e}")
+        finally:
+            self._console_mutex.unlock()
     
     @pyqtSlot(str, result=bool)
     def setTrigger(self, triggerjson):
+        self._console_mutex.lock()
         try:
             json_trigger_data = json.loads(triggerjson)
             
@@ -722,31 +750,61 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Unexpected error while setting trigger: {e}")
             return False
+        finally:
+            self._console_mutex.unlock()
             
     @pyqtSlot(result=bool)
-    def startTrigger(self):
-        success = motion_interface.console_module.start_trigger()
-        if success:
+    @pyqtSlot(str, result=bool)
+    def startTrigger(self, triggerjson = None):
+        self._console_mutex.lock()
+        try:
+            if triggerjson:
+                json_trigger_data = json.loads(triggerjson)
+                
+                trigger_setting = motion_interface.console_module.set_trigger_json(data=json_trigger_data)
+                if not trigger_setting:
+                    logger.error(f"Error while setting trigger trigger not started")
+                    return False
+                
+                logger.info(f"Trigger Setting: {trigger_setting}")
 
-            # Start status thread
-            if self._console_status_thread is None:
-                self._console_status_thread = ConsoleStatusThread(self)
-                self._console_status_thread.statusUpdate.connect(self.handleUpdateCapStatus)  # Or define a dedicated signal
-                self._console_status_thread.start()
+            success = motion_interface.console_module.start_trigger()
+            if success:
 
-            self._trigger_state = "ON"
-            self.triggerStateChanged.emit("ON")
-        return success
+                # Start status thread
+                if self._console_status_thread is None:
+                    self._console_status_thread = ConsoleStatusThread(self)
+                    self._console_status_thread.statusUpdate.connect(self.handleUpdateCapStatus)  # Or define a dedicated signal
+                    self._console_status_thread.start()
+
+                self._trigger_state = "ON"
+                self.triggerStateChanged.emit("ON")
+            return success
+
+        except Exception as e:
+            logger.error(f"Unexpected error while setting trigger: {e}")
+            return False
+        finally:
+            self._console_mutex.unlock()            
         
     @pyqtSlot()
-    def stopTrigger(self):
-        motion_interface.console_module.stop_trigger()
-        self._trigger_state = "OFF"
-        self.triggerStateChanged.emit("OFF")        
-        
-        if self._console_status_thread:
-            self._console_status_thread.stop()
-            self._console_status_thread = None
+    def stopTrigger(self):   
+        self._console_mutex.lock()
+        try:
+            motion_interface.console_module.stop_trigger()
+            self._trigger_state = "OFF"
+            self.triggerStateChanged.emit("OFF")        
+            
+            if self._console_status_thread:
+                self._console_status_thread.stop()
+                self._console_status_thread = None
+
+            return True
+        except Exception as e:
+            logger.error(f"Unexpected error while stopping trigger: {e}")
+            return False
+        finally:
+            self._console_mutex.unlock()      
     
     @pyqtSlot(str)
     def querySensorAccelerometer (self, target: str):
@@ -809,7 +867,8 @@ class MOTIONConnector(QObject):
         """Send a ping command to HV device."""
         try:
             if target == "CONSOLE":
-                if motion_interface.console_module.ping():
+                self._console_mutex.lock()
+                if motion_interface.console_module.ping():                    
                     logger.info(f"Ping command sent successfully")
                     return True
                 else:
@@ -829,12 +888,16 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error sending ping command: {e}")
             return False
+        finally:
+            if target == "CONSOLE":
+                self._console_mutex.unlock()      
         
     @pyqtSlot(str, result=bool)
     def sendLedToggleCommand(self, target: str):
         """Send a LED Toggle command to device."""
         try:
             if target == "CONSOLE":
+                self._console_mutex.lock()
                 if motion_interface.console_module.toggle_led():
                     logger.info(f"Toggle command sent successfully")
                     return True
@@ -855,6 +918,9 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error sending Toggle command: {e}")
             return False
+        finally:
+            if target == "CONSOLE":
+                self._console_mutex.unlock()      
         
     @pyqtSlot(str, result=bool)
     def sendEchoCommand(self, target: str):
@@ -862,6 +928,7 @@ class MOTIONConnector(QObject):
         try:
             expected_data = b"Hello FROM Test Application!"
             if target == "CONSOLE":
+                self._console_mutex.lock()
                 echoed_data, data_len = motion_interface.console_module.echo(echo_data=expected_data)
             elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
@@ -880,10 +947,14 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error sending Echo command: {e}")
             return False
+        finally:
+            if target == "CONSOLE":
+                self._console_mutex.unlock()      
         
     @pyqtSlot(result=int)
     def getFsyncCount(self):
         """Get the Fsync count from the console."""
+        self._console_mutex.lock()
         try:
             fsync_count = motion_interface.console_module.get_fsync_pulsecount()
             logger.info(f"Fsync Count: {fsync_count}")
@@ -891,10 +962,13 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error getting Fsync count: {e}")
             return -1
+        finally:
+            self._console_mutex.unlock()     
         
     @pyqtSlot(result=int)
     def getLsyncCount(self):
         """Get the Fsync count from the console."""
+        self._console_mutex.lock()
         try:
             lsync_count = motion_interface.console_module.get_lsync_pulsecount()
             logger.info(f"Lsync Count: {lsync_count}")
@@ -902,17 +976,19 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error getting Lsync count: {e}")
             return -1
+        finally:
+            self._console_mutex.unlock()
         
     @pyqtSlot(str, int, int, int, int, int, result=QVariant)
     def i2cReadBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data_len: int):
         """Send i2c read to device"""
-        locker = QMutexLocker(self._i2c_mutex)  # Lock auto-released at function exit
         try:
             logger.info(f"I2C Read Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
                 f"i2c_addr=0x{int(i2c_addr):02X}, offset=0x{int(offset):02X}, read_len={int(data_len)}"
             )            
 
-            if target == "CONSOLE":                
+            if target == "CONSOLE":
+                self._console_mutex.lock()       
                 fpga_data, fpga_data_len = motion_interface.console_module.read_i2c_packet(mux_index=mux_idx, channel=channel, device_addr=i2c_addr, reg_addr=offset, read_len=data_len)
                 if fpga_data is None or fpga_data_len == 0:
                     logger.error(f"Read I2C Failed")
@@ -928,6 +1004,9 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error sending i2c read command: {e}")
             return []
+        finally:
+            if target == "CONSOLE":
+                self._console_mutex.unlock()      
         
     @pyqtSlot(str, int, int, int, int, list, result=bool)
     def i2cWriteBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data: list[int]) -> bool:
@@ -951,6 +1030,7 @@ class MOTIONConnector(QObject):
             byte_data = bytes(sanitized_data)
 
             if target == "CONSOLE":
+                self._console_mutex.lock()
                 if motion_interface.console_module.write_i2c_packet(mux_index=mux_idx, channel=channel, device_addr=i2c_addr, reg_addr=offset, data=byte_data):
                     logger.info(f"Write I2C Success")
                     return True
@@ -963,10 +1043,14 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error sending i2c write command: {e}")
             return False
+        finally:
+            if target == "CONSOLE":
+                self._console_mutex.unlock()      
         
     @pyqtSlot(str)
     def softResetSensor(self, target: str):
         """reset hardware Sensor device."""
+        self._console_mutex.lock()
         try:
             
             if target == "CONSOLE":
@@ -982,16 +1066,25 @@ class MOTIONConnector(QObject):
                     logger.error(f"Failed to send Software Reset")
         except Exception as e:
             logger.error(f"Error Sending Software Reset: {e}")
+        finally:
+            self._console_mutex.unlock()
     
     @pyqtSlot(int, int, result='QStringList')
     def scanI2C(self, mux: int, chan: int) -> list[str]:
-        addresses = motion_interface.console_module.scan_i2c_mux_channel(mux, chan)
-        hex_addresses = [hex(addr) for addr in addresses]
-        logger.info(f"Devices found on MUX {mux} channel {chan}: {hex_addresses}")
-        return hex_addresses
+        self._console_mutex.lock()
+        try:
+            addresses = motion_interface.console_module.scan_i2c_mux_channel(mux, chan)
+            hex_addresses = [hex(addr) for addr in addresses]
+            logger.info(f"Devices found on MUX {mux} channel {chan}: {hex_addresses}")
+            return hex_addresses
+        except Exception as e:
+            logger.error(f"Error scanning I2C Bus: {e}")
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot(result=bool)
     def getTecEnabled(self) -> bool:
+        self._console_mutex.lock()
         try:            
             self._tec_dac = motion_interface.console_module.tec_voltage()
             logger.info(f"TEC DAC Setting: {self._tec_dac}")
@@ -1000,10 +1093,13 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error setting Fan Speed: {e}")
             return False
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot(int, result=bool)
     def setFanLevel(self, speed: int):
         """Set Fan Level to device."""
+        self._console_mutex.lock()
         try:
             
             if motion_interface.console_module.set_fan_speed(fan_speed=speed) == speed:
@@ -1016,6 +1112,8 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error setting Fan Speed: {e}")
             return False
+        finally:
+            self._console_mutex.unlock()
     
     @pyqtSlot("QVariantList")
     def saveHistogramToCSV(self, data):
@@ -1086,6 +1184,7 @@ class MOTIONConnector(QObject):
     @pyqtSlot()
     def readSafetyStatus(self):
         # Replace this with your actual console status check
+        self._console_mutex.lock()
         try:
             muxIdx = 1
             i2cAddr = 0x41
@@ -1125,6 +1224,8 @@ class MOTIONConnector(QObject):
 
         except Exception as e:
             logging.error(f"Console status query failed: {e}")
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot(str)
     def queryCameraPowerStatus(self, target: str):
@@ -1211,6 +1312,7 @@ class MOTIONConnector(QObject):
     @pyqtSlot(result=bool)          # GET: no parameter → float
     @pyqtSlot(float, result=bool)    # SET: float parameter → bool
     def tec_voltage(self, value=None):
+        self._console_mutex.lock()
         try:
             if value is None:
                 # GET operation
@@ -1227,6 +1329,8 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error in TEC voltage operation: {e}")
             return False
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot(result=QVariant)
     def tec_status(self):
@@ -1234,6 +1338,7 @@ class MOTIONConnector(QObject):
         Returns a dict suitable for QML:
         On error: { ok: False, error: "..." }
         """
+        self._console_mutex.lock()
         try:
             v, i, p, t, ok = motion_interface.console_module.tec_status()
 
@@ -1250,6 +1355,8 @@ class MOTIONConnector(QObject):
         except Exception as e:
             logger.error(f"Error in TEC status operation: {e}")
             return {"ok": False, "error": str(e)}
+        finally:
+            self._console_mutex.unlock()
 
     @pyqtSlot()
     def shutdown(self):
@@ -1277,6 +1384,7 @@ class ConsoleStatusThread(QThread):
     def run(self):
         
         while self._running:
+            self.connector._console_mutex.lock()
             try:
                 # Replace this with your actual console status check
                 muxIdx = 1
@@ -1346,21 +1454,17 @@ class ConsoleStatusThread(QThread):
                         self.connector.tclChanged.emit()
                         self.connector.tcmChanged.emit()
                         self.connector.pdcChanged.emit()
-
-                # Sleep for up to 1000ms, but can be woken early
-                self._mutex.lock()
-                self._wait_condition.wait(self._mutex, 1000)
-                self._mutex.unlock()
-
                 # self._count += 1  # Increment count for status updates
 
             except Exception as e:
                 logging.error(f"Console status query failed: {e}")
+            finally:
+                self.connector._console_mutex.unlock()
 
-                # Sleep for up to 1000ms, but can be woken early
-                self._mutex.lock()
-                self._wait_condition.wait(self._mutex, 1000)
-                self._mutex.unlock()
+            # Sleep for up to 1000ms, but can be woken early
+            self._mutex.lock()
+            self._wait_condition.wait(self._mutex, 1000)
+            self._mutex.unlock()
 
     def stop(self):
         self._running = False

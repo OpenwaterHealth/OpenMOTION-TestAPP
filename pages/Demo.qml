@@ -1813,10 +1813,8 @@ Rectangle {
                                         "EnableTaTrigger": true
                                     }
                                     var jsonString = JSON.stringify(json_trigger_data);
-                                    if (MOTIONInterface.setTrigger(jsonString)) {
-                                        MOTIONInterface.startTrigger()
-                                    } else {
-                                        console.log("Failed to apply trigger config")
+                                    if (!MOTIONInterface.startTrigger(jsonString)) {
+                                        console.log("Failed to apply and start trigger config")
                                     }
                                 }
                             }
