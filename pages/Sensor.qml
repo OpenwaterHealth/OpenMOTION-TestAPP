@@ -656,7 +656,7 @@ Rectangle {
                             // Clear button positioned above the grid
                             Button {
                                 id: clearSerialNumbersButton
-                                text: "Clear SN"
+                                text: "Clear All"
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 30
                                 Layout.columnSpan: 5
@@ -685,6 +685,15 @@ Rectangle {
                                     page1.cam6_sn = "";
                                     page1.cam7_sn = "";
                                     page1.cam8_sn = "";
+                                    
+                                    // Reset all camera statuses to "Not Tested"
+                                    for (let i = 0; i < cameraStatusModel.count; i++) {
+                                        cameraStatusModel.set(i, {
+                                            label: "Camera " + (i + 1),
+                                            status: "Not Tested",
+                                            color: "gray"
+                                        });
+                                    }
                                 }
                             }
 
