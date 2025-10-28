@@ -735,8 +735,14 @@ class MOTIONConnector(QObject):
             else:
                 logger.error(f"Invalid target for camera configuration: {target}")
                 return
-            passed = motion_interface.sensors[sensor_tag].program_fpga(camera_position=cam_mask, manual_process=False)
-            passed = motion_interface.sensors[sensor_tag].camera_configure_registers(camera_position=cam_mask)
+            passed_flash = motion_interface.sensors[sensor_tag].program_fpga(camera_position=cam_mask, manual_process=False)
+            passed_configure =  motion_interface.sensors[sensor_tag].camera_configure_registers(camera_position=cam_mask)
+
+            if not passed_flash or not passed_configure:
+                logger.error(f"Failed to configure camera {sensor_tag} with mask {cam_mask}")
+                self.cameraConfigUpdated.emit(cam_mask, False)
+                return
+
             gain = 16
             exposure = 600
             print(f"Switching camera to {cam_mask}")
@@ -747,6 +753,7 @@ class MOTIONConnector(QObject):
             print(f"Setting exposure to {exposure}")
             passed_exposure = motion_interface.sensors[sensor_tag].camera_set_exposure(0,us=exposure)
             print(f"Camera {sensor_tag} with mask {cam_mask} configured with gain {gain} and exposure {exposure}")
+            passed = passed_flash and passed_configure and passed_sw and passed_gain and passed_exposure
             self.cameraConfigUpdated.emit(cam_mask, passed)
         except Exception as e:
             logger.error(f"Error configuring Camera {cam_mask}: {e}")
