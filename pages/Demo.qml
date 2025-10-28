@@ -553,19 +553,10 @@ Rectangle {
                     TabBar {
                         id: safetyTabs
                         Layout.fillWidth: true
-                        implicitHeight: 32  // smaller height
-
-                        TabButton {
-                            text: "Safety OPT"
-                            font.pixelSize: 12
-                            padding: 6
-                        }
-
-                        TabButton {
-                            text: "Safety EE"
-                            font.pixelSize: 12
-                            padding: 6
-                        }
+                        implicitHeight: 32
+                        TabButton { text: "Safety OPT"; font.pixelSize: 12; padding: 6 }
+                        TabButton { text: "Safety EE";  font.pixelSize: 12; padding: 6 }
+                        TabButton { text: "TEC CTRL";   font.pixelSize: 12; padding: 6 }
                     }
 
                     StackLayout {
@@ -573,7 +564,9 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         currentIndex: safetyTabs.currentIndex
+                        
                         Rectangle {
+                            id: pageOpt
                             color: "#1E1E20"
                             GridLayout {
                                 columns: 4
@@ -869,6 +862,7 @@ Rectangle {
                         }
 
                         Rectangle {
+                            id: pageEe
                             color: "#1E1E20"
                             GridLayout {
                                 columns: 4
@@ -1120,6 +1114,329 @@ Rectangle {
                                     }
                                 }
                                 Item { Layout.preferredHeight: 30 } // Empty spacer
+                            }
+                        }
+
+                        Rectangle {
+                            id: pageTec
+                            color: "#1E1E20"
+
+                            // Local state for display
+                            property real tecSet: 0.0
+                            property real tempSet: 0.0
+                            property real tecCurr: 0.0
+                            property real tecVolt: 0.0
+                            property bool tecGood: false
+                            property int tecTabIndex: 2
+                            property bool isEntryRefresh: true
+                            property bool isRefreshing: false
+                            property bool isSetting: false
+
+                            function refresh() {
+                                if (isSetting || isRefreshing) return
+                                isRefreshing = true
+                                try {
+                                    if(pageTec.isEntryRefresh){
+                                        pageTec.isEntryRefresh = false;
+                                        const v = MOTIONInterface.tec_voltage()        // GET (no args)
+                                    }
+
+                                    const s = MOTIONInterface.tec_status()         // GET status
+                                    if (s && s.ok) {
+                                        // assign from your Python keys exactly
+                                        pageTec.tempSet = Number(s.temp) || 0; 
+                                        pageTec.tecCurr = Number(s.tec_c) || 0; 
+                                        pageTec.tecVolt = Number(s.tec_v) || 0; 
+                                        pageTec.tecGood     = !!s.good;
+                                    } else {
+                                        console.warn("TEC status failed:", s ? s.error : "unknown");
+                                    }
+                                } catch (e) {
+                                    console.log("TEC refresh failed:", e)
+                                } finally {
+                                    isRefreshing = false
+                                }
+                            }
+
+                            function applyTecSetpoint() {
+                                if (isRefreshing || isSetting) return
+                                // Parse & clamp check
+                                const val = parseFloat(tecSetpoint.text)
+                                if (isNaN(val) || val < 0 || val > 2.5) {
+                                    console.log("Invalid TEC setpoint; must be 0.0000–2.5000 V")
+                                    return
+                                }
+                                    
+                                if(!MOTIONInterface.tec_voltage(val)){
+                                    console.log("Failed to write TEC DAC");
+                                }
+                            }
+
+                            // --- TIMERS ---
+                            // Kick off a refresh every second *only* when this tab is active and not setting
+                            Timer {
+                                id: refreshTimer
+                                interval: 5000
+                                repeat: true
+                                running: (typeof safetyStack !== "undefined"
+                                            ? safetyStack.currentIndex === pageTec.tecTabIndex
+                                            : pageTec.visible) && !pageTec.isSetting
+                                onTriggered: pageTec.refresh()
+                            }
+
+                            // After setting, wait briefly, read back, unlock, and resume periodic refresh if still on tab
+                            Timer {
+                                id: settleTimer
+                                interval: 100
+                                repeat: false
+                                onTriggered: {
+                                    try {
+                                        const readback = MOTIONInterface.tec_voltage() // GET
+                                        const s = MOTIONInterface.tec_status()         // GET status
+                                        if (s && s.ok) {
+                                            // assign from your Python keys exactly
+                                            pageTec.tempSet = Number(s.temp) || 0; 
+                                            pageTec.tecCurr = Number(s.tec_c) || 0; 
+                                            pageTec.tecVolt = Number(s.tec_v) || 0; 
+                                            pageTec.tecGood     = !!s.good;
+                                        } else {
+                                            console.warn("TEC status failed:", s ? s.error : "unknown");
+                                        }
+                                    } catch (e) {
+                                        console.log("TEC readback failed:", e)
+                                    } finally {
+                                        pageTec.isSetting = false
+                                        // Only resume if we’re still on this tab
+                                        if (typeof safetyStack !== "undefined" && safetyStack.currentIndex === pageTec.tecTabIndex)
+                                            refreshTimer.start()
+                                    }
+                                }
+                            }
+                                                                            
+
+                            // --- TAB ENTRY/EXIT HOOKS ---
+                            // Do an immediate refresh the moment this tab is selected
+                            // (works if your parent exposes `safetyStack`)
+                            Connections {
+                                target: typeof safetyStack !== "undefined" ? safetyStack : null
+                                function onCurrentIndexChanged() {
+                                    if (safetyStack.currentIndex === pageTec.tecTabIndex) {
+                                        pageTec.refresh()        // initial refresh on entry
+                                        refreshTimer.start()     // start periodic updates
+                                    } else {
+                                        refreshTimer.stop()      // stop when leaving tab                                        
+                                        pageTec.isEntryRefresh = true;
+                                    }
+                                }
+                            }
+
+                            // Fallback: if you don’t have safetyStack, do an initial refresh when created
+                            Component.onCompleted: {
+                                if (typeof safetyStack !== "undefined") {
+                                    if (safetyStack.currentIndex === tecTabIndex) {
+                                        refresh()                // initial if already on this tab
+                                        refreshTimer.start()
+                                    }
+                                } else {
+                                    // If your UI uses visible to indicate tab selection:
+                                    if (pageTec.visible) {
+                                        refresh()
+                                        refreshTimer.start()
+                                    }
+                                }
+                            }
+                                                    
+                            GridLayout {
+                                columns: 4
+                                width: parent.width
+                                columnSpacing: 6
+                                rowSpacing: 20
+
+                                RowLayout {
+                                    Layout.row: 0
+                                    Layout.column: 0
+                                    Layout.columnSpan: 4
+                                    Layout.fillWidth: true
+                                Layout.topMargin: 20
+                                    spacing: 8
+
+                                    // Left label cell (fixed width to line up with other labels)
+                                    Text {
+                                        text: "TEC Status:"
+                                        color: "white"
+                                        Layout.preferredWidth: 100
+                                        Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                    }
+
+                                    // Setpoint card
+                                    Rectangle {
+                                        Layout.preferredWidth: 80
+                                        Layout.preferredHeight: 44
+                                        radius: 6
+                                        color: "#2B2B2E"
+                                        border.color: "#555"
+
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 2
+
+                                            Text { text: "Setpoint (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text {
+                                                // Bind to your live value:
+                                                text: Number(pageTec.tempSet || 0).toFixed(3)
+                                                color: "white"
+                                                font.pixelSize: 14
+                                            }
+                                        }
+                                    }
+
+                                    // Current card
+                                    Rectangle {
+                                        Layout.preferredWidth: 80
+                                        Layout.preferredHeight: 44
+                                        radius: 6
+                                        color: "#2B2B2E"
+                                        border.color: "#555"
+
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 2
+
+                                            Text { text: "Current (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text {
+                                                // Bind to your live value:
+                                                text: Number(pageTec.tecCurr || 0).toFixed(3)
+                                                color: "white"
+                                                font.pixelSize: 14
+                                            }
+                                        }
+                                    }
+
+                                    // Voltage card
+                                    Rectangle {
+                                        Layout.preferredWidth: 80
+                                        Layout.preferredHeight: 44
+                                        radius: 6
+                                        color: "#2B2B2E"
+                                        border.color: "#555"
+
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 2
+
+                                            Text { text: "Voltage (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text {
+                                                // Bind to your live value:
+                                                text: Number(pageTec.tecVolt || 0).toFixed(3)
+                                                color: "white"
+                                                font.pixelSize: 14
+                                            }
+                                        }
+                                    }
+
+                                    // Spacer pushes indicator to the far right
+                                    Item { Layout.fillWidth: true }
+
+                                    // Temperature indicator (your original, placed on the right)
+                                    ColumnLayout {
+                                        spacing: 4
+                                        Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                        Layout.rightMargin: 30  
+
+                                        Text {
+                                            text: "Temperature"
+                                            font.pixelSize: 14
+                                            color: "#BDC3C7"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            Layout.alignment: Qt.AlignHCenter
+                                        }
+
+                                        Rectangle {
+                                            width: 20; height: 20; radius: 10
+                                            color: pageTec.tecGood ? "green" : "red"
+                                            border.color: "black"; border.width: 1
+                                            Layout.alignment: Qt.AlignHCenter
+                                        }
+                                    }
+                                }
+
+
+                                // Left label (col 0)
+                                Text {
+                                    text: "TEC Temperature:"
+                                    color: "white"
+                                    Layout.row: 1
+                                    Layout.column: 0
+                                    Layout.preferredWidth: 100   
+                                    Layout.topMargin: 15
+                                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                }
+
+                                // Right side (cols 1..3 on the same row)
+                                ColumnLayout {
+                                    Layout.row: 1
+                                    Layout.column: 1
+                                    Layout.columnSpan: 3
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    // Small caption above the inputs (optional)
+                                    Text {
+                                        text: "Setpoint (v)"
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 12
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        // fixed-size text field
+                                        TextField {
+                                            id: tecSetpoint
+                                            Layout.preferredWidth: 80
+                                            Layout.minimumWidth: 80
+                                            Layout.maximumWidth: 80
+                                            Layout.preferredHeight: 30
+                                            enabled: MOTIONInterface.consoleConnected
+                                            font.pixelSize: 12
+                                            text: MOTIONInterface.tecDAC.toFixed(3)
+
+                                            // UI-level guard: only allow 0.0–2.5
+                                            validator: DoubleValidator {
+                                                bottom: 0.0
+                                                top: 2.5
+                                                decimals: 6
+                                                notation: DoubleValidator.StandardNotation
+                                            }
+
+                                            // flag + visual feedback if out of range
+                                            property bool hasError: false
+                                            background: Rectangle {
+                                                radius: 6
+                                                color: "#2B2B2E"
+                                                border.color: tecSetpoint.hasError ? "#E74C3C" : "#555"
+                                                border.width: tecSetpoint.hasError ? 2 : 1
+                                            }
+                                        }
+
+                                        // spacer pushes the button to the far right
+                                        Item { Layout.fillWidth: true }
+
+                                        ActionButton {
+                                            id: btnTecSetpoint
+                                            text: "Update Setpoint"
+                                            Layout.alignment: Qt.AlignRight
+                                            Layout.rightMargin: 30  
+                                            Layout.preferredWidth: 100
+                                            enabled: MOTIONInterface.consoleConnected && !pageTec.isRefreshing && !pageTec.isSetting
+                                            onTriggered: pageTec.applyTecSetpoint()                                            
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1496,10 +1813,8 @@ Rectangle {
                                         "EnableTaTrigger": true
                                     }
                                     var jsonString = JSON.stringify(json_trigger_data);
-                                    if (MOTIONInterface.setTrigger(jsonString)) {
-                                        MOTIONInterface.startTrigger()
-                                    } else {
-                                        console.log("Failed to apply trigger config")
+                                    if (!MOTIONInterface.startTrigger(jsonString)) {
+                                        console.log("Failed to apply and start trigger config")
                                     }
                                 }
                             }
@@ -1821,6 +2136,10 @@ Rectangle {
             cameraCapStatus.color = "orange"
         }
 
+        function onTecDacChanged() {
+            console.log("DAC Changed")
+        }
+
     }
 
     // Run refresh logic immediately on page load if Sensor is already connected
@@ -1835,5 +2154,16 @@ Rectangle {
 
     Component.onDestruction: {
         console.log("Closing UI, clearing MOTIONInterface...");
+    }
+
+    Connections {
+        target: safetyStack
+        function onCurrentIndexChanged() {
+            switch (safetyStack.currentIndex) {
+            case 0: break;
+            case 1: break;
+            case 2: pageTec.refresh(); break;
+            }
+        }
     }
 }
