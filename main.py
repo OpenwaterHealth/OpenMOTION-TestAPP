@@ -40,7 +40,7 @@ def main():
     # Expose to QML
     connector = MOTIONConnector()
     qmlRegisterSingletonInstance("OpenMotion", 1, 0, "MOTIONInterface", connector)
-    engine.rootContext().setContextProperty("appVersion", "1.2.3")
+    engine.rootContext().setContextProperty("appVersion", "1.2.4")
 
     # Load the QML file
     engine.load(resource_path("main.qml"))
