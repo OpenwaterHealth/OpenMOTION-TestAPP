@@ -1166,7 +1166,8 @@ Rectangle {
                                     spacing: 8
                                     Layout.alignment: Qt.AlignBottom | Qt.AlignRight
 
-                                    // Power status indicator and refresh button row
+
+                                    // Power On button with status indicator
                                     RowLayout {
                                         spacing: 8
                                         Layout.alignment: Qt.AlignHCenter
@@ -1186,47 +1187,6 @@ Rectangle {
                                             border.color: "#BDC3C7"
                                             border.width: 1
                                         }
-
-                                        Button {
-                                            id: getPowerStatusBtn
-                                            text: "Get Power Status"
-                                            Layout.preferredWidth: 134
-                                            Layout.preferredHeight: 40
-                                            hoverEnabled: true
-                                            enabled: {
-                                                if (sensorSelector.currentIndex === 0) {
-                                                    return MOTIONInterface.leftSensorConnected
-                                                } else {
-                                                    return MOTIONInterface.rightSensorConnected
-                                                }
-                                            }
-                                            onClicked: {
-                                                let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
-                                                MOTIONInterface.queryCameraPowerStatus(sensor_tag)
-                                            }
-                                            contentItem: Text {
-                                                text: parent.text
-                                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                                horizontalAlignment: Text.AlignHCenter
-                                                verticalAlignment: Text.AlignVCenter
-                                            }
-                                            background: Rectangle {
-                                                color: {
-                                                    if (!parent.enabled) {
-                                                                return "#3A3F4B"
-                                                    }
-                                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                                }
-                                                radius: 4
-                                                border.color: {
-                                                    if (!parent.enabled) {
-                                                                return "#7F8C8D"
-                                                    }
-                                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                                }
-                                            }
-                                        }
-                                    }
 
                             Button {
                                         id: camPowerOnBtn
@@ -1266,8 +1226,24 @@ Rectangle {
                                             let target = "left";
                                             (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
                                             MOTIONInterface.powerCamerasOn(target)
+                                            
+                                            // Automatically query power status after powering on
+                                            let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                            MOTIONInterface.queryCameraPowerStatus(sensor_tag)
                                         }
                                     }
+                                    }
+
+                                    // Power Off button with spacer to align with Power On button
+                                    RowLayout {
+                                        spacing: 8
+                                        Layout.alignment: Qt.AlignHCenter
+                                        
+                                        // Spacer to match the circle width from Power On button
+                                        Item {
+                                            width: 16
+                                            height: 16
+                                        }
 
                                     Button {
                                         id: camPowerOffBtn
@@ -1307,7 +1283,12 @@ Rectangle {
                                             let target = "left";
                                             (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
                                             MOTIONInterface.powerCamerasOff(target)
+                                            
+                                            // Automatically query power status after powering off
+                                            let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                            MOTIONInterface.queryCameraPowerStatus(sensor_tag)
                                         }
+                                    }
                                     }
                                 }
                             }
