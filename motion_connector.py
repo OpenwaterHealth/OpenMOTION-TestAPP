@@ -39,14 +39,14 @@ if not logger.hasHandlers():
     # 2. Per-run file handler
     #
     # Make sure we have a place to put logs
-    log_dir = os.path.join(os.path.expanduser("~"), "ow-testapp-logs")
-    os.makedirs(log_dir, exist_ok=True)
+    run_dir = os.path.join(os.getcwd(), "app-logs")
+    os.makedirs(run_dir, exist_ok=True)
 
     # Build timestamp like 20251029_124455
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # ow-testapp-<ts>.log
-    logfile_path = os.path.join(log_dir, f"ow-testapp-{ts}.log")
+    logfile_path = os.path.join(run_dir, f"ow-testapp-{ts}.log")
 
     file_handler = logging.FileHandler(logfile_path, mode='w', encoding='utf-8')
     file_handler.setLevel(logging.INFO)   # you can make this DEBUG if you want deeper trace
@@ -55,7 +55,12 @@ if not logger.hasHandlers():
 
     # Optional: announce where we're logging
     logger.info(f"logging to {logfile_path}")
-    
+
+# Run logger (ONLY writes to run.log, no console spam)
+run_logger = logging.getLogger("runlog")
+run_logger.setLevel(logging.INFO)
+run_logger.propagate = False
+
 # Define system states
 DISCONNECTED = 0
 SENSOR_CONNECTED  = 1
@@ -296,7 +301,7 @@ class MOTIONConnector(QObject):
             return
 
         # Directory for individual trigger runs
-        run_dir = os.path.join(os.path.expanduser("~"), "ow-testapp-runs")
+        run_dir = os.path.join(os.getcwd(), "run-logs")
         os.makedirs(run_dir, exist_ok=True)
 
         # Timestamped filename for this specific trigger session
@@ -311,16 +316,15 @@ class MOTIONConnector(QObject):
         run_handler.setFormatter(logging.Formatter(
             '%(asctime)s - %(levelname)s - %(message)s'
         ))
+
         run_handler.setLevel(logging.INFO)
 
-        # Attach to the same logger you're already using everywhere
-        global logger
-        logger.addHandler(run_handler)
+        # Attach this handler to run_logger ONLY
+        run_logger.addHandler(run_handler)
 
-        # Save so we can remove it later
+        # Save so we can remove/close it later
         self._runlog_handler = run_handler
         self._runlog_active = True
-
 
         # --- Gather version info for header ---
         # SDK version (MOTION SDK / sensor SDK)
@@ -331,7 +335,7 @@ class MOTIONConnector(QObject):
 
         # App version (from constant we defined at top)
         try:
-            app_ver = APP_VERSION
+            app_ver = "1.2.6" #TODO: need to read this from main
         except Exception as e:
             app_ver = f"ERROR({e})"
 
@@ -346,15 +350,17 @@ class MOTIONConnector(QObject):
         except Exception as e:
             fw_ver = f"ERROR({e})"
 
-        # --- Write header block into the new run log file ---
-        logger.info("========== RUN START ==========")
-        logger.info(f"App Version: {app_ver}")
-        logger.info(f"SDK Version: {sdk_ver}")
-        logger.info(f"Console Firmware: {fw_ver}")
-        logger.info("================================")
+        #
+        # Write session header into the run log
+        #
+        run_logger.info("========== RUN START ==========")
+        run_logger.info(f"App Version: {app_ver}")
+        run_logger.info(f"SDK Version: {sdk_ver}")
+        run_logger.info(f"Console Firmware: {fw_ver}")
+        run_logger.info("================================")
 
-        # Helpful breadcrumb so humans know where this file lives
-        logger.info(f"[RUNLOG] Trigger run logging started -> {self._runlog_path}")
+        # Also drop a breadcrumb to the main logger so humans see it in console/UI log:
+        logger.info(f"[RUNLOG] started -> {self._runlog_path}")
 
     def _stop_runlog(self):
         """
@@ -363,17 +369,23 @@ class MOTIONConnector(QObject):
         if not self._runlog_active or self._runlog_handler is None:
             return
 
-        global logger
-        logger.info(f"[RUNLOG] Trigger run logging stopped -> {self._runlog_path}")
+        # Mark end of run in the run log
+        run_logger.info(f"[RUNLOG] Trigger run logging stopped -> {self._runlog_path}")
+        run_logger.info("========== RUN END ==========")
 
-        # 1. Remove handler from logger
-        logger.removeHandler(self._runlog_handler)
+        # Also note it in the main logger (console/app log)
+        logger.info(f"[RUNLOG] stopped -> {self._runlog_path}")
+
+        # 1. Remove handler from run_logger
+        try:
+            run_logger.removeHandler(self._runlog_handler)
+        except Exception as e:
+            logger.error(f"Error detaching run log handler: {e}")
 
         # 2. Close the handler so the file is flushed and released
         try:
             self._runlog_handler.close()
         except Exception as e:
-            # Not fatal, just record it in the main logger (which is still attached)
             logger.error(f"Error closing run log handler: {e}")
 
         # 3. Clear state
@@ -968,26 +980,47 @@ class MOTIONConnector(QObject):
             self._console_mutex.unlock()            
         
     @pyqtSlot()
-    def stopTrigger(self):   
-        self._console_mutex.lock()
+    def stopTrigger(self): 
         try:
-            motion_interface.console_module.stop_trigger()
-            self._trigger_state = "OFF"
-            self.triggerStateChanged.emit("OFF")        
-            
-            if self._console_status_thread:
-                self._console_status_thread.stop()
-                self._console_status_thread = None
+            # (1) Figure out if we're being called from inside the status thread
+            current_thread = QThread.currentThread()
+            called_from_status_thread = (
+                self._console_status_thread is not None
+                and current_thread is self._console_status_thread
+            )
 
-            # Close out the run log
+            # (2) Stop the polling thread
+            if self._console_status_thread:
+                # If we're in the SAME thread, don't self.join().
+                if called_from_status_thread:
+                    # Just tell the thread loop to exit after this iteration
+                    self._console_status_thread._running = False
+                    self._console_status_thread._wait_condition.wakeAll()
+                    # Do NOT .wait() here
+                else:
+                    # Safe to fully stop/join from another thread (e.g. UI button)
+                    self._console_status_thread.stop()
+                    self._console_status_thread = None
+
+            # (3) Close out the run log
             self._stop_runlog()
 
+            # (4) Tell console to stop firing
+            self._console_mutex.lock()
+            try:
+                motion_interface.console_module.stop_trigger()
+            finally:
+                self._console_mutex.unlock()
+
+            # (5) Update state
+            self._trigger_state = "OFF"
+            self.triggerStateChanged.emit("OFF")
+
             return True
+
         except Exception as e:
             logger.error(f"Unexpected error while stopping trigger: {e}")
             return False
-        finally:
-            self._console_mutex.unlock()      
     
     @pyqtSlot(str)
     def querySensorAccelerometer (self, target: str):
@@ -1181,7 +1214,7 @@ class MOTIONConnector(QObject):
         self._console_mutex.lock()
         try:
             lsync_count = motion_interface.console_module.get_lsync_pulsecount()
-            logger.info(f"Lsync Count: {lsync_count}")
+            logger.debug(f"Lsync Count: {lsync_count}")
             return lsync_count
         except Exception as e:
             logger.error(f"Error getting Lsync count: {e}")
@@ -1193,7 +1226,7 @@ class MOTIONConnector(QObject):
     def i2cReadBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data_len: int):
         """Send i2c read to device"""
         try:
-            logger.info(f"I2C Read Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
+            logger.debug(f"I2C Read Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
                 f"i2c_addr=0x{int(i2c_addr):02X}, offset=0x{int(offset):02X}, read_len={int(data_len)}"
             )            
 
@@ -1204,8 +1237,8 @@ class MOTIONConnector(QObject):
                     logger.error(f"Read I2C Failed")
                     return []
                 else:
-                    logger.info(f"Read I2C Success")
-                    logger.info(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
+                    logger.debug(f"Read I2C Success")
+                    logger.debug(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
                     return list(fpga_data[:fpga_data_len]) 
                 
             elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
@@ -1223,7 +1256,7 @@ class MOTIONConnector(QObject):
         """Send i2c write to device"""
         locker = QMutexLocker(self._i2c_mutex)  # Lock auto-released at function exit
         try:
-            logger.info(
+            logger.debug(
                 f"I2C Write Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
                 f"i2c_addr=0x{int(i2c_addr):02X}, offset=0x{int(offset):02X}, data={[f'0x{int(b):02X}' for b in data]}"
             )            
@@ -1242,13 +1275,13 @@ class MOTIONConnector(QObject):
             if target == "CONSOLE":
                 self._console_mutex.lock()
                 if motion_interface.console_module.write_i2c_packet(mux_index=mux_idx, channel=channel, device_addr=i2c_addr, reg_addr=offset, data=byte_data):
-                    logger.info(f"Write I2C Success")
+                    logger.debug(f"Write I2C Success")
                     return True
                 else:
                     logger.error(f"Write I2C Failed")
                     return False
             elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
-                logger.info(f"I2C Write Not Implemented")
+                logger.debug(f"I2C Write Not Implemented")
                 return True
         except Exception as e:
             logger.error(f"Error sending i2c write command: {e}")
@@ -1543,11 +1576,14 @@ class MOTIONConnector(QObject):
                 # GET operation
                 self._tec_dac = motion_interface.console_module.tec_voltage()
                 logger.info(f"TEC DAC Setting: {self._tec_dac}")
+                run_logger.info("TEC Setpoint Voltage → volt: %.6f ", float(self._tec_dac))
+
             else:
                 # SET operation
                 motion_interface.console_module.tec_voltage(value)
                 logger.info(f"TEC voltage set to: {value}")
                 self._tec_dac = value
+                run_logger.info("TEC Setpoint Voltage → volt: %.6f ", float(self._tec_dac))
             
             self.tecDacChanged.emit()
             return True                
@@ -1563,23 +1599,31 @@ class MOTIONConnector(QObject):
         Returns a dict suitable for QML:
         On error: { ok: False, error: "..." }
         """
+
         self._console_mutex.lock()
         try:
             v, i, p, t, ok = motion_interface.console_module.tec_status()
 
-            return {
-                "ok": True,
-                # raw
-                "volt": float(v),
-                "temp": float(i),
-                "tec_c": float(p),
-                "tec_v": float(t),
-                "good": bool(ok),
-            }
+            self._tec_voltage   = float(v)
+            self._tec_temp      = float(i)
+            self._tec_monC      = float(p)
+            self._tec_monV      = float(t)
+            self._tec_good      = bool(ok)
+
+            # Long-run health sample -> goes ONLY to run.log
+                
+            run_logger.info(
+                "TEC Status →  volt: %.4f temp: %.4f tec_c: %.4f tec_v: %.4f good: %s",
+                float(v), float(i), float(p), float(t), bool(ok)
+            )
+
+            self.tecStatusChanged.emit()
+
+            return True
 
         except Exception as e:
             logger.error(f"Error in TEC status operation: {e}")
-            return {"ok": False, "error": str(e)}
+            return False
         finally:
             self._console_mutex.unlock()
 
@@ -1600,98 +1644,117 @@ class ConsoleStatusThread(QThread):
 
     def __init__(self, connector: MOTIONConnector, parent=None):
         super().__init__(parent)
-        self.connector = connector  # Reference to MOTIONConnector
+        self.connector = connector
         self._running = True
         self._mutex = QMutex()
         self._wait_condition = QWaitCondition()
-        # self._count = 0  # Initialize count for status updates
+        self.last_run = time.time()
 
     def run(self):
-        
         while self._running:
-            self.connector._console_mutex.lock()
-            try:
-                # Replace this with your actual console status check
-                muxIdx = 1
-                i2cAddr = 0x41
-                offset = 0x24  
-                data_len = 1  # Number of bytes to read
+            now = time.time()
 
-                channels = {
-                    "SE": 6,
-                    "SO": 7
-                }
-                statuses = {}
+            # run the heavy work ~1 Hz
+            if now - self.last_run >= 1.0:
+                try:
+                    #
+                    # 1. TEC status poll
+                    #
+                    # This updates _tec_* fields inside connector and emits tecStatusChanged
+                    self.connector.tec_status()
 
-                for label, channel in channels.items():
-                    status = self.connector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len)
-                    if status:
-                        statuses[label] = status[0]                
+                    #
+                    # 2. Safety / interlock state
+                    #
+                    muxIdx   = 1
+                    i2cAddr  = 0x41
+                    offset   = 0x24
+                    data_len = 1
+
+                    channels = {
+                        "SE": 6,
+                        "SO": 7
+                    }
+                    statuses = {}
+
+                    for label, channel in channels.items():
+                        status = self.connector.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len)
+                        if status:
+                            statuses[label] = status[0]
+                        else:
+                            self.statusUpdate.emit(f"{label} Disconnected")
+                            raise Exception("I2C read error")
+
+                    status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
+                    run_logger.info(
+                        f"Safety Status → SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
+                    )
+
+                    ok_se = (statuses["SE"] & 0x0F) == 0
+                    ok_so = (statuses["SO"] & 0x0F) == 0
+
+                    if ok_se and ok_so:
+                        if self.connector._safetyFailure:
+                            self.connector._safetyFailure = False
+                            self.connector.safetyFailureStateChanged.emit(False)
                     else:
-                        self.statusUpdate.emit(f"{label} Disconnected")
-                        raise Exception("I2C read error")
+                        if not self.connector._safetyFailure:
+                            # First time we see a failure
+                            self.connector._safetyFailure = True
+                            # Request trigger stop (safe version won't deadlock)
+                            self.connector.stopTrigger()
+                            self.connector.laserStateChanged.emit(False)
+                            self.connector.safetyFailureStateChanged.emit(True)
+                            logging.error(f"Failure Detected: {status_text}")
 
-                # if self._count>4 :    
-                #     statuses["SE"] = 0x0F  # Trip safety error
+                    #
+                    # 3. Analog telemetry (tcm/tcl/pdc)
+                    #
+                    tcm_raw = self.connector.getLsyncCount()
+                    tcl_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 4, i2cAddr, 0x10, 4)
+                    pdc_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 7, i2cAddr, 0x1C, 2)
 
-                status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
-                
-                if (statuses["SE"] & 0x0F) == 0 and (statuses["SO"] & 0x0F) == 0:
-                    if self.connector._safetyFailure:
-                        self.connector._safetyFailure = False
-                        self.connector.safetyFailureStateChanged.emit(False)
-                else:
-                    if not self.connector._safetyFailure:
-                        self.connector._safetyFailure = True
-                        self.connector.stopTrigger()
-                        self.connector.laserStateChanged.emit(False)
-                        self.connector.safetyFailureStateChanged.emit(True)
-                        logging.error(f"Failure Detected: {status_text}")
+                    logging.debug(f"tcm_raw: {tcm_raw} tcl_raw: {tcl_raw} pdc_raw: {pdc_raw}")
 
-                # Emit combined status if needed
-                
-                logging.info(f"Console Status QUERY: {status_text}")
+                    if tcl_raw and pdc_raw:
+                        tcm = int(tcm_raw)
+                        tcl = int.from_bytes(tcl_raw, byteorder='little')
+                        pdc = int.from_bytes(pdc_raw, byteorder='little') * 2.7  # mA
 
-                # Read TCM (ADC VD) and TCL (ADC CD) from Seed (channel 5)
-                tcm_raw = self.connector.getLsyncCount()
-                tcl_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 4, i2cAddr, 0x10, 4)
-                # Read PDC from Safety OPT (channel 7)
-                pdc_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 7, i2cAddr, 0x1C, 2)
-                
-                logging.info(f"tcm_raw: {tcm_raw} tcl_raw: {tcl_raw} pdc_raw: {pdc_raw}")
+                        if (
+                            tcl != self.connector._tcl or
+                            tcm != self.connector._tcm or
+                            pdc != self.connector._pdc
+                        ):
+                            self.connector._tcl = tcl
+                            self.connector._tcm = tcm
+                            self.connector._pdc = pdc
 
-                if tcl_raw and pdc_raw:
-                    tcm = int(tcm_raw) 
-                    tcl = int.from_bytes(tcl_raw, byteorder='little') 
-                    pdc = int.from_bytes(pdc_raw, byteorder='little') * 2.7 # Convert to mA
+                            logging.debug(
+                                f"Analog Values → TCM: {tcm}, TCL: {tcl}, PDC: {pdc:.3f} mA"
+                            )
 
-                    logging.info(f"tcl: {tcl} pdc: {pdc}")
+                            run_logger.info(
+                                f"Analog Values → TCM: {tcm}, TCL: {tcl}, PDC: {pdc:.3f}"
+                            )
 
-                    if (tcl != self.connector._tcl or 
-                        tcm != self.connector._tcm or 
-                        pdc != self.connector._pdc):
-                        self.connector._tcl = tcl
-                        self.connector._tcm = tcm
-                        self.connector._pdc = pdc
+                            self.connector.tclChanged.emit()
+                            self.connector.tcmChanged.emit()
+                            self.connector.pdcChanged.emit()
 
-                        logging.info(f"Analog Values → TCM: {tcm}, TCL: {tcl}, PDC: {pdc:.3f} mA")
+                except Exception as e:
+                    logging.error(f"Console status query failed: {e}")
 
-                        self.connector.tclChanged.emit()
-                        self.connector.tcmChanged.emit()
-                        self.connector.pdcChanged.emit()
-                # self._count += 1  # Increment count for status updates
+                # mark we ran this 1Hz tick
+                self.last_run = now
 
-            except Exception as e:
-                logging.error(f"Console status query failed: {e}")
-            finally:
-                self.connector._console_mutex.unlock()
-
-            # Sleep for up to 1000ms, but can be woken early
+            # sleep-ish for up to 100ms, or until stop() wakes us
             self._mutex.lock()
-            self._wait_condition.wait(self._mutex, 1000)
+            self._wait_condition.wait(self._mutex, 100)
             self._mutex.unlock()
 
     def stop(self):
+        # Called from *another* thread in normal shutdown
         self._running = False
         self._wait_condition.wakeAll()
         self.quit()

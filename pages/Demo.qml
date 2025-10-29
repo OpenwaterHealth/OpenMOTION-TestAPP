@@ -1121,130 +1121,15 @@ Rectangle {
                             id: pageTec
                             color: "#1E1E20"
 
-                            // Local state for display
-                            property real tecSet: 0.0
-                            property real tempSet: 0.0
-                            property real tecCurr: 0.0
-                            property real tecVolt: 0.0
-                            property bool tecGood: false
-                            property int tecTabIndex: 2
-                            property bool isEntryRefresh: true
-                            property bool isRefreshing: false
-                            property bool isSetting: false
-
-                            function refresh() {
-                                if (isSetting || isRefreshing) return
-                                isRefreshing = true
-                                try {
-                                    if(pageTec.isEntryRefresh){
-                                        pageTec.isEntryRefresh = false;
-                                        const v = MOTIONInterface.tec_voltage()        // GET (no args)
-                                    }
-
-                                    const s = MOTIONInterface.tec_status()         // GET status
-                                    if (s && s.ok) {
-                                        // assign from your Python keys exactly
-                                        pageTec.tempSet = Number(s.temp) || 0; 
-                                        pageTec.tecCurr = Number(s.tec_c) || 0; 
-                                        pageTec.tecVolt = Number(s.tec_v) || 0; 
-                                        pageTec.tecGood     = !!s.good;
-                                    } else {
-                                        console.warn("TEC status failed:", s ? s.error : "unknown");
-                                    }
-                                } catch (e) {
-                                    console.log("TEC refresh failed:", e)
-                                } finally {
-                                    isRefreshing = false
-                                }
-                            }
-
-                            function applyTecSetpoint() {
-                                if (isRefreshing || isSetting) return
-                                // Parse & clamp check
-                                const val = parseFloat(tecSetpoint.text)
-                                if (isNaN(val) || val < 0 || val > 2.5) {
-                                    console.log("Invalid TEC setpoint; must be 0.0000–2.5000 V")
-                                    return
-                                }
-                                    
-                                if(!MOTIONInterface.tec_voltage(val)){
-                                    console.log("Failed to write TEC DAC");
-                                }
-                            }
-
-                            // --- TIMERS ---
-                            // Kick off a refresh every second *only* when this tab is active and not setting
-                            Timer {
-                                id: refreshTimer
-                                interval: 5000
-                                repeat: true
-                                running: (typeof safetyStack !== "undefined"
-                                            ? safetyStack.currentIndex === pageTec.tecTabIndex
-                                            : pageTec.visible) && !pageTec.isSetting
-                                onTriggered: pageTec.refresh()
-                            }
-
-                            // After setting, wait briefly, read back, unlock, and resume periodic refresh if still on tab
-                            Timer {
-                                id: settleTimer
-                                interval: 100
-                                repeat: false
-                                onTriggered: {
-                                    try {
-                                        const readback = MOTIONInterface.tec_voltage() // GET
-                                        const s = MOTIONInterface.tec_status()         // GET status
-                                        if (s && s.ok) {
-                                            // assign from your Python keys exactly
-                                            pageTec.tempSet = Number(s.temp) || 0; 
-                                            pageTec.tecCurr = Number(s.tec_c) || 0; 
-                                            pageTec.tecVolt = Number(s.tec_v) || 0; 
-                                            pageTec.tecGood     = !!s.good;
-                                        } else {
-                                            console.warn("TEC status failed:", s ? s.error : "unknown");
-                                        }
-                                    } catch (e) {
-                                        console.log("TEC readback failed:", e)
-                                    } finally {
-                                        pageTec.isSetting = false
-                                        // Only resume if we’re still on this tab
-                                        if (typeof safetyStack !== "undefined" && safetyStack.currentIndex === pageTec.tecTabIndex)
-                                            refreshTimer.start()
-                                    }
-                                }
-                            }
-                                                                            
-
-                            // --- TAB ENTRY/EXIT HOOKS ---
-                            // Do an immediate refresh the moment this tab is selected
-                            // (works if your parent exposes `safetyStack`)
-                            Connections {
-                                target: typeof safetyStack !== "undefined" ? safetyStack : null
-                                function onCurrentIndexChanged() {
-                                    if (safetyStack.currentIndex === pageTec.tecTabIndex) {
-                                        pageTec.refresh()        // initial refresh on entry
-                                        refreshTimer.start()     // start periodic updates
-                                    } else {
-                                        refreshTimer.stop()      // stop when leaving tab                                        
-                                        pageTec.isEntryRefresh = true;
-                                    }
-                                }
-                            }
-
                             // Fallback: if you don’t have safetyStack, do an initial refresh when created
                             Component.onCompleted: {
-                                if (typeof safetyStack !== "undefined") {
-                                    if (safetyStack.currentIndex === tecTabIndex) {
-                                        refresh()                // initial if already on this tab
-                                        refreshTimer.start()
-                                    }
-                                } else {
-                                    // If your UI uses visible to indicate tab selection:
-                                    if (pageTec.visible) {
-                                        refresh()
-                                        refreshTimer.start()
-                                    }
+                                try{
+                                    MOTIONInterface.tec_status();
+                                }catch(e){
+                                    console.error(e);
                                 }
                             }
+                                                    
                                                     
                             GridLayout {
                                 columns: 4
@@ -1284,7 +1169,7 @@ Rectangle {
                                             Text { text: "Setpoint (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
-                                                text: Number(pageTec.tempSet || 0).toFixed(3)
+                                                text: Number(MOTIONInterface.tecTemp || 0).toFixed(3)
                                                 color: "white"
                                                 font.pixelSize: 14
                                             }
@@ -1307,7 +1192,7 @@ Rectangle {
                                             Text { text: "Current (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
-                                                text: Number(pageTec.tecCurr || 0).toFixed(3)
+                                                text: Number(MOTIONInterface.tecMonC || 0).toFixed(3)
                                                 color: "white"
                                                 font.pixelSize: 14
                                             }
@@ -1330,7 +1215,7 @@ Rectangle {
                                             Text { text: "Voltage (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
-                                                text: Number(pageTec.tecVolt || 0).toFixed(3)
+                                                text: Number(MOTIONInterface.tecMonV|| 0).toFixed(3)
                                                 color: "white"
                                                 font.pixelSize: 14
                                             }
@@ -1356,9 +1241,9 @@ Rectangle {
 
                                         Rectangle {
                                             width: 20; height: 20; radius: 10
-                                            color: pageTec.tecGood ? "green" : "red"
+                                            color: MOTIONInterface.tecGood ? "green" : "red"
                                             border.color: "black"; border.width: 1
-                                            Layout.alignment: Qt.AlignHCenter
+                                            Layout.alignment: Qt.AlignHCenter                                            
                                         }
                                     }
                                 }
@@ -1432,8 +1317,24 @@ Rectangle {
                                             Layout.alignment: Qt.AlignRight
                                             Layout.rightMargin: 30  
                                             Layout.preferredWidth: 100
-                                            enabled: MOTIONInterface.consoleConnected && !pageTec.isRefreshing && !pageTec.isSetting
-                                            onTriggered: pageTec.applyTecSetpoint()                                            
+                                            enabled: MOTIONInterface.consoleConnected
+                                            onTriggered: {
+                                                const val = parseFloat(tecSetpoint.text)
+                                                if (isNaN(val) || val < 0 || val > 2.5) {
+                                                    console.log("Invalid TEC setpoint; must be 0.0000–2.5000 V")
+                                                    return
+                                                }
+                                    
+                                                if(!MOTIONInterface.tec_voltage(val)){
+                                                    console.log("Failed to write TEC DAC");
+                                                }
+                                    
+                                                if(!MOTIONInterface.tec_status()){
+                                                    console.log("Failed to read status");
+                                                }
+
+
+                                            }                                        
                                         }
                                     }
                                 }

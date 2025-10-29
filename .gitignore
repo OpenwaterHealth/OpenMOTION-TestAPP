@@ -84,3 +84,5 @@ junit/
 *.DS_Store
 
 local_notes.md
+app-logs/
+run-logs/
