@@ -656,7 +656,7 @@ Rectangle {
                             // Clear button positioned above the grid
                             Button {
                                 id: clearSerialNumbersButton
-                                text: "Clear SN"
+                                text: "Clear All"
                                 Layout.preferredWidth: 80
                                 Layout.preferredHeight: 30
                                 Layout.columnSpan: 5
@@ -685,6 +685,15 @@ Rectangle {
                                     page1.cam6_sn = "";
                                     page1.cam7_sn = "";
                                     page1.cam8_sn = "";
+                                    
+                                    // Reset all camera statuses to "Not Tested"
+                                    for (let i = 0; i < cameraStatusModel.count; i++) {
+                                        cameraStatusModel.set(i, {
+                                            label: "Camera " + (i + 1),
+                                            status: "Not Tested",
+                                            color: "gray"
+                                        });
+                                    }
                                 }
                             }
 
@@ -718,7 +727,7 @@ Rectangle {
                                             visible: parent.isLeftColumn
                                             Layout.preferredWidth: 110
                                             Layout.preferredHeight: 28
-                                            maximumLength: 16
+                                            maximumLength: 9
                                             placeholderText: text.length === 0 ? ("SN #" + (parent.mappedIndex + 1)) : ""
                                             color: "#BDC3C7"
                                             topPadding: 2
@@ -807,7 +816,7 @@ Rectangle {
                                             visible: !parent.isLeftColumn
                                             Layout.preferredWidth: 110
                                             Layout.preferredHeight: 28
-                                            maximumLength: 16
+                                            maximumLength: 9
                                             placeholderText: text.length === 0 ? ("SN #" + (parent.mappedIndex + 1)) : ""
                                             color: "#BDC3C7"
                                             topPadding: 2
@@ -1157,7 +1166,8 @@ Rectangle {
                                     spacing: 8
                                     Layout.alignment: Qt.AlignBottom | Qt.AlignRight
 
-                                    // Power status indicator and refresh button row
+
+                                    // Power On button with status indicator
                                     RowLayout {
                                         spacing: 8
                                         Layout.alignment: Qt.AlignHCenter
@@ -1177,47 +1187,6 @@ Rectangle {
                                             border.color: "#BDC3C7"
                                             border.width: 1
                                         }
-
-                                        Button {
-                                            id: getPowerStatusBtn
-                                            text: "Get Power Status"
-                                            Layout.preferredWidth: 134
-                                            Layout.preferredHeight: 40
-                                            hoverEnabled: true
-                                            enabled: {
-                                                if (sensorSelector.currentIndex === 0) {
-                                                    return MOTIONInterface.leftSensorConnected
-                                                } else {
-                                                    return MOTIONInterface.rightSensorConnected
-                                                }
-                                            }
-                                            onClicked: {
-                                                let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
-                                                MOTIONInterface.queryCameraPowerStatus(sensor_tag)
-                                            }
-                                            contentItem: Text {
-                                                text: parent.text
-                                                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
-                                                horizontalAlignment: Text.AlignHCenter
-                                                verticalAlignment: Text.AlignVCenter
-                                            }
-                                            background: Rectangle {
-                                                color: {
-                                                    if (!parent.enabled) {
-                                                                return "#3A3F4B"
-                                                    }
-                                                            return parent.hovered ? "#4A90E2" : "#3A3F4B"
-                                                }
-                                                radius: 4
-                                                border.color: {
-                                                    if (!parent.enabled) {
-                                                                return "#7F8C8D"
-                                                    }
-                                                            return parent.hovered ? "#FFFFFF" : "#BDC3C7"
-                                                }
-                                            }
-                                        }
-                                    }
 
                             Button {
                                         id: camPowerOnBtn
@@ -1257,8 +1226,24 @@ Rectangle {
                                             let target = "left";
                                             (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
                                             MOTIONInterface.powerCamerasOn(target)
+                                            
+                                            // Automatically query power status after powering on
+                                            let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                            MOTIONInterface.queryCameraPowerStatus(sensor_tag)
                                         }
                                     }
+                                    }
+
+                                    // Power Off button with spacer to align with Power On button
+                                    RowLayout {
+                                        spacing: 8
+                                        Layout.alignment: Qt.AlignHCenter
+                                        
+                                        // Spacer to match the circle width from Power On button
+                                        Item {
+                                            width: 16
+                                            height: 16
+                                        }
 
                                     Button {
                                         id: camPowerOffBtn
@@ -1298,7 +1283,12 @@ Rectangle {
                                             let target = "left";
                                             (sensorSelector.currentIndex === 0) ? target = "left": target = "right";
                                             MOTIONInterface.powerCamerasOff(target)
+                                            
+                                            // Automatically query power status after powering off
+                                            let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
+                                            MOTIONInterface.queryCameraPowerStatus(sensor_tag)
                                         }
+                                    }
                                     }
                                 }
                             }
