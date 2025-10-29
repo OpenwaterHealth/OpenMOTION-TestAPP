@@ -18,17 +18,44 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)  # or INFO depending on what you want to see
 
 # Create console handler
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)  # Show all messages on console
+logger = logging.getLogger("ow-testapp")   # use a stable name instead of __name__
+logger.setLevel(logging.INFO)
 
-# Optional: set a formatter
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(formatter)
+# Common formatter for both console and file
+formatter = logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s'
+)
 
-# Add handler to the logger (only if not already added)
 if not logger.hasHandlers():
+    #
+    # 1. Console handler (what you already had)
+    #
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
+    #
+    # 2. Per-run file handler
+    #
+    # Make sure we have a place to put logs
+    log_dir = os.path.join(os.path.expanduser("~"), "ow-testapp-logs")
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Build timestamp like 20251029_124455
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # ow-testapp-<ts>.log
+    logfile_path = os.path.join(log_dir, f"ow-testapp-{ts}.log")
+
+    file_handler = logging.FileHandler(logfile_path, mode='w', encoding='utf-8')
+    file_handler.setLevel(logging.INFO)   # you can make this DEBUG if you want deeper trace
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    # Optional: announce where we're logging
+    logger.info(f"logging to {logfile_path}")
+    
 # Define system states
 DISCONNECTED = 0
 SENSOR_CONNECTED  = 1
