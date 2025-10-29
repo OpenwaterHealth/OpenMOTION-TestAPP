@@ -235,6 +235,12 @@ class MOTIONConnector(QObject):
         self._is_streaming = False
         self._capture_thread = None
         self._console_status_thread = None
+
+        # --- per-trigger run log support ---
+        self._runlog_handler = None         # logging.FileHandler or None
+        self._runlog_path = None            # str or None
+        self._runlog_active = False         # bool
+
         self._tcm = 0.0
         self._tcl = 0.0
         self._pdc = 0.0
@@ -278,6 +284,69 @@ class MOTIONConnector(QObject):
             return "right"
         else:
             raise ValueError(f"Invalid sensor tag: {sensor_tag}")
+        
+    def _start_runlog(self):
+        """
+        Create a dedicated run log file and attach it to the global logger
+        so that all logger.info / logger.error etc. also go into this file
+        while the trigger is running.
+        """
+        if self._runlog_active:
+            # Already running; nothing to do
+            return
+
+        # Directory for individual trigger runs
+        run_dir = os.path.join(os.path.expanduser("~"), "ow-testapp-runs")
+        os.makedirs(run_dir, exist_ok=True)
+
+        # Timestamped filename for this specific trigger session
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        self._runlog_path = os.path.join(run_dir, f"run-{ts}.log")
+
+        # Create handler
+        run_handler = logging.FileHandler(self._runlog_path,
+                                          mode='w',
+                                          encoding='utf-8')
+        # Match the global formatter you already defined at top of file
+        run_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s'
+        ))
+        run_handler.setLevel(logging.INFO)
+
+        # Attach to the same logger you're already using everywhere
+        global logger
+        logger.addHandler(run_handler)
+
+        # Save so we can remove it later
+        self._runlog_handler = run_handler
+        self._runlog_active = True
+
+        logger.info(f"[RUNLOG] Trigger run logging started -> {self._runlog_path}")
+
+    def _stop_runlog(self):
+        """
+        Detach and close the per-run file handler.
+        """
+        if not self._runlog_active or self._runlog_handler is None:
+            return
+
+        global logger
+        logger.info(f"[RUNLOG] Trigger run logging stopped -> {self._runlog_path}")
+
+        # 1. Remove handler from logger
+        logger.removeHandler(self._runlog_handler)
+
+        # 2. Close the handler so the file is flushed and released
+        try:
+            self._runlog_handler.close()
+        except Exception as e:
+            # Not fatal, just record it in the main logger (which is still attached)
+            logger.error(f"Error closing run log handler: {e}")
+
+        # 3. Clear state
+        self._runlog_handler = None
+        self._runlog_path = None
+        self._runlog_active = False
 
     @pyqtProperty(str, notify=csvOutputDirectoryChanged)
     def csvOutputDirectory(self):
@@ -845,6 +914,10 @@ class MOTIONConnector(QObject):
             success = motion_interface.console_module.start_trigger()
             if success:
 
+                # Start the per-run log now
+                self._start_runlog()
+                logger.info("TRIGGER STARTED")
+
                 # Start status thread
                 if self._console_status_thread is None:
                     self._console_status_thread = ConsoleStatusThread(self)
@@ -872,6 +945,9 @@ class MOTIONConnector(QObject):
             if self._console_status_thread:
                 self._console_status_thread.stop()
                 self._console_status_thread = None
+
+            # Close out the run log
+            self._stop_runlog()
 
             return True
         except Exception as e:
