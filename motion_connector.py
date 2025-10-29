@@ -321,6 +321,39 @@ class MOTIONConnector(QObject):
         self._runlog_handler = run_handler
         self._runlog_active = True
 
+
+        # --- Gather version info for header ---
+        # SDK version (MOTION SDK / sensor SDK)
+        try:
+            sdk_ver = self._interface.get_sdk_version()  # same as get_sdk_version() slot :contentReference[oaicite:4]{index=4}
+        except Exception as e:
+            sdk_ver = f"ERROR({e})"
+
+        # App version (from constant we defined at top)
+        try:
+            app_ver = APP_VERSION
+        except Exception as e:
+            app_ver = f"ERROR({e})"
+
+        # Console firmware version (from console module) :contentReference[oaicite:5]{index=5}
+        try:
+            # _console_mutex is a QRecursiveMutex so re-locking is safe if we're already in startTrigger
+            self._console_mutex.lock()
+            try:
+                fw_ver = motion_interface.console_module.get_version()
+            finally:
+                self._console_mutex.unlock()
+        except Exception as e:
+            fw_ver = f"ERROR({e})"
+
+        # --- Write header block into the new run log file ---
+        logger.info("========== RUN START ==========")
+        logger.info(f"App Version: {app_ver}")
+        logger.info(f"SDK Version: {sdk_ver}")
+        logger.info(f"Console Firmware: {fw_ver}")
+        logger.info("================================")
+
+        # Helpful breadcrumb so humans know where this file lives
         logger.info(f"[RUNLOG] Trigger run logging started -> {self._runlog_path}")
 
     def _stop_runlog(self):
