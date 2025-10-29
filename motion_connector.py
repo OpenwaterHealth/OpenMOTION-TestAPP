@@ -222,6 +222,10 @@ class MOTIONConnector(QObject):
 
         self._console_mutex = QRecursiveMutex()
         
+        # Sensor mutexes for left and right sensors (following console mutex pattern)
+        self._left_sensor_mutex = QRecursiveMutex()
+        self._right_sensor_mutex = QRecursiveMutex()
+        
         self.connect_signals()
 
     def connect_signals(self):
@@ -229,6 +233,24 @@ class MOTIONConnector(QObject):
         motion_interface.signal_connect.connect(self.on_connected)
         motion_interface.signal_disconnect.connect(self.on_disconnected)
         motion_interface.signal_data_received.connect(self.on_data_received)
+
+    def _get_sensor_mutex(self, sensor_tag: str) -> QRecursiveMutex:
+        """Get the appropriate mutex for the given sensor."""
+        if sensor_tag == "SENSOR_LEFT":
+            return self._left_sensor_mutex
+        elif sensor_tag == "SENSOR_RIGHT":
+            return self._right_sensor_mutex
+        else:
+            raise ValueError(f"Invalid sensor tag: {sensor_tag}")
+
+    def _get_sensor_side(self, sensor_tag: str) -> str:
+        """Convert sensor tag to sensor side string."""
+        if sensor_tag == "SENSOR_LEFT":
+            return "left"
+        elif sensor_tag == "SENSOR_RIGHT":
+            return "right"
+        else:
+            raise ValueError(f"Invalid sensor tag: {sensor_tag}")
 
     @pyqtProperty(str, notify=csvOutputDirectoryChanged)
     def csvOutputDirectory(self):
@@ -390,43 +412,49 @@ class MOTIONConnector(QObject):
     def captureHistogramToCSV(self, sensor_tag: str, camera_index: int, serial_number: str, is_dark: bool = False):
         """Capture histogram from selected camera and save as CSV file named with serial number."""
         try:
-            # Convert sensor tag to lowercase for interface
-            sensor_side = "left" if sensor_tag == "SENSOR_LEFT" else "right"
-            capture_type = "dark histogram" if is_dark else "histogram"
-            logger.info(f"Capturing {capture_type} for {sensor_side} camera {camera_index} with SN {serial_number}")
+            sensor_side = self._get_sensor_side(sensor_tag)
+            mutex = self._get_sensor_mutex(sensor_tag)
             
-            # Single camera
-            bins, histo = self._interface.get_camera_histogram(
-                sensor_side=sensor_side,
-                camera_id=camera_index,
-                test_pattern_id=4,
-                auto_upload=True
-            )
-            if bins:
-                suffix = "_dark" if is_dark else "_light"
-                filename = f"{serial_number}_histogram{suffix}.csv"
+            mutex.lock()
+            try:
+                capture_type = "dark histogram" if is_dark else "histogram"
+                logger.info(f"Capturing {capture_type} for {sensor_side} camera {camera_index} with SN {serial_number}")
                 
-                # Get camera temperature
-                try:
-                    temperature = self._interface.sensors[sensor_side].imu_get_temperature()
-                    logger.info(f"Camera temperature: {temperature}°C")
-                except Exception as e:
-                    logger.error(f"Failed to get camera temperature: {e}")
-                    temperature = 0.0  # Fallback to 0 if temperature retrieval fails
-                
-                # Calculate weighted mean
-                weighted_mean, std_dev = self._calculate_weighted_mean_std_dev(bins[:1024])
-                print(f"Weighted mean of histogram: {weighted_mean:.2f}")
-                print(f"Standard deviation of histogram: {std_dev:.2f}")
-                
-                self._save_histogram_csv(bins, filename, temperature,camera_index)
-                logger.info(f"Saved {capture_type} to {filename}")
-                
-                # Emit signal with weighted mean
-                self.histogramCaptureCompleted.emit(camera_index, weighted_mean, std_dev)
-            else:
-                logger.error(f"Failed to get {capture_type} for camera {camera_index+1}")
+                # Single camera
+                bins, histo = self._interface.get_camera_histogram(
+                    sensor_side=sensor_side,
+                    camera_id=camera_index,
+                    test_pattern_id=4,
+                    auto_upload=True
+                )
+                if bins:
+                    suffix = "_dark" if is_dark else "_light"
+                    filename = f"{serial_number}_histogram{suffix}.csv"
                     
+                    # Get camera temperature
+                    try:
+                        temperature = self._interface.sensors[sensor_side].imu_get_temperature()
+                        logger.info(f"Camera temperature: {temperature}°C")
+                    except Exception as e:
+                        logger.error(f"Failed to get camera temperature: {e}")
+                        temperature = 0.0  # Fallback to 0 if temperature retrieval fails
+                    
+                    # Calculate weighted mean
+                    weighted_mean, std_dev = self._calculate_weighted_mean_std_dev(bins[:1024])
+                    print(f"Weighted mean of histogram: {weighted_mean:.2f}")
+                    print(f"Standard deviation of histogram: {std_dev:.2f}")
+                    
+                    self._save_histogram_csv(bins, filename, temperature,camera_index)
+                    logger.info(f"Saved {capture_type} to {filename}")
+                    
+                    # Emit signal with weighted mean for async UI update
+                    self.histogramCaptureCompleted.emit(camera_index, weighted_mean, std_dev)
+                else:
+                    logger.error(f"Failed to get {capture_type} for camera {camera_index+1}")
+                    
+            finally:
+                mutex.unlock()
+                        
         except Exception as e:
             logger.error(f"Error capturing {capture_type}: {e}")
 
@@ -434,16 +462,21 @@ class MOTIONConnector(QObject):
     def captureAllCamerasHistogramToCSV(self, sensor_tag: str, is_dark: bool = False, serial_numbers: list = None):
         """Capture histogram from all cameras and save each with individual serial numbers."""
         try:
-            # Convert sensor tag to lowercase for interface
-            sensor_side = "left" if sensor_tag == "SENSOR_LEFT" else "right"
-            capture_type = "dark histograms" if is_dark else "histograms"
-            logger.info(f"Capturing {capture_type} for all cameras on {sensor_side}")
+            sensor_side = self._get_sensor_side(sensor_tag)
+            mutex = self._get_sensor_mutex(sensor_tag)
             
-            # Map camera indices to their display order (same as in QML)
-            camera_mapping = [0, 7, 1, 6, 2, 5, 3, 4]  # Left column: 1,2,3,4; Right column: 8,7,6,5
-            
-            for display_idx, camera_idx in enumerate(camera_mapping):
-               self.captureHistogramToCSV(sensor_tag, camera_idx, serial_numbers[display_idx] if serial_numbers else "", is_dark)
+            mutex.lock()
+            try:
+                capture_type = "dark histograms" if is_dark else "histograms"
+                logger.info(f"Capturing {capture_type} for all cameras on {sensor_side}")
+                
+                # Map camera indices to their display order (same as in QML)
+                camera_mapping = [0, 7, 1, 6, 2, 5, 3, 4]  # Left column: 1,2,3,4; Right column: 8,7,6,5
+                
+                for display_idx, camera_idx in enumerate(camera_mapping):
+                   self.captureHistogramToCSV(sensor_tag, camera_idx, serial_numbers[display_idx] if serial_numbers else "", is_dark)
+            finally:
+                mutex.unlock()
         except Exception as e:
             logger.error(f"Error capturing {capture_type}: {e}")
 
@@ -593,19 +626,26 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(str)
     def querySensorInfo(self, target: str):
-        """Fetch and emit device information."""
+        """Fetch and emit device information with mutex protection and event-based UI updates."""
         try:
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":                
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                mutex = self._get_sensor_mutex(target)
+                
+                mutex.lock()
+                try:
+                    fw_version = motion_interface.sensors[sensor_tag].get_version()
+                    logger.info(f"Version: {fw_version}")
+                    hw_id = motion_interface.sensors[sensor_tag].get_hardware_id()
+                    device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
+                    # Emit signal for async UI update
+                    self.sensorDeviceInfoReceived.emit(fw_version, device_id)
+                    logger.info(f"Sensor Device Info - Firmware: {fw_version}, Device ID: {device_id}")
+                finally:
+                    mutex.unlock()
             else:
                 logger.error(f"Invalid target for sensor info query: {target}")
                 return
-            fw_version = motion_interface.sensors[sensor_tag].get_version()
-            logger.info(f"Version: {fw_version}")
-            hw_id = motion_interface.sensors[sensor_tag].get_hardware_id()
-            device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
-            self.sensorDeviceInfoReceived.emit(fw_version, device_id)
-            logger.info(f"Sensor Device Info - Firmware: {fw_version}, Device ID: {device_id}")
         except Exception as e:
             logger.error(f"Error querying device info: {e}")
 
@@ -640,16 +680,23 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(str)
     def querySensorTemperature(self, target: str):
-        """Fetch and emit Temperature data."""
+        """Fetch and emit Temperature data with mutex protection and event-based UI updates."""
         try:
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":                
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                mutex = self._get_sensor_mutex(target)
+                
+                mutex.lock()
+                try:
+                    imu_temp = motion_interface.sensors[sensor_tag].imu_get_temperature()  
+                    logger.info(f"Temperature Data - IMU Temp: {imu_temp}")
+                    # Emit signal for async UI update
+                    self.temperatureSensorUpdated.emit(imu_temp)
+                finally:
+                    mutex.unlock()
             else:
                 logger.error(f"Invalid target for sensor info query: {target}")
                 return
-            imu_temp = motion_interface.sensors[sensor_tag].imu_get_temperature()  
-            logger.info(f"Temperature Data - IMU Temp: {imu_temp}")
-            self.temperatureSensorUpdated.emit(imu_temp)
         except Exception as e:
             logger.error(f"Error querying Temperature data: {e}")
 
@@ -808,16 +855,23 @@ class MOTIONConnector(QObject):
     
     @pyqtSlot(str)
     def querySensorAccelerometer (self, target: str):
-        """Fetch and emit Accelerometer data."""
+        """Fetch and emit Accelerometer data with mutex protection and event-based UI updates."""
         try:
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":                
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                mutex = self._get_sensor_mutex(target)
+                
+                mutex.lock()
+                try:
+                    accel = motion_interface.sensors[sensor_tag].imu_get_accelerometer()
+                    logger.info(f"Accel (raw): X={accel[0]}, Y={accel[1]}, Z={accel[2]}")
+                    # Emit signal for async UI update
+                    self.accelerometerSensorUpdated.emit(accel[0], accel[1], accel[2])
+                finally:
+                    mutex.unlock()
             else:
                 logger.error(f"Invalid target for sensor info query: {target}")
                 return
-            accel = motion_interface.sensors[sensor_tag].imu_get_accelerometer()
-            logger.info(f"Accel (raw): X={accel[0]}, Y={accel[1]}, Z={accel[2]}")
-            self.accelerometerSensorUpdated.emit(accel[0], accel[1], accel[2])
         except Exception as e:
             logger.error(f"Error querying Accelerometer data: {e}")
 
@@ -833,32 +887,39 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(str, int)
     def configureCamera(self, target:str, cam_mask: int):
+        """Configure camera with mutex protection and event-based UI updates."""
         try:
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                mutex = self._get_sensor_mutex(target)
+                
+                mutex.lock()
+                try:
+                    passed_flash = motion_interface.sensors[sensor_tag].program_fpga(camera_position=cam_mask, manual_process=False)
+                    passed_configure =  motion_interface.sensors[sensor_tag].camera_configure_registers(camera_position=cam_mask)
+
+                    if not passed_flash or not passed_configure:
+                        logger.error(f"Failed to configure camera {sensor_tag} with mask {cam_mask}")
+                        self.cameraConfigUpdated.emit(cam_mask, False)
+                        return
+
+                    gain = 16
+                    exposure = 600
+                    print(f"Switching camera to {cam_mask}")
+                    cam_position = cam_mask.bit_length() - 1
+                    passed_sw = motion_interface.sensors[sensor_tag].switch_camera(cam_position)
+                    print(f"Setting gain to {gain}")
+                    passed_gain= motion_interface.sensors[sensor_tag].camera_set_gain(gain)
+                    print(f"Setting exposure to {exposure}")
+                    passed_exposure = motion_interface.sensors[sensor_tag].camera_set_exposure(0,us=exposure)
+                    print(f"Camera {sensor_tag} with mask {cam_mask} configured with gain {gain} and exposure {exposure}")
+                    passed = passed_flash and passed_configure and passed_sw and passed_gain and passed_exposure
+                    self.cameraConfigUpdated.emit(cam_mask, passed)
+                finally:
+                    mutex.unlock()
             else:
                 logger.error(f"Invalid target for camera configuration: {target}")
                 return
-            passed_flash = motion_interface.sensors[sensor_tag].program_fpga(camera_position=cam_mask, manual_process=False)
-            passed_configure =  motion_interface.sensors[sensor_tag].camera_configure_registers(camera_position=cam_mask)
-
-            if not passed_flash or not passed_configure:
-                logger.error(f"Failed to configure camera {sensor_tag} with mask {cam_mask}")
-                self.cameraConfigUpdated.emit(cam_mask, False)
-                return
-
-            gain = 16
-            exposure = 600
-            print(f"Switching camera to {cam_mask}")
-            cam_position = cam_mask.bit_length() - 1
-            passed_sw = motion_interface.sensors[sensor_tag].switch_camera(cam_position)
-            print(f"Setting gain to {gain}")
-            passed_gain= motion_interface.sensors[sensor_tag].camera_set_gain(gain)
-            print(f"Setting exposure to {exposure}")
-            passed_exposure = motion_interface.sensors[sensor_tag].camera_set_exposure(0,us=exposure)
-            print(f"Camera {sensor_tag} with mask {cam_mask} configured with gain {gain} and exposure {exposure}")
-            passed = passed_flash and passed_configure and passed_sw and passed_gain and passed_exposure
-            self.cameraConfigUpdated.emit(cam_mask, passed)
         except Exception as e:
             logger.error(f"Error configuring Camera {cam_mask}: {e}")
             self.cameraConfigUpdated.emit(cam_mask, False)
@@ -901,33 +962,39 @@ class MOTIONConnector(QObject):
         
     @pyqtSlot(str, result=bool)
     def sendLedToggleCommand(self, target: str):
-        """Send a LED Toggle command to device."""
+        """Send a LED Toggle command to device with mutex protection."""
         try:
             if target == "CONSOLE":
                 self._console_mutex.lock()
-                if motion_interface.console_module.toggle_led():
-                    logger.info(f"Toggle command sent successfully")
-                    return True
-                else:
-                    logger.error(f"Failed to Toggle command")
-                    return False
+                try:
+                    if motion_interface.console_module.toggle_led():
+                        logger.info(f"Toggle command sent successfully")
+                        return True
+                    else:
+                        logger.error(f"Failed to Toggle command")
+                        return False
+                finally:
+                    self._console_mutex.unlock()
             elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
-                if motion_interface.sensors[sensor_tag].toggle_led():
-                    logger.info(f"Toggle command sent successfully")
-                    return True
-                else:
-                    logger.error(f"Failed to send Toggle command")
-                    return False
+                mutex = self._get_sensor_mutex(target)
+                
+                mutex.lock()
+                try:
+                    if motion_interface.sensors[sensor_tag].toggle_led():
+                        logger.info(f"Toggle command sent successfully")
+                        return True
+                    else:
+                        logger.error(f"Failed to send Toggle command")
+                        return False
+                finally:
+                    mutex.unlock()
             else:
                 logger.error(f"Invalid target for Toggle command")
                 return False
         except Exception as e:
             logger.error(f"Error sending Toggle command: {e}")
-            return False
-        finally:
-            if target == "CONSOLE":
-                self._console_mutex.unlock()      
+            return False      
         
     @pyqtSlot(str, result=bool)
     def sendEchoCommand(self, target: str):
@@ -1236,33 +1303,38 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(str)
     def queryCameraPowerStatus(self, target: str):
-        """Query camera power status for all cameras on the specified sensor."""
+        """Query camera power status for all cameras on the specified sensor with mutex protection."""
         try:
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                mutex = self._get_sensor_mutex(target)
+                
+                mutex.lock()
+                try:
+                    logger.info(f"Querying camera power status for {sensor_tag} sensor")
+                    
+                    # Query power status for all cameras
+                    sensor = motion_interface.sensors[sensor_tag]
+                    power_status = sensor.get_camera_power_status()
+                    
+                    if power_status is not None:
+                        # Convert to list of booleans for QML
+                        power_status_list = list(power_status)
+                        logger.info(f"Camera power status: {power_status_list}")
+                        logger.info(f"Power status list type: {type(power_status_list)}, length: {len(power_status_list)}")
+                        
+                        # Emit signal to update UI
+                        self.cameraPowerStatusUpdated.emit(power_status_list)
+                    else:
+                        logger.error("Failed to retrieve camera power status")
+                        # Emit empty status (all False)
+                        self.cameraPowerStatusUpdated.emit([False] * 8)
+                finally:
+                    mutex.unlock()
             else:
                 logger.error(f"Invalid target for camera power status query: {target}")
                 self.cameraPowerStatusUpdated.emit([False] * 8)
                 return
-                
-            logger.info(f"Querying camera power status for {sensor_tag} sensor")
-            
-            # Query power status for all cameras
-            sensor = motion_interface.sensors[sensor_tag]
-            power_status = sensor.get_camera_power_status()
-            
-            if power_status is not None:
-                # Convert to list of booleans for QML
-                power_status_list = list(power_status)
-                logger.info(f"Camera power status: {power_status_list}")
-                logger.info(f"Power status list type: {type(power_status_list)}, length: {len(power_status_list)}")
-                
-                # Emit signal to update UI
-                self.cameraPowerStatusUpdated.emit(power_status_list)
-            else:
-                logger.error("Failed to retrieve camera power status")
-                # Emit empty status (all False)
-                self.cameraPowerStatusUpdated.emit([False] * 8)
                 
         except Exception as e:
             logger.error(f"Error querying camera power status: {e}")
@@ -1271,26 +1343,31 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(str, bool, result=bool)
     def setFanControl(self, target: str, fan_on: bool):
-        """Set fan control state on the specified sensor."""
+        """Set fan control state on the specified sensor with mutex protection."""
         try:
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                mutex = self._get_sensor_mutex(target)
+                
+                mutex.lock()
+                try:
+                    logger.info(f"Setting fan control to {'ON' if fan_on else 'OFF'} on {sensor_tag} sensor")
+                    
+                    # Set fan control state
+                    sensor = motion_interface.sensors[sensor_tag]
+                    result = sensor.set_fan_control(fan_on)
+                    
+                    if result:
+                        logger.info(f"Fan control set to {'ON' if fan_on else 'OFF'} successfully")
+                    else:
+                        logger.error(f"Failed to set fan control to {'ON' if fan_on else 'OFF'}")
+                        
+                    return result
+                finally:
+                    mutex.unlock()
             else:
                 logger.error(f"Invalid target for fan control: {target}")
                 return False
-                
-            logger.info(f"Setting fan control to {'ON' if fan_on else 'OFF'} on {sensor_tag} sensor")
-            
-            # Set fan control state
-            sensor = motion_interface.sensors[sensor_tag]
-            result = sensor.set_fan_control(fan_on)
-            
-            if result:
-                logger.info(f"Fan control set to {'ON' if fan_on else 'OFF'} successfully")
-            else:
-                logger.error(f"Failed to set fan control to {'ON' if fan_on else 'OFF'}")
-                
-            return result
                 
         except Exception as e:
             logger.error(f"Error setting fan control: {e}")
@@ -1298,19 +1375,24 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot(str, result=bool)
     def getFanControlStatus(self, target: str):
-        """Get fan control status from the specified sensor."""
+        """Get fan control status from the specified sensor with mutex protection."""
         try:
             if target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
+                mutex = self._get_sensor_mutex(target)
+                
+                mutex.lock()
+                try:
+                    # Get fan control status
+                    sensor = motion_interface.sensors[sensor_tag]
+                    status = sensor.get_fan_control_status()
+                    
+                    return status
+                finally:
+                    mutex.unlock()
             else:
                 logger.error(f"Invalid target for fan control status: {target}")
                 return False
-                
-            # Get fan control status
-            sensor = motion_interface.sensors[sensor_tag]
-            status = sensor.get_fan_control_status()
-            
-            return status
                 
         except Exception as e:
             logger.error(f"Error getting fan control status: {e}")
