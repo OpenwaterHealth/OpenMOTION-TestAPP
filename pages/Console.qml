@@ -17,6 +17,7 @@ Rectangle {
     // Properties for dynamic data
     property string firmwareVersion: "N/A"
     property string deviceId: "N/A"
+    property string boardRevId: "N/A"
     property string rgbState: "Off" // Add property for Indicator state
     property real temperature1: 0.0
     property real temperature2: 0.0
@@ -128,6 +129,7 @@ Rectangle {
                 console.log("Console Disconnected - Clearing Data...")
                 firmwareVersion = "N/A"
                 deviceId = "N/A"
+                boardRevId = "N/A"
                 rgbState = "Off" // Indicator off
                 fan_speed = 0
                 temperature1 = 0.0
@@ -147,9 +149,10 @@ Rectangle {
         }
 
         // Handle device info response
-        function onConsoleDeviceInfoReceived(fwVersion, devId) {
+        function onConsoleDeviceInfoReceived(fwVersion, devId, boardId) {
             firmwareVersion = fwVersion
             deviceId = devId
+            boardRevId = boardId
         }
 
         function onTriggerStateChanged(state) {
@@ -1169,6 +1172,13 @@ Rectangle {
                             spacing: 8
                             Text { text: "Device ID:"; color: "#BDC3C7"; font.pixelSize: 14 }
                             Text { text: deviceId; color: "#3498DB"; font.pixelSize: 14 }
+                        }
+
+                        // Board Rev ID (Smaller Text)
+                        RowLayout {
+                            spacing: 8
+                            Text { text: "Board Rev ID:"; color: "#BDC3C7"; font.pixelSize: 14 }
+                            Text { text: boardRevId; color: "#3498DB"; font.pixelSize: 14 }
                         }
 
                         // Display Firmware Version (Smaller Text)

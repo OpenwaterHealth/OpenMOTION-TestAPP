@@ -182,7 +182,7 @@ class MOTIONConnector(QObject):
     signalDisconnected = pyqtSignal(str, str)  # (descriptor, port)
     signalDataReceived = pyqtSignal(str, str)  # (descriptor, data)
 
-    consoleDeviceInfoReceived = pyqtSignal(str, str)  
+    consoleDeviceInfoReceived = pyqtSignal(str, str, str)  
     sensorDeviceInfoReceived = pyqtSignal(str, str)
     temperatureSensorUpdated = pyqtSignal(float)  # (imu_temp)
     accelerometerSensorUpdated = pyqtSignal(int, int, int) # (imu_accel)
@@ -799,8 +799,9 @@ class MOTIONConnector(QObject):
             logger.info(f"Version: {fw_version}")
             hw_id = motion_interface.console_module.get_hardware_id()
             device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
-            self.consoleDeviceInfoReceived.emit(fw_version, device_id)
-            logger.info(f"Console Device Info - Firmware: {fw_version}, Device ID: {device_id}")
+            board_id = motion_interface.console_module.read_board_id()
+            self.consoleDeviceInfoReceived.emit(fw_version, device_id, str(board_id))
+            logger.info(f"Console Device Info - Firmware: {fw_version}, Device ID: {device_id}, Board ID: {board_id}")
         except Exception as e:
             logger.error(f"Error querying device info: {e}")
         finally:
