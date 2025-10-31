@@ -213,6 +213,7 @@ class MOTIONConnector(QObject):
     tcmChanged = pyqtSignal()
     tclChanged = pyqtSignal()
     pdcChanged = pyqtSignal()
+    pduMonChanged = pyqtSignal()
 
     tecStatusChanged = pyqtSignal()
     tecDacChanged = pyqtSignal()
@@ -257,6 +258,9 @@ class MOTIONConnector(QObject):
         self._tec_good      = False
 
         self._tec_dac       = 0.0
+
+        self._pdu_raws = [0] * 16
+        self._pdu_vals = [0.0] * 16
 
         self._console_mutex = QRecursiveMutex()
         
@@ -516,6 +520,22 @@ class MOTIONConnector(QObject):
     @pyqtSlot(result=str)
     def get_sdk_version(self):
         return self._interface.get_sdk_version()
+    
+    @pyqtProperty(QVariant, notify=pduMonChanged)
+    def pduRaws(self):
+        return self._pdu_raws
+
+    @pyqtProperty(QVariant, notify=pduMonChanged)
+    def pduVals(self):
+        return self._pdu_vals
+
+    @pyqtProperty(QVariant, notify=pduMonChanged)
+    def adc0Vals(self):
+        return self._pdu_vals[:8]
+
+    @pyqtProperty(QVariant, notify=pduMonChanged)
+    def adc1Vals(self):
+        return self._pdu_vals[8:]
     
     @pyqtSlot(str)
     def powerCamerasOn(self, target: str):
@@ -1628,6 +1648,62 @@ class MOTIONConnector(QObject):
         finally:
             self._console_mutex.unlock()
 
+    @pyqtSlot(result=QVariant)
+    def pdu_mon(self):
+        """
+        Returns a dict (QVariant) for QML:
+        On success:
+          {
+            "ok": True,
+            "adc0": {"raws": [...8...], "vals": [...8...]},
+            "adc1": {"raws": [...8...], "vals": [...8...]},
+          }
+        On error:
+          { "ok": False, "error": "..." }
+        """
+        self._console_mutex.lock()
+        try:
+            pdu = motion_interface.console_module.read_pdu_mon()
+            if pdu is None:
+                logger.error("PDU MON: no data")
+                return {"ok": False, "error": "no data"}
+
+            # Cache for QML bindings
+            self._pdu_raws = list(pdu.raws)
+            self._pdu_vals = list(pdu.volts)
+
+            # Emit change for any bound properties
+            self.pduMonChanged.emit()
+
+            # Run-log (concise)
+            run_logger.info(
+                "PDU MON ADC0 vals: %s",
+                " ".join(f"{v:.3f}" for v in self._pdu_vals[:8])
+            )
+            run_logger.info(
+                "PDU MON ADC1 vals: %s",
+                " ".join(f"{v:.3f}" for v in self._pdu_vals[8:])
+            )
+
+            # Return QML-friendly dict
+            return {
+                "ok": True,
+                "adc0": {
+                    "raws": self._pdu_raws[:8],
+                    "vals": self._pdu_vals[:8],
+                },
+                "adc1": {
+                    "raws": self._pdu_raws[8:],
+                    "vals": self._pdu_vals[8:],
+                },
+            }
+
+        except Exception as e:
+            logger.error("Error in PDU MON operation: %s", e)
+            return {"ok": False, "error": str(e)}
+        finally:
+            self._console_mutex.unlock()
+
     @pyqtSlot()
     def shutdown(self):
         logger.info("Shutting down MOTIONConnector...")
@@ -1663,9 +1739,14 @@ class ConsoleStatusThread(QThread):
                     #
                     # This updates _tec_* fields inside connector and emits tecStatusChanged
                     self.connector.tec_status()
+                    
+                    #
+                    # 2. PDU Mon poll
+                    #
+                    self.connector.pdu_mon()
 
                     #
-                    # 2. Safety / interlock state
+                    # 3. Safety / interlock state
                     #
                     muxIdx   = 1
                     i2cAddr  = 0x41
