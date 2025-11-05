@@ -11,11 +11,19 @@ import csv
 import os
 import datetime
 import time
+import numpy as np
+import pandas as pd
 
 from motion_singleton import motion_interface  
 
+# constants for calculations
 SCALE_V = 0.0909
 SCALE_I = 0.25
+V_REF = 2.5
+R_1 = 18000 #(R221)
+R_2 = 8160  #(R224)
+R_3 = 51100 #(R225)
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)  # or INFO depending on what you want to see
@@ -139,7 +147,7 @@ class CaptureThread(QThread):
                 if status is None:
                     logger.error(f"Camera {cam_idx + 1} missing in status map.")
                     return None
-                logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} → {motion_interface.sensors["left"].decode_camera_status(status)}")
+                logger.debug(f"Camera {self.camera_index} status: 0x{status:02X} - {motion_interface.sensors["left"].decode_camera_status(status)}")
 
                 if not (status & (1 << 0) and status & (1 << 1) and status & (1 << 2)):  # Not ready for histo
                     logger.error("Not configured.")
@@ -272,6 +280,26 @@ class MOTIONConnector(QObject):
         self._right_sensor_mutex = QRecursiveMutex()
         
         self.connect_signals()
+
+        # --- Load RT model (10K3CG_R-T.CSV) for TEC lookup ---
+        try:
+            # Look for file in the repository's models directory next to this file
+            base_dir = os.path.dirname(__file__)
+            candidate = os.path.join(base_dir, "models", "10K3CG_R-T.CSV")
+            if not os.path.exists(candidate):
+                # try lower-case extension variant
+                candidate = os.path.join(base_dir, "models", "10K3CG_R-T.csv")
+
+            if os.path.exists(candidate):
+                df = pd.read_csv(candidate)
+                self._data_RT = np.array(df)
+                logger.info(f"Loaded RT model from {candidate} shape={self._data_RT.shape}")
+            else:
+                self._data_RT = None
+                logger.warning(f"RT model file not found at {candidate}")
+        except Exception as e:
+            self._data_RT = None
+            logger.error(f"Failed to load RT model: {e}")
 
     def connect_signals(self):
         """Connect LIFUInterface signals to QML."""
@@ -1591,8 +1619,8 @@ class MOTIONConnector(QObject):
             logger.error(f"Error getting fan control status: {e}")
             return False
                 
-    @pyqtSlot(result=bool)          # GET: no parameter → float
-    @pyqtSlot(float, result=bool)    # SET: float parameter → bool
+    @pyqtSlot(result=bool)          # GET: no parameter - float
+    @pyqtSlot(float, result=bool)    # SET: float parameter - bool
     def tec_voltage(self, value=None):
         self._console_mutex.lock()
         try:
@@ -1600,14 +1628,14 @@ class MOTIONConnector(QObject):
                 # GET operation
                 self._tec_dac = motion_interface.console_module.tec_voltage()
                 logger.info(f"TEC DAC Setting: {self._tec_dac}")
-                run_logger.info("TEC Setpoint Voltage → volt: %.6f ", float(self._tec_dac))
+                run_logger.info("TEC Setpoint Voltage - volt: %.6f ", float(self._tec_dac))
 
             else:
                 # SET operation
                 motion_interface.console_module.tec_voltage(value)
                 logger.info(f"TEC voltage set to: {value}")
                 self._tec_dac = value
-                run_logger.info("TEC Setpoint Voltage → volt: %.6f ", float(self._tec_dac))
+                run_logger.info("TEC Setpoint Voltage - volt: %.6f ", float(self._tec_dac))
             
             self.tecDacChanged.emit()
             return True                
@@ -1628,17 +1656,24 @@ class MOTIONConnector(QObject):
         try:
             v, i, p, t, ok = motion_interface.console_module.tec_status()
 
-            self._tec_voltage   = float(v)
-            self._tec_temp      = float(i)
-            self._tec_monC      = float(p)
-            self._tec_monV      = float(t)
+            R_TH = 1/((float(v) / (V_REF/2*R_3)) - 1/R_3 + 1/R_1) - R_2
+            Thermistor_Temp = np.interp(R_TH, self._data_RT[:,1][::-1], self._data_RT[:,0][::-1])
+
+            
+            R_SET = 1/((float(i) / (V_REF/2*R_3)) - 1/R_3 + 1/R_1) - R_2
+            SET_Temp = np.interp(R_SET, self._data_RT[:,1][::-1], self._data_RT[:,0][::-1])
+
+            self._tec_voltage   = round(float(Thermistor_Temp), 2)
+            self._tec_temp      = round(float(SET_Temp), 2)
+            self._tec_monC      = round(float(p), 3)
+            self._tec_monV      = round(float(t), 3)
             self._tec_good      = bool(ok)
 
             # Long-run health sample -> goes ONLY to run.log
                 
             run_logger.info(
-                "TEC Status →  volt: %.4f temp: %.4f tec_c: %.4f tec_v: %.4f good: %s",
-                float(v), float(i), float(p), float(t), bool(ok)
+                "TEC Status -  temp: %.2f set: %.2f tec_c: %.3f tec_v: %.3f good: %s",
+                self._tec_voltage, self._tec_temp, float(p), float(t), bool(ok)
             )
 
             self.tecStatusChanged.emit()
@@ -1777,7 +1812,7 @@ class ConsoleStatusThread(QThread):
 
                     status_text = f"SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
                     run_logger.info(
-                        f"Safety Status → SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
+                        f"Safety Status - SE: 0x{statuses['SE']:02X}, SO: 0x{statuses['SO']:02X}"
                     )
 
                     ok_se = (statuses["SE"] & 0x0F) == 0
@@ -1821,11 +1856,11 @@ class ConsoleStatusThread(QThread):
                             self.connector._pdc = pdc
 
                             logging.debug(
-                                f"Analog Values → TCM: {tcm}, TCL: {tcl}, PDC: {pdc:.3f} mA"
+                                f"Analog Values - TCM: {tcm}, TCL: {tcl}, PDC: {pdc:.3f} mA"
                             )
 
                             run_logger.info(
-                                f"Analog Values → TCM: {tcm}, TCL: {tcl}, PDC: {pdc:.3f}"
+                                f"Analog Values - TCM: {tcm}, TCL: {tcl}, PDC: {pdc:.3f}"
                             )
 
                             self.connector.tclChanged.emit()

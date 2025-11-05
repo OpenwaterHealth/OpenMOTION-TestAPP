@@ -1847,7 +1847,7 @@ Rectangle {
                         
                         // Laser Temp (LT) - shows measured TEC voltage
                         Text {
-                            text: "LT: " + Number(MOTIONInterface.tecVoltage || 0).toFixed(3) + " V"
+                            text: "LT: " + Number(MOTIONInterface.tecVoltage || 0).toFixed(2) + " °C"
                             font.pixelSize: 14
                             color: "#BDC3C7"
                             ToolTip.text: "Laser Temp"
@@ -1864,7 +1864,7 @@ Rectangle {
 
                         // Laser Set Temp (LST) - shows TEC setpoint temperature/value
                         Text {
-                            text: "LST: " + Number(MOTIONInterface.tecTemp || 0).toFixed(3) + " V"
+                            text: "LST: " + Number(MOTIONInterface.tecTemp || 0).toFixed(2) + " °C"
                             font.pixelSize: 14
                             color: "#BDC3C7"
                             ToolTip.text: "Laser Set Temp"
@@ -2109,7 +2109,7 @@ Rectangle {
             switch (safetyStack.currentIndex) {
             case 0: break;
             case 1: break;
-            case 2: pageTec.refresh(); break;
+            case 2: break;
             }
         }
     }
