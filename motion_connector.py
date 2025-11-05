@@ -14,6 +14,9 @@ import time
 
 from motion_singleton import motion_interface  
 
+SCALE_V = 0.0909
+SCALE_I = 0.25
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)  # or INFO depending on what you want to see
 
@@ -1675,14 +1678,19 @@ class MOTIONConnector(QObject):
             # Emit change for any bound properties
             self.pduMonChanged.emit()
 
+            adc1_scaled = [
+                (v / SCALE_V) if i == 6 else (v / SCALE_I)  # i is ADC1 channel index 0..7
+                for i, v in enumerate(self._pdu_vals[8:])
+            ]
+
             # Run-log (concise)
             run_logger.info(
                 "PDU MON ADC0 vals: %s",
-                " ".join(f"{v:.3f}" for v in self._pdu_vals[:8])
+                " ".join(f"{(v/SCALE_V):.3f}" for v in self._pdu_vals[:8])
             )
             run_logger.info(
                 "PDU MON ADC1 vals: %s",
-                " ".join(f"{v:.3f}" for v in self._pdu_vals[8:])
+                " ".join(f"{i:.3f}" for i in adc1_scaled)
             )
 
             # Return QML-friendly dict

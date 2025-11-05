@@ -1781,6 +1781,7 @@ Rectangle {
 
                     // Left Column: TCM, TCL, PDC
                     ColumnLayout {
+                        id: leftMetrics
                         spacing: 6
                         Layout.preferredWidth: statusPanel.width * 1 / 3
                         Layout.fillHeight: true
@@ -1827,6 +1828,51 @@ Rectangle {
                             
                             MouseArea {
                                 id: maPdc
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                        }
+                    }
+
+
+
+                    // Right Column: Laser metrics (LT, LST)
+                    ColumnLayout {
+                        id: rightLaserMetrics
+                        spacing: 6
+                        Layout.preferredWidth: statusPanel.width * 1/3
+                        Layout.fillHeight: true
+                        Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+                        
+                        // Laser Temp (LT) - shows measured TEC voltage
+                        Text {
+                            text: "LT: " + Number(MOTIONInterface.tecVoltage || 0).toFixed(3) + " V"
+                            font.pixelSize: 14
+                            color: "#BDC3C7"
+                            ToolTip.text: "Laser Temp"
+                            ToolTip.visible: maLt.containsMouse
+                            ToolTip.delay: 500
+
+                            MouseArea {
+                                id: maLt
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                        }
+
+                        // Laser Set Temp (LST) - shows TEC setpoint temperature/value
+                        Text {
+                            text: "LST: " + Number(MOTIONInterface.tecTemp || 0).toFixed(3) + " V"
+                            font.pixelSize: 14
+                            color: "#BDC3C7"
+                            ToolTip.text: "Laser Set Temp"
+                            ToolTip.visible: maLst.containsMouse
+                            ToolTip.delay: 500
+
+                            MouseArea {
+                                id: maLst
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
