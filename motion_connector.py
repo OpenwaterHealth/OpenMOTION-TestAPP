@@ -1705,11 +1705,14 @@ class MOTIONConnector(QObject):
             if pdu is None:
                 logger.error("PDU MON: no data")
                 return {"ok": False, "error": "no data"}
+            
+            temp1, temp2, temp3 = motion_interface.console_module.get_temperatures()  
 
             # Cache for QML bindings
             self._pdu_raws = list(pdu.raws)
             self._pdu_vals = list(pdu.volts)
 
+            
             # Emit change for any bound properties
             self.pduMonChanged.emit()
 
@@ -1723,11 +1726,17 @@ class MOTIONConnector(QObject):
                 "PDU MON ADC0 vals: %s",
                 " ".join(f"{(v/SCALE_V):.3f}" for v in self._pdu_vals[:8])
             )
+            
             run_logger.info(
                 "PDU MON ADC1 vals: %s",
                 " ".join(f"{i:.3f}" for i in adc1_scaled)
             )
 
+            run_logger.info(
+                "TEMP MON: MCU: %.2f SAFETY: %.2f TA: %.2f",
+                temp1, temp2, temp3
+            )
+        
             # Return QML-friendly dict
             return {
                 "ok": True,
