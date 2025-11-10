@@ -34,9 +34,9 @@ var fpgaAddressModel = [
         functions: [
             { name: "DDS CTRL", desc: "DDS Control", start_address: 0x00, data_size: "16B", direction: "RW" },
             { name: "DDS GAIN", desc: "DDS Gain", start_address: 0x02, data_size: "16B", direction: "RW", unit: "mV", scale: 0.064 },
-            { name: "CW GAIN", desc: "CW Gain", start_address: 0x04, data_size: "16B", direction: "RW", unit: "mV", scale: 0.064 },
-            { name: "DDS CL", desc: "DDS Current Limit", start_address: 0x06, data_size: "16B", direction: "RW", unit: "mA", scale: 0.019 },
-            { name: "CW CL", desc: "CW Current Limit", start_address: 0x08, data_size: "16B", direction: "RW", unit: "mA", scale: 0.019 },
+            { name: "CW GAIN", desc: "CW Gain", start_address: 0x04, data_size: "16B", direction: "RW", unit: "mV", scale: 0.0810 },
+            { name: "DDS CL", desc: "DDS Current Limit", start_address: 0x06, data_size: "16B", direction: "RW", unit: "mA", scale: 0.081 },
+            { name: "CW CL", desc: "CW Current Limit", start_address: 0x08, data_size: "16B", direction: "RW", unit: "mA", scale: 0.081 },
             { name: "ADC DDS CL", desc: "ADC DDS Current Limit", start_address: 0x0A, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
             { name: "ADC CW CL", desc: "ADC CW Current Limit", start_address: 0x0C, data_size: "16B", direction: "RW", unit: "mv", scale: 0.500 },
             { name: "ADC CD", desc: "ADC Current Data", start_address: 0x0E, data_size: "16B", direction: "RD", unit: "mv", scale: 0.500 },
