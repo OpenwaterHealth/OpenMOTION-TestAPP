@@ -1863,7 +1863,7 @@ class ConsoleStatusThread(QThread):
                     if tcl_raw and pdc_raw:
                         tcm = int(tcm_raw)
                         tcl = int.from_bytes(tcl_raw, byteorder='little')
-                        pdc = int.from_bytes(pdc_raw, byteorder='little') * 2.7  # mA
+                        pdc = int.from_bytes(pdc_raw, byteorder='little') * 1.9  # mA
 
                         if (
                             tcl != self.connector._tcl or
