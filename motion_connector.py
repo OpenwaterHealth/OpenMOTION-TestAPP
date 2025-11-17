@@ -25,52 +25,9 @@ R_2 = 8160  #(R224)
 R_3 = 51100 #(R225)
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)  # or INFO depending on what you want to see
-
-# Create console handler
-logger = logging.getLogger("ow-testapp")   # use a stable name instead of __name__
-logger.setLevel(logging.INFO)
-
-# Common formatter for both console and file
-formatter = logging.Formatter(
-    '%(asctime)s - %(levelname)s - %(message)s'
-)
-
-if not logger.hasHandlers():
-    #
-    # 1. Console handler (what you already had)
-    #
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    #
-    # 2. Per-run file handler
-    #
-    # Make sure we have a place to put logs
-    run_dir = os.path.join(os.getcwd(), "app-logs")
-    os.makedirs(run_dir, exist_ok=True)
-
-    # Build timestamp like 20251029_124455
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    # ow-testapp-<ts>.log
-    logfile_path = os.path.join(run_dir, f"ow-testapp-{ts}.log")
-
-    file_handler = logging.FileHandler(logfile_path, mode='w', encoding='utf-8')
-    file_handler.setLevel(logging.INFO)   # you can make this DEBUG if you want deeper trace
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    # Optional: announce where we're logging
-    logger.info(f"logging to {logfile_path}")
-
-# Run logger (ONLY writes to run.log, no console spam)
-run_logger = logging.getLogger("runlog")
-run_logger.setLevel(logging.INFO)
-run_logger.propagate = False
+# Global loggers - will be configured by _configure_logging method
+logger = None
+run_logger = None
 
 # Define system states
 DISCONNECTED = 0
@@ -229,9 +186,12 @@ class MOTIONConnector(QObject):
     tecStatusChanged = pyqtSignal()
     tecDacChanged = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, log_level=logging.INFO):
         super().__init__()
         self._interface = motion_interface
+        
+        # Configure logging with the provided level
+        self._configure_logging(log_level)
         
         # Initialize CSV output directory to user's home directory
         import os
@@ -280,6 +240,56 @@ class MOTIONConnector(QObject):
         self._right_sensor_mutex = QRecursiveMutex()
         
         self.connect_signals()
+
+    def _configure_logging(self, log_level):
+        """Configure logging for motion_connector with the specified log level."""
+        global logger, run_logger
+        
+        # Get logger instance
+        logger = logging.getLogger("ow-testapp")
+        logger.setLevel(log_level)
+        
+        # Common formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s'
+        )
+        
+        # Configure handlers - ensure console output for debug messages
+        if not logger.hasHandlers():
+            # Check if root logger has handlers (main.py configured logging)
+            root_logger = logging.getLogger()
+            if root_logger.handlers:
+                # Let messages propagate to root logger (main.py handles console/file output)
+                logger.propagate = True
+            else:
+                # No root handlers, set up our own console handler
+                console_handler = logging.StreamHandler()
+                console_handler.setLevel(log_level)
+                console_handler.setFormatter(formatter)
+                logger.addHandler(console_handler)
+
+                # Also add file handler for local logging
+                run_dir = os.path.join(os.getcwd(), "app-logs")
+                os.makedirs(run_dir, exist_ok=True)
+
+                # Build timestamp like 20251029_124455
+                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                # ow-testapp-<ts>.log
+                logfile_path = os.path.join(run_dir, f"ow-testapp-{ts}.log")
+
+                file_handler = logging.FileHandler(logfile_path, mode='w', encoding='utf-8')
+                file_handler.setLevel(log_level)
+                file_handler.setFormatter(formatter)
+                logger.addHandler(file_handler)
+
+                # Optional: announce where we're logging
+                logger.info(f"logging to {logfile_path}")
+
+        # Run logger (ONLY writes to run.log, no console spam)
+        run_logger = logging.getLogger("runlog")
+        run_logger.setLevel(log_level)
+        run_logger.propagate = False
 
         # --- Load RT model (10K3CG_R-T.CSV) for TEC lookup ---
         try:
@@ -1627,13 +1637,13 @@ class MOTIONConnector(QObject):
             if value is None:
                 # GET operation
                 self._tec_dac = motion_interface.console_module.tec_voltage()
-                logger.info(f"TEC DAC Setting: {self._tec_dac}")
+                logger.debug(f"TEC DAC Setting: {self._tec_dac}")
                 run_logger.info("TEC Setpoint Voltage - volt: %.6f ", float(self._tec_dac))
 
             else:
                 # SET operation
                 motion_interface.console_module.tec_voltage(value)
-                logger.info(f"TEC voltage set to: {value}")
+                logger.debug(f"TEC voltage set to: {value}")
                 self._tec_dac = value
                 run_logger.info("TEC Setpoint Voltage - volt: %.6f ", float(self._tec_dac))
             

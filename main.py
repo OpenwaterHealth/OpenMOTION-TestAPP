@@ -3,6 +3,7 @@ import os
 import asyncio
 import warnings
 import logging
+import argparse
 from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonInstance
 from qasync import QEventLoop
@@ -13,8 +14,7 @@ from pathlib import Path
 # set PYTHONPATH=%cd%\..\OpenMOTION-PyLib;%PYTHONPATH%
 # python main.py
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO) 
+logger = logging.getLogger(__name__) 
 
 # Suppress PyQt6 DeprecationWarnings related to SIP
 warnings.simplefilter("ignore", DeprecationWarning)
@@ -25,6 +25,25 @@ def resource_path(rel: str) -> str:
     return os.path.join(base, rel)
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='OpenMOTION Test Application')
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging and console output')
+    args = parser.parse_args()
+
+    # Configure logging based on debug flag
+    if args.debug:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler(sys.stdout),  # Console output
+                logging.FileHandler('debug.log')    # File output
+            ]
+        )
+        logger.info("Debug mode enabled - logging level set to DEBUG")
+    else:
+        logging.basicConfig(level=logging.INFO)
+
     os.environ["QT_QUICK_CONTROLS_STYLE"] = "Material"
     os.environ["QT_QUICK_CONTROLS_MATERIAL_THEME"] = "Dark"
     os.environ["QT_LOGGING_RULES"] = "qt.qpa.fonts=false"
@@ -38,9 +57,10 @@ def main():
     engine.warnings.connect(lambda warnings: print([w.toString() for w in warnings]))
 
     # Expose to QML
-    connector = MOTIONConnector()
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    connector = MOTIONConnector(log_level=log_level)
     qmlRegisterSingletonInstance("OpenMotion", 1, 0, "MOTIONInterface", connector)
-    engine.rootContext().setContextProperty("appVersion", "1.2.14")
+    engine.rootContext().setContextProperty("appVersion", "1.2.15")
 
     # Load the QML file
     engine.load(resource_path("main.qml"))
