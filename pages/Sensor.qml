@@ -61,19 +61,19 @@ Rectangle {
     }
 
     function updateStates() {
-        console.log("Sensor Updating all states...")
+        // console.log("Sensor Updating all states...")
         
         let isConnected = (sensorSelector.currentIndex === 0)
             ? MOTIONInterface.leftSensorConnected
             : MOTIONInterface.rightSensorConnected
 
         if (!isConnected) {
-            console.log("Selected sensor is not connected. Skipping update.")
+            // console.log("Selected sensor is not connected. Skipping update.")
             return
         }
 
         let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
-        console.log("Sensor Updating all states for", sensor_tag);
+        // console.log("Sensor Updating all states for", sensor_tag);
         
         MOTIONInterface.querySensorInfo(sensor_tag)
         MOTIONInterface.querySensorTemperature(sensor_tag)
@@ -86,7 +86,7 @@ Rectangle {
     Component.onCompleted: {
         sensorSelector.currentIndex = 0 // default
         if (MOTIONInterface.leftSensorConnected || MOTIONInterface.rightSensorConnected) {
-            console.log("Page Loaded - Sensor Already Connected. Fetching Info...");
+            // console.log("Page Loaded - Sensor Already Connected. Fetching Info...");
             updateStates();
             // Also query camera power status for the selected sensor
             let sensor_tag = (sensorSelector.currentIndex === 0) ? "SENSOR_LEFT" : "SENSOR_RIGHT";
@@ -101,7 +101,7 @@ Rectangle {
         interval: 1500   // Delay to ensure Sensor is stable before fetching info
         running: false
         onTriggered: {
-            console.log("Fetching Firmware Version and Device ID...")
+            // console.log("Fetching Firmware Version and Device ID...")
             updateStates()
         }
     }
@@ -121,7 +121,7 @@ Rectangle {
                 let currentFanStatus = MOTIONInterface.getFanControlStatus(sensor_tag);
                 if (currentFanStatus !== fanControlOn) {
                     fanControlOn = currentFanStatus;
-                    console.log("Fan status updated:", currentFanStatus ? "ON" : "OFF");
+                    // console.log("Fan status updated:", currentFanStatus ? "ON" : "OFF");
                 }
             }
         }
@@ -140,7 +140,7 @@ Rectangle {
                 // Start fan status polling
                 fanStatusTimer.start();
             } else {
-                console.log("Sensor Disconnected - Clearing Data...")
+                // console.log("Sensor Disconnected - Clearing Data...")
                 firmwareVersion = "N/A"
                 deviceId = "N/A"
                 sensor_temperature = 0.0
@@ -218,7 +218,7 @@ Rectangle {
         }
 
         function onCameraPowerStatusUpdated(powerStatusList) {
-            console.log("Power status updated:", powerStatusList);
+            // console.log("Power status updated:", powerStatusList);
             // Store power status globally for use in circle colors
             for (let i = 0; i < 8; i++) {
                 const isPowered = powerStatusList[i] || false;
@@ -904,7 +904,7 @@ Rectangle {
                                         case 7:
                                             break; 
                                         default:
-                                            console.log("All Cameras");
+                                            // console.log("All Cameras");
                                             break;
                                     }
                                 }
@@ -954,7 +954,7 @@ Rectangle {
                                     }
                                     let sensor_tag = "SENSOR_LEFT";
                                     (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                    console.log("Test Camera Mask: " + cameraMask.toString(16));
+                                    // console.log("Test Camera Mask: " + cameraMask.toString(16));
                                     if(cameraMask == 0xFF){
                                         MOTIONInterface.configureAllCameras(sensor_tag);
                                     }else{
@@ -1027,11 +1027,11 @@ Rectangle {
                                                     serialNumber = camNum.toString();
                                                 }
                                                 
-                                                console.log("Capturing histogram for camera", selectedIndex, "with SN", serialNumber);
+                                                // console.log("Capturing histogram for camera", selectedIndex, "with SN", serialNumber);
                                                     MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber, false);
                                             } else {
                                                 // All cameras - capture each individually with their serial numbers
-                                                console.log("Capturing histograms for all cameras with individual serial numbers");
+                                                // console.log("Capturing histograms for all cameras with individual serial numbers");
                                                 
                                                 // Collect all serial numbers in display order
                                                 let serialNumbers = [];
@@ -1120,11 +1120,11 @@ Rectangle {
                                                         serialNumber = camNum.toString();
                                                     }
                                                     
-                                                console.log("Capturing dark histogram for camera", selectedIndex, "with SN", serialNumber);
+                                                // console.log("Capturing dark histogram for camera", selectedIndex, "with SN", serialNumber);
                                                 MOTIONInterface.captureHistogramToCSV(sensor_tag, selectedIndex, serialNumber, true);
                                                 } else {
                                                     // All cameras - capture each individually with their serial numbers
-                                                console.log("Capturing dark histograms for all cameras with individual serial numbers");
+                                                // console.log("Capturing dark histograms for all cameras with individual serial numbers");
                                                 
                                                 // Collect all serial numbers in display order
                                                 let serialNumbers = [];
@@ -1396,7 +1396,7 @@ Rectangle {
                                 }
 
                                 onCurrentIndexChanged: {
-                                    console.log("Sensor selection changed to:", currentText)
+                                    // console.log("Sensor selection changed to:", currentText)
 
                                     // Clear status texts
                                     pingResult.text = ""
@@ -1492,7 +1492,7 @@ Rectangle {
                                     hoverEnabled: true
 
                                     onClicked: {
-                                        console.log("Manual Refresh Triggered")
+                                        // console.log("Manual Refresh Triggered")
                                         updateStates();
                                     }
 
@@ -1579,7 +1579,7 @@ Rectangle {
                                 onClicked: {
                                     let sensor_tag = "SENSOR_LEFT";
                                     (sensorSelector.currentIndex === 0) ? sensor_tag = "SENSOR_LEFT": sensor_tag = "SENSOR_RIGHT";
-                                    console.log("Soft Reset Triggered")
+                                    // console.log("Soft Reset Triggered")
                                     MOTIONInterface.softResetSensor(sensor_tag)
                                 }
 

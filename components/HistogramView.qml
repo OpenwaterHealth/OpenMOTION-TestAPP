@@ -51,7 +51,7 @@ Item {
                         const fullPath = "histogram_" + timestamp + ".png";
                         histogramWidget.grabToImage(function(result) {
                             result.saveToFile(fullPath);
-                            console.log("Saved to", fullPath);
+                            // console.log("Saved to", fullPath);
                         })
                     }
                 }

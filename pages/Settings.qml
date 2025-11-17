@@ -52,14 +52,14 @@ Rectangle {
             Button {
                 text: "Action 1"
                 onClicked: {
-                    console.log("Action 1 clicked");
+                    // console.log("Action 1 clicked");
                 }
             }
 
             Button {
                 text: "Action 2"
                 onClicked: {
-                    console.log("Action 2 clicked");
+                    // console.log("Action 2 clicked");
                 }
             }
         }

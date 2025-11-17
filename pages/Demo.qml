@@ -134,16 +134,16 @@ Rectangle {
             }
         }
 
-        console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
+        // console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
 
         let success = MOTIONInterface.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
 
         if (success) {
-            console.log("Write successful.");
+            // console.log("Write successful.");
             statusText.text = "Write successful";
             statusText.color = "lightgreen";
         } else {
-            console.log("Write failed.");
+            console.error("Write failed.");
             statusText.text = "Write failed";
             statusText.color = "red";
         }
@@ -173,11 +173,11 @@ Rectangle {
         const offset = myFn.start_address;
         const data_len = parseInt(myFn.data_size.replace("B", "")) / 8;
 
-        console.log(`READ from ${fModel.label} @ 0x${offset.toString(16)}`);
+        // console.log(`READ from ${fModel.label} @ 0x${offset.toString(16)}`);
         let result = MOTIONInterface.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, data_len);
 
         if (result.length === 0) {
-            console.log("Read failed or returned empty array.");
+            // console.log("Read failed or returned empty array.");
             statusText.text = "Read " + funcName + " Failed";
             statusText.color = "red";
         } else {
@@ -387,7 +387,7 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    console.log("Update TA Settings");
+                                    // console.log("Update TA Settings");
                                     
                                     writeFpgaRegister("TA", "PULSE WIDTH", taPulseWidth.text);
                                     writeFpgaRegister("TA", "CURRENT DRV", taDrive.text);                                    
@@ -538,7 +538,7 @@ Rectangle {
                                 }
 
                                 onClicked: {
-                                    console.log("Update Seed Settings");                                    
+                                    // console.log("Update Seed Settings");                                    
 
                                     writeFpgaRegister("Seed", "DDS GAIN", ddsCurrent.text);
                                     writeFpgaRegister("Seed", "DDS CL", ddsCurrentLimit.text);
@@ -711,7 +711,7 @@ Rectangle {
                                     }
 
                                     onClicked: {
-                                        console.log("Clear Safety Error Flag");
+                                        // console.log("Clear Safety Error Flag");
 
                                         writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "2");
                                         MOTIONInterface.readSafetyStatus();
@@ -779,7 +779,7 @@ Rectangle {
                                     }
 
                                     onClicked: {
-                                        console.log("Clear Safety Error Flag");
+                                        // console.log("Clear Safety Error Flag");
 
                                         writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "1");
                                         writeFpgaRegister("Safety EE", "DYNAMIC CTRL", "1");
@@ -847,7 +847,7 @@ Rectangle {
                                     }
 
                                     onClicked: {
-                                        console.log("Update Safety OPT Settings");
+                                        // console.log("Update Safety OPT Settings");
 
                                         writeFpgaRegister("Safety OPT", "PULSE WIDTH LL", pwLowerLimit.text);
                                         writeFpgaRegister("Safety OPT", "PULSE WIDTH UL", pwUpperLimit.text);
@@ -1036,7 +1036,7 @@ Rectangle {
                                     }
 
                                     onClicked: {
-                                        console.log("Clear Safety Error Flag");
+                                        // console.log("Clear Safety Error Flag");
 
                                         writeFpgaRegister("Safety OPT", "DYNAMIC CTRL", "1");
                                         writeFpgaRegister("Safety EE", "DYNAMIC CTRL", "1");
@@ -1104,7 +1104,7 @@ Rectangle {
                                     }
 
                                     onClicked: {
-                                        console.log("Update Safety EE Settings");
+                                        // console.log("Update Safety EE Settings");
                                         writeFpgaRegister("Safety EE", "PULSE WIDTH LL", pw2LowerLimit.text);
                                         writeFpgaRegister("Safety EE", "PULSE WIDTH UL", pw2UpperLimit.text);
                                         writeFpgaRegister("Safety EE", "RATE LL", period2LowerLimit.text);
@@ -1321,16 +1321,16 @@ Rectangle {
                                             onTriggered: {
                                                 const val = parseFloat(tecSetpoint.text)
                                                 if (isNaN(val) || val < 0 || val > 2.5) {
-                                                    console.log("Invalid TEC setpoint; must be 0.0000–2.5000 V")
+                                                    console.error("Invalid TEC setpoint; must be 0.0000–2.5000 V")
                                                     return
                                                 }
                                     
                                                 if(!MOTIONInterface.tec_voltage(val)){
-                                                    console.log("Failed to write TEC DAC");
+                                                    console.error("Failed to write TEC DAC");
                                                 }
                                     
                                                 if(!MOTIONInterface.tec_status()){
-                                                    console.log("Failed to read status");
+                                                    console.error("Failed to read status");
                                                 }
 
 
@@ -1504,7 +1504,7 @@ Rectangle {
                                 let cam = cameraModel.get(cameraSelector.currentIndex)
                                 let tp = filteredPatternModel.get(patternSelector.currentIndex)
                                 let target = (sensorSelector.currentIndex === 0) ? "left" : "right"
-                                console.log("Selected: ", target)
+                                // console.log("Selected: ", target)
 
                                 if (tp && tp.label === "Stream") {
                                     if (MOTIONInterface.isStreaming) {
@@ -1517,7 +1517,7 @@ Rectangle {
                                         // cameraCapStatus.color = "lightgreen"
                                     }
                                 } else {
-                                    console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id)
+                                    // console.log("Capture Histogram from " + cam.cam_num + " TestPattern: " + tp.tp_id)
                                     
                                     Qt.callLater(() => {
                                         cameraCapStatus.text = "Capturing..."
@@ -1715,7 +1715,7 @@ Rectangle {
                                     }
                                     var jsonString = JSON.stringify(json_trigger_data);
                                     if (!MOTIONInterface.startTrigger(jsonString)) {
-                                        console.log("Failed to apply and start trigger config")
+                                        console.error("Failed to apply and start trigger config")
                                     }
                                 }
                             }
@@ -2028,22 +2028,22 @@ Rectangle {
         target: MOTIONInterface
 
         function onSignalConnected(descriptor, port) {
-            console.log(descriptor + " connected on " + port);
+            // console.log(descriptor + " connected on " + port);
             statusText.text = "Connected: " + descriptor + " on " + port;
         }
 
         function onSignalDisconnected(descriptor, port) {
-            console.log(descriptor + " disconnected from " + port);
+            // console.log(descriptor + " disconnected from " + port);
             statusText.text = "Disconnected: " + descriptor + " from " + port;
         }
 
         function onSignalDataReceived(descriptor, message) {
-            console.log("Data from " + descriptor + ": " + message);
+            // console.log("Data from " + descriptor + ": " + message);
         }
         
         function onHistogramReady(bins) {
             if(bins.length != 1024){
-                console.log("Histogram received, bins: " + bins.length)
+                // console.log("Histogram received, bins: " + bins.length)
             }
             histogramWidget.histogramData = bins
             histogramWidget.maxValue = Math.max(...bins)
@@ -2084,7 +2084,7 @@ Rectangle {
         }
 
         function onTecDacChanged() {
-            console.log("DAC Changed")
+            // console.log("DAC Changed")
         }
 
     }
@@ -2100,7 +2100,7 @@ Rectangle {
     }
 
     Component.onDestruction: {
-        console.log("Closing UI, clearing MOTIONInterface...");
+        // console.log("Closing UI, clearing MOTIONInterface...");
     }
 
     Connections {

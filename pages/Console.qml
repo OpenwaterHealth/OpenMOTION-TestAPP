@@ -92,7 +92,7 @@ Rectangle {
     }
 
     function updateStates() {
-        console.log("Console Updating all states...")
+        // console.log("Console Updating all states...")
         MOTIONInterface.queryConsoleInfo()
         MOTIONInterface.queryRGBState() // Query Indicator state
         MOTIONInterface.queryFans() // Query Indicator state        
@@ -103,7 +103,7 @@ Rectangle {
     // Run refresh logic immediately on page load if Console is already connected
     Component.onCompleted: {
         if (MOTIONInterface.consoleConnected) {
-            console.log("Page Loaded - Console Already Connected. Fetching Info...")
+            // console.log("Page Loaded - Console Already Connected. Fetching Info...")
             updateStates()
         }
     }
@@ -113,7 +113,7 @@ Rectangle {
         interval: 1500   // Delay to ensure Sensor is stable before fetching info
         running: false
         onTriggered: {
-            console.log("Fetching Firmware Version and Device ID...")
+            // console.log("Fetching Firmware Version and Device ID...")
             updateStates()
         }
     }
@@ -126,7 +126,7 @@ Rectangle {
             if (MOTIONInterface.consoleConnected) {
                 infoTimer.start()          // One-time info fetch
             } else {
-                console.log("Console Disconnected - Clearing Data...")
+                // console.log("Console Disconnected - Clearing Data...")
                 firmwareVersion = "N/A"
                 deviceId = "N/A"
                 boardRevId = "N/A"
@@ -897,11 +897,11 @@ Rectangle {
                                         let data = hexInput.text;
 
                                         if (dir === "Read") {
-                                            console.log(`READ from ${fpga.label} @ 0x${offset.toString(16)}`);
+                                            // console.log(`READ from ${fpga.label} @ 0x${offset.toString(16)}`);
                                             let result = MOTIONInterface.i2cReadBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, length);
 
                                             if (result.length === 0) {
-                                                console.log("Read failed or returned empty array.");
+                                                console.error("Read failed or returned empty array.");
                                                 i2cStatus.text = "Read failed";
                                                 i2cStatus.color = "red";
                                             } else {
@@ -928,14 +928,14 @@ Rectangle {
                                                     hexInput.text = hexStr;
                                                 }
 
-                                                console.log("Read success:", hexInput.text);
+                                                // console.log("Read success:", hexInput.text);
                                                 i2cStatus.text = "Read successful";
                                                 i2cStatus.color = "lightgreen";
                                             }
 
                                             cleari2cStatusTimer.start();
                                         } else {
-                                            console.log(`WRITE to ${fpga.label} @ 0x${offset.toString(16)} = ${data}`);
+                                            // console.log(`WRITE to ${fpga.label} @ 0x${offset.toString(16)} = ${data}`);
 
                                             let fullValue = 0;
 
@@ -975,16 +975,16 @@ Rectangle {
                                                 }
                                             }
 
-                                            console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
+                                            // console.log("Data to send:", dataToSend.map(b => "0x" + b.toString(16).padStart(2, "0")).join(" "));
 
                                             let success = MOTIONInterface.i2cWriteBytes("CONSOLE", muxIdx, channel, i2cAddr, offset, dataToSend);
 
                                             if (success) {
-                                                console.log("Write successful.");
+                                                // console.log("Write successful.");
                                                 i2cStatus.text = "Write successful";
                                                 i2cStatus.color = "lightgreen";
                                             } else {
-                                                console.log("Write failed.");
+                                                console.error("Write failed.");
                                                 i2cStatus.text = "Write failed";
                                                 i2cStatus.color = "red";
                                             }
@@ -1073,13 +1073,13 @@ Rectangle {
                                         // User has finished sliding
                                         let snappedValue = Math.round(value / 10) * 10
                                         value = snappedValue
-                                        console.log("Slider released at:", snappedValue)
+                                        // console.log("Slider released at:", snappedValue)
                                         userIsSliding = false
                                         let success = MOTIONInterface.setFanLevel(snappedValue);
                                         if (success) {
-                                            console.log("Fan speed set successfully");
+                                            // console.log("Fan speed set successfully");
                                         } else {
-                                            console.log("Failed to set fan speed");
+                                            console.error("Failed to set fan speed");
                                         }
                                     }
                                 }
@@ -1151,7 +1151,7 @@ Rectangle {
                                     anchors.fill: parent
                                     enabled: parent.enabled  // MouseArea also disabled when button is disabled
                                     onClicked: {
-                                        console.log("Manual Refresh Triggered")
+                                        // console.log("Manual Refresh Triggered")
                                         updateStates();
                                     }
 
@@ -1239,7 +1239,7 @@ Rectangle {
                                 anchors.fill: parent
                                 enabled: parent.enabled  // Disable MouseArea when the button is disabled
                                 onClicked: {
-                                    console.log("Soft Reset Triggered")
+                                    // console.log("Soft Reset Triggered")
                                     MOTIONInterface.softResetSensor("CONSOLE")
                                 }
 

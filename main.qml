@@ -83,7 +83,7 @@ ApplicationWindow {
     // JavaScript function to handle sidebar button clicks
     function handleSidebarClick(index) {
         activeMenu = index; // Update the activeMenu property
-        console.log("Button clicked with index:", index);
+        // console.log("Button clicked with index:", index);
     }
     
     Connections {
