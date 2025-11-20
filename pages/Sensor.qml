@@ -203,12 +203,17 @@ Rectangle {
             }
         }
 
-        function onHistogramCaptureCompleted(cameraIndex, weightedMean, std_dev) {
-            // Update camera status to show "Average: xxx" in green
+        function onHistogramCaptureCompleted(cameraIndex, weightedMean, std_dev, is_normal) {
+            // Update camera status to show "Average: xxx" with classification indicator
+            let statusColor = is_normal ? "green" : "red"
+            let statusText = "μ: " + weightedMean.toFixed(1) + " 𝜎: " + std_dev.toFixed(1)
+            if (!is_normal) {
+                statusText += " ⚠"
+            }
             cameraStatusModel.set(cameraIndex, {
                 label: "Camera " + (cameraIndex + 1),
-                status: "μ: " + weightedMean.toFixed(1) + " 𝜎: "+ std_dev.toFixed(1),
-                color: "green"
+                status: statusText,
+                color: statusColor
             });
         }
 
@@ -767,13 +772,29 @@ Rectangle {
                                         }
 
                                         // Left-side status (visible for left column rows)
-                            Text {
+                                        RowLayout {
                                             visible: parent.isLeftColumn
-                                            text: cameraStatusModel.get(parent.mappedIndex).status
-                                            color: cameraStatusModel.get(parent.mappedIndex).color
-                                            font.pixelSize: 14
+                                            spacing: 4
                                             Layout.preferredWidth: 90
-                                            horizontalAlignment: Text.AlignCenter
+                                            property int camIndex: parent.mappedIndex
+                                            
+                                            Rectangle {
+                                                width: 12
+                                                height: 12
+                                                radius: 6
+                                                color: cameraStatusModel.get(parent.camIndex).color
+                                                border.color: "#BDC3C7"
+                                                border.width: 1
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                            
+                                            Text {
+                                                text: cameraStatusModel.get(parent.camIndex).status
+                                                color: cameraStatusModel.get(parent.camIndex).color
+                                                font.pixelSize: 14
+                                                Layout.fillWidth: true
+                                                horizontalAlignment: Text.AlignCenter
+                                            }
                                         }
 
                                         // Camera number badge (always visible)
@@ -802,13 +823,29 @@ Rectangle {
                                         }
 
                                         // Right-side status (visible for right column rows)
-                                        Text {
+                                        RowLayout {
                                             visible: !parent.isLeftColumn
-                                            text: cameraStatusModel.get(parent.mappedIndex).status
-                                            color: cameraStatusModel.get(parent.mappedIndex).color
-                                            font.pixelSize: 14
+                                            spacing: 4
                                             Layout.preferredWidth: 90
-                                            horizontalAlignment: Text.AlignLeft
+                                            property int camIndex: parent.mappedIndex
+                                            
+                                            Rectangle {
+                                                width: 12
+                                                height: 12
+                                                radius: 6
+                                                color: cameraStatusModel.get(parent.camIndex).color
+                                                border.color: "#BDC3C7"
+                                                border.width: 1
+                                                Layout.alignment: Qt.AlignVCenter
+                                            }
+                                            
+                                            Text {
+                                                text: cameraStatusModel.get(parent.camIndex).status
+                                                color: cameraStatusModel.get(parent.camIndex).color
+                                                font.pixelSize: 14
+                                                Layout.fillWidth: true
+                                                horizontalAlignment: Text.AlignLeft
+                                            }
                                         }
 
                                         // OUTER: Serial number field (right side rows)
