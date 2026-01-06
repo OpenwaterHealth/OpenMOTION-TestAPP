@@ -1710,7 +1710,7 @@ Rectangle {
                                         "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
                                         "LaserPulseDelayUsec": parseInt(lsDelay.text),
                                         "LaserPulseWidthUsec": parseInt(lsPulseWidth.text),
-                                        "EnableSyncOut": false,
+                                        "EnableSyncOut": enableSyncOutCheckbox.checked,
                                         "EnableTaTrigger": true
                                     }
                                     var jsonString = JSON.stringify(json_trigger_data);
@@ -1750,13 +1750,30 @@ Rectangle {
                                 onClicked: MOTIONInterface.stopTrigger()
                             }
 
+                            // Sync Out Checkbox
+                            CheckBox {
+                                id: enableSyncOutCheckbox
+                                text: "Sync Out"
+                                checked: false
+                                enabled: MOTIONInterface.consoleConnected
+                                Layout.preferredHeight: 34
+                                
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                                    verticalAlignment: Text.AlignVCenter
+                                    leftPadding: parent.indicator.width + parent.spacing
+                                    font.pixelSize: 12
+                                }
+                            }
+
                             // Status Label aligned right
                             Text {
                                 id: triggerStatus
                                 text: MOTIONInterface.triggerState
                                 color: triggerStatus.text === "ON" ? "lightgreen" : "red"
                                 font.pixelSize: 14
-                                Layout.columnSpan: 2
+                                Layout.columnSpan: 1
                                 Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                             }
                         }
