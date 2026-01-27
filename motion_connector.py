@@ -14,6 +14,7 @@ import time
 import numpy as np
 import pandas as pd
 
+from utils.resource_path import resource_path
 from motion_singleton import motion_interface  
 from histogram_classifier import check_non_normal
 
@@ -187,7 +188,7 @@ class MOTIONConnector(QObject):
     tecStatusChanged = pyqtSignal()
     tecDacChanged = pyqtSignal()
 
-    def __init__(self, log_level=logging.INFO):
+    def __init__(self, config_dir="config", log_level=logging.INFO):
         super().__init__()
         self._interface = motion_interface
         
@@ -218,6 +219,8 @@ class MOTIONConnector(QObject):
         self._runlog_handler = None         # logging.FileHandler or None
         self._runlog_path = None            # str or None
         self._runlog_active = False         # bool
+
+        self.laser_params = self._load_laser_params(config_dir)
 
         self._tcm = 0.0
         self._tcl = 0.0
@@ -312,6 +315,28 @@ class MOTIONConnector(QObject):
             self._data_RT = None
             logger.error(f"Failed to load RT model: {e}")
 
+
+    # --- SCAN MANAGEMENT METHODS ---
+    @pyqtSlot(result=list)
+    def _load_laser_params(self, config_dir):
+        
+        config_path = resource_path("config", "laser_params.json") if config_dir == "config" else Path(config_dir) / "laser_params.json"
+        if not config_path.exists():
+            logger.error(f"[Connector] Laser parameter file not found: {config_path}")
+            return []  
+        
+        try:
+            with open(config_path, "r") as f:
+                params = json.load(f)
+            logger.info(f"[Connector] Loaded {len(params)} laser parameter sets from {config_path}")
+            return params
+        except FileNotFoundError:
+            logger.error(f"[Connector] Laser parameter file not found: {config_path}")
+            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"[Connector] Invalid JSON in {config_path}: {e}")
+            return []
+        
     def connect_signals(self):
         """Connect LIFUInterface signals to QML."""
         motion_interface.signal_connect.connect(self.on_connected)
@@ -439,6 +464,43 @@ class MOTIONConnector(QObject):
         self._runlog_path = None
         self._runlog_active = False
 
+    @pyqtSlot(result=bool)
+    def setLaserPowerFromConfig(self) -> bool:
+        """Apply laser power parameters loaded at startup."""
+        try:
+            return self.set_laser_power_from_config(self._interface)
+        except Exception as e:
+            logger.error(f"setLaserPowerFromConfig error: {e}")
+            return False
+         
+    def set_laser_power_from_config(self, interface):
+        logger.info("[Connector] Setting laser power from config...")
+        self._console_mutex.lock()
+        for idx, laser_param in enumerate(self.laser_params, start=1):
+            muxIdx = laser_param["muxIdx"]
+            channel = laser_param["channel"]
+            i2cAddr = laser_param["i2cAddr"]
+            offset = laser_param["offset"]
+            dataToSend = bytearray(laser_param["dataToSend"])
+
+            logger.debug(
+                f"[Connector] ({idx}/{len(self.laser_params)}) "
+                f"Writing I2C: muxIdx={muxIdx}, channel={channel}, "
+                f"i2cAddr=0x{i2cAddr:02X}, offset=0x{offset:02X}, "
+                f"data={list(dataToSend)}"
+            )
+
+            if not interface.console_module.write_i2c_packet(
+                mux_index=muxIdx, channel=channel,
+                device_addr=i2cAddr, reg_addr=offset,
+                data=dataToSend
+            ):
+                logger.error(f"Failed to set laser power (muxIdx={muxIdx}, channel={channel})")
+                return False
+        logger.info("Laser power set successfully.")
+        self._console_mutex.unlock()
+        return True
+    
     @pyqtProperty(str, notify=csvOutputDirectoryChanged)
     def csvOutputDirectory(self):
         """Get the current CSV output directory."""
