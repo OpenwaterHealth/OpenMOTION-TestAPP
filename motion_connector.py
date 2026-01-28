@@ -13,6 +13,7 @@ import datetime
 import time
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 from utils.resource_path import resource_path
 from motion_singleton import motion_interface  
@@ -88,7 +89,7 @@ class CaptureThread(QThread):
                         return None
                 
         logger.debug("Setting test pattern...")
-        self.update_status.emit(f"set live")
+        self.update_status.emit("set live")
         if not motion_interface.sensors["left"].camera_configure_test_pattern(CAMERA_MASK, 0x04):
             logger.error("Failed to set test pattern.")
             return None
@@ -187,10 +188,15 @@ class MOTIONConnector(QObject):
 
     tecStatusChanged = pyqtSignal()
     tecDacChanged = pyqtSignal()
+    
+    taGainValueChanged = pyqtSignal()
+    taGainSetFailed = pyqtSignal(str)
 
     def __init__(self, config_dir="config", log_level=logging.INFO):
         super().__init__()
         self._interface = motion_interface
+
+        self._ta_gain_value = 0
         
         # Configure logging with the provided level
         self._configure_logging(log_level)
@@ -1094,7 +1100,7 @@ class MOTIONConnector(QObject):
                 
                 trigger_setting = motion_interface.console_module.set_trigger_json(data=json_trigger_data)
                 if not trigger_setting:
-                    logger.error(f"Error while setting trigger trigger not started")
+                    logger.error("Error while setting trigger trigger not started")
                     return False
                 
                 logger.info(f"Trigger Setting: {trigger_setting}")
@@ -1249,21 +1255,21 @@ class MOTIONConnector(QObject):
             if target == "CONSOLE":
                 self._console_mutex.lock()
                 if motion_interface.console_module.ping():                    
-                    logger.info(f"Ping command sent successfully")
+                    logger.info("Ping command sent successfully")
                     return True
                 else:
-                    logger.error(f"Failed to send ping command")
+                    logger.error("Failed to send ping command")
                     return False
             elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":                
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
                 if motion_interface.sensors[sensor_tag].ping():
-                    logger.info(f"Ping command sent successfully")
+                    logger.info("Ping command sent successfully")
                     return True
                 else:
-                    logger.error(f"Failed to send ping command")
+                    logger.error("Failed to send ping command")
                     return False
             else:
-                logger.error(f"Invalid target for ping command")
+                logger.error("Invalid target for ping command")
                 return False
         except Exception as e:
             logger.error(f"Error sending ping command: {e}")
@@ -1280,10 +1286,10 @@ class MOTIONConnector(QObject):
                 self._console_mutex.lock()
                 try:
                     if motion_interface.console_module.toggle_led():
-                        logger.info(f"Toggle command sent successfully")
+                        logger.info("Toggle command sent successfully")
                         return True
                     else:
-                        logger.error(f"Failed to Toggle command")
+                        logger.error("Failed to Toggle command")
                         return False
                 finally:
                     self._console_mutex.unlock()
@@ -1294,15 +1300,15 @@ class MOTIONConnector(QObject):
                 mutex.lock()
                 try:
                     if motion_interface.sensors[sensor_tag].toggle_led():
-                        logger.info(f"Toggle command sent successfully")
+                        logger.info("Toggle command sent successfully")
                         return True
                     else:
-                        logger.error(f"Failed to send Toggle command")
+                        logger.error("Failed to send Toggle command")
                         return False
                 finally:
                     mutex.unlock()
             else:
-                logger.error(f"Invalid target for Toggle command")
+                logger.error("Invalid target for Toggle command")
                 return False
         except Exception as e:
             logger.error(f"Error sending Toggle command: {e}")
@@ -1320,14 +1326,14 @@ class MOTIONConnector(QObject):
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"
                 echoed_data, data_len = motion_interface.sensors[sensor_tag].echo(echo_data=expected_data)
             else:
-                logger.error(f"Invalid target for Echo command")
+                logger.error("Invalid target for Echo command")
                 return False
 
             if echoed_data == expected_data and data_len == len(expected_data):
-                logger.info(f"Echo command successful - Data matched")
+                logger.info("Echo command successful - Data matched")
                 return True
             else:
-                logger.error(f"Echo command failed - Data mismatch")
+                logger.error("Echo command failed - Data mismatch")
                 return False
             
         except Exception as e:
@@ -1377,15 +1383,15 @@ class MOTIONConnector(QObject):
                 self._console_mutex.lock()       
                 fpga_data, fpga_data_len = motion_interface.console_module.read_i2c_packet(mux_index=mux_idx, channel=channel, device_addr=i2c_addr, reg_addr=offset, read_len=data_len)
                 if fpga_data is None or fpga_data_len == 0:
-                    logger.error(f"Read I2C Failed")
+                    logger.error("Read I2C Failed")
                     return []
                 else:
-                    logger.debug(f"Read I2C Success")
+                    logger.debug("Read I2C Success")
                     logger.debug(f"Raw bytes: {fpga_data.hex(' ')}")  # Print as hex bytes separated by spaces
                     return list(fpga_data[:fpga_data_len]) 
                 
             elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
-                logger.error(f"I2C Read Not Implemented")
+                logger.error("I2C Read Not Implemented")
                 return []
         except Exception as e:
             logger.error(f"Error sending i2c read command: {e}")
@@ -1397,7 +1403,7 @@ class MOTIONConnector(QObject):
     @pyqtSlot(str, int, int, int, int, list, result=bool)
     def i2cWriteBytes(self, target: str, mux_idx: int, channel: int, i2c_addr: int, offset: int, data: list[int]) -> bool:
         """Send i2c write to device"""
-        locker = QMutexLocker(self._i2c_mutex)  # Lock auto-released at function exit
+        QMutexLocker(self._i2c_mutex)  # Lock auto-released at function exit
         try:
             logger.debug(
                 f"I2C Write Request -> target={target}, mux_idx={mux_idx}, channel={channel}, "
@@ -1418,13 +1424,13 @@ class MOTIONConnector(QObject):
             if target == "CONSOLE":
                 self._console_mutex.lock()
                 if motion_interface.console_module.write_i2c_packet(mux_index=mux_idx, channel=channel, device_addr=i2c_addr, reg_addr=offset, data=byte_data):
-                    logger.debug(f"Write I2C Success")
+                    logger.debug("Write I2C Success")
                     return True
                 else:
-                    logger.error(f"Write I2C Failed")
+                    logger.error("Write I2C Failed")
                     return False
             elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
-                logger.debug(f"I2C Write Not Implemented")
+                logger.debug("I2C Write Not Implemented")
                 return True
         except Exception as e:
             logger.error(f"Error sending i2c write command: {e}")
@@ -1441,15 +1447,15 @@ class MOTIONConnector(QObject):
             
             if target == "CONSOLE":
                 if motion_interface.console_module.soft_reset():
-                    logger.info(f"Software Reset Sent")
+                    logger.info("Software Reset Sent")
                 else:
-                    logger.error(f"Failed to send Software Reset")
+                    logger.error("Failed to send Software Reset")
             elif target == "SENSOR_LEFT" or target == "SENSOR_RIGHT":
                 sensor_tag = "left" if target == "SENSOR_LEFT" else "right"                    
                 if motion_interface.sensors[sensor_tag].soft_reset():
-                    logger.info(f"Software Reset Sent")
+                    logger.info("Software Reset Sent")
                 else:
-                    logger.error(f"Failed to send Software Reset")
+                    logger.error("Failed to send Software Reset")
         except Exception as e:
             logger.error(f"Error Sending Software Reset: {e}")
         finally:
@@ -1489,14 +1495,64 @@ class MOTIONConnector(QObject):
         try:
             
             if motion_interface.console_module.set_fan_speed(fan_speed=speed) == speed:
-                logger.info(f"Fan set successfully")
+                logger.info("Fan set successfully")
                 return True
             else:   
-                logger.error(f"Failed to set Fan Speed")
+                logger.error("Failed to set Fan Speed")
                 return False    
                         
         except Exception as e:
             logger.error(f"Error setting Fan Speed: {e}")
+            return False
+        finally:
+            self._console_mutex.unlock()
+
+    @pyqtProperty(int, notify=taGainValueChanged)
+    def taGainValue(self):
+        return getattr(self, '_ta_gain_value', 0)
+
+    def set_ta_gain_value(self, value):
+        if getattr(self, '_ta_gain_value', 0) != value:
+            self._ta_gain_value = value
+            self.taGainValueChanged.emit()
+
+    @pyqtSlot()
+    def queryTAGainValue(self):
+        try:
+            value = motion_interface.console_module.get_ta_gain_resistor()
+            self.set_ta_gain_value(value)
+        except Exception as e:
+            logger.error(f"Error querying TA gain resistor: {e}")
+            self.set_ta_gain_value(0)
+            
+    @pyqtSlot(int, result=bool)
+    def setTAGain(self, res: int) -> bool:
+        """Set TA gain resistance (0-2500) via console module.
+
+        Calls the underlying SDK method `set_ta_gain_resistor` and
+        returns True on success.
+        """
+        self._console_mutex.lock()
+        try:
+            # Delegate to console module
+            result = motion_interface.console_module.set_ta_gain_resistor(res)
+            if result:
+                logger.info(f"TA gain resistor set to {res} ohms")
+                return True
+            else:
+                msg = f"Failed to set TA gain resistor to {res} ohms"
+                logger.error(msg)
+                self.taGainSetFailed.emit(msg)
+                return False
+        except ValueError as ve:
+            msg = f"Invalid TA gain value or console not connected: {ve}"
+            logger.error(msg)
+            self.taGainSetFailed.emit(msg)
+            return False
+        except Exception as e:
+            msg = f"Error setting TA gain resistor: {e}"
+            logger.error(msg)
+            self.taGainSetFailed.emit(msg)
             return False
         finally:
             self._console_mutex.unlock()

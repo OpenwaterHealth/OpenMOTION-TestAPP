@@ -60,7 +60,7 @@ def main():
     log_level = logging.DEBUG if args.debug else logging.INFO
     connector = MOTIONConnector(log_level=log_level)
     qmlRegisterSingletonInstance("OpenMotion", 1, 0, "MOTIONInterface", connector)
-    engine.rootContext().setContextProperty("appVersion", "1.2.18")
+    engine.rootContext().setContextProperty("appVersion", "1.2.19")
 
     # Load the QML file
     engine.load(resource_path("main.qml"))

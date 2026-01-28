@@ -25,6 +25,7 @@ Rectangle {
     property int fan_speed: 0
     property var fn: null
     property int rawValue: 0 
+    property int taGainValue: 0 
     
     readonly property int dataSize: {
         if (fn && fn.data_size) {
@@ -97,6 +98,7 @@ Rectangle {
         MOTIONInterface.queryRGBState() // Query Indicator state
         MOTIONInterface.queryFans() // Query Indicator state        
         MOTIONInterface.queryConsoleTemperature()
+        MOTIONInterface.queryTAGainValue();
     }
 
 
@@ -753,7 +755,6 @@ Rectangle {
                             }
                         }
                     }
-                                        
 
                     // FPGA Utility
                     Rectangle {
@@ -1016,70 +1017,178 @@ Rectangle {
 
                     }
 
-                    // Fan Tests Box
-                    Rectangle {
-                        width: 650
-                        height: 140
-                        radius: 8
-                        color: "#1E1E20"
-                        border.color: "#3E4E6F"
-                        border.width: 2
+                    // Fan Tests and TA Gain Row
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
 
-                        // Title at Top-Center with 5px Spacing
-                        Text {
-                            text: "Fan Tests"
-                            color: "#BDC3C7"
-                            font.pixelSize: 18
-                            anchors.top: parent.top
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.topMargin: 5  // 5px spacing from the top
+                        // Fan Tests Box (left half)
+                        Rectangle {
+                            id: fanTestsBox
+                            Layout.preferredWidth: 320
+                            height: 140
+                            radius: 8
+                            color: "#1E1E20"
+                            border.color: "#3E4E6F"
+                            border.width: 2
+
+                            // Title at Top-Center with 5px Spacing
+                            Text {
+                                text: "Fan Tests"
+                                color: "#BDC3C7"
+                                font.pixelSize: 18
+                                anchors.top: parent.top
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.topMargin: 5
+                            }
+
+                            // Slider for Fan
+                            Column {
+                                anchors.top: parent.top
+                                anchors.topMargin: 28
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                spacing: 5
+
+                                Rectangle { height: 10; width: 1; color: "transparent" }
+
+                                Text {
+                                    text: "Console Fan: " + (fanSlider.value === 0 ? "OFF" : fanSlider.value.toFixed(0) + "%")
+                                    color: "#BDC3C7"
+                                    font.pixelSize: 14
+                                }
+
+                                Slider {
+                                    id: fanSlider
+                                    width: 280
+                                    from: 0
+                                    to: 100
+                                    stepSize: 10
+                                    value: fan_speed || 0
+                                    enabled: MOTIONInterface.consoleConnected
+
+                                    property bool userIsSliding: false
+
+                                    onPressedChanged: {
+                                        if (pressed) {
+                                            userIsSliding = true
+                                        } else if (!pressed && userIsSliding) {
+                                            let snappedValue = Math.round(value / 10) * 10
+                                            value = snappedValue
+                                            userIsSliding = false
+                                            let success = MOTIONInterface.setFanLevel(snappedValue);
+                                            if (!success) console.error("Failed to set fan speed");
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        // Slider for Fan
-                        Column {
-                            anchors.top: parent.top
-                            anchors.topMargin: 28  // Adjust spacing as needed
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 5
+                        // TA Gain Box (right half)
+                        Rectangle {
+                            id: taGainBox
+                            Layout.preferredWidth: 320
+                            height: 140
+                            radius: 8
+                            color: "#1E1E20"
+                            border.color: "#3E4E6F"
+                            border.width: 2
+                            enabled: MOTIONInterface.consoleConnected
 
-
-                            Rectangle {  // Acts as a spacer
-                                height: 10
-                                width: 1
-                                color: "transparent"
-                            }
-                            
+                            // Title
                             Text {
-                                text: "Console Fan: " + (fanSlider.value === 0 ? "OFF" : fanSlider.value.toFixed(0) + "%")
+                                text: "TA Gain"
                                 color: "#BDC3C7"
-                                font.pixelSize: 14
+                                font.pixelSize: 18
+                                anchors.top: parent.top
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.topMargin: 5
                             }
 
-                            Slider {
-                                id: fanSlider
-                                width: 600  // Adjust width as needed
-                                from: 0
-                                to: 100
-                                stepSize: 10   // Snap to increments of 10
-                                value: 0  // Default value is 0 (OFF)
-                                enabled: MOTIONInterface.consoleConnected 
+                            Column {
+                                anchors.top: parent.top
+                                anchors.topMargin: 34
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.margins: 12
+                                spacing: 8
 
-                                property bool userIsSliding: false
+                                RowLayout {
+                                    spacing: 8
+                                    Layout.fillWidth: true
 
-                                onPressedChanged: {
-                                    if (pressed) {
-                                        userIsSliding = true
-                                    } else if (!pressed && userIsSliding) {
-                                        // User has finished sliding
-                                        let snappedValue = Math.round(value / 10) * 10
-                                        value = snappedValue
-                                        // console.log("Slider released at:", snappedValue)
-                                        userIsSliding = false
-                                        let success = MOTIONInterface.setFanLevel(snappedValue);
-                                        if (success) {
-                                            // console.log("Fan speed set successfully");
-                                        } else {
-                                            console.error("Failed to set fan speed");
+                                    Text {
+                                        text: "Resistance:" 
+                                        color: "#BDC3C7"
+                                        font.pixelSize: 14
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+
+                                    IntValidator {
+                                        id: taIntVal
+                                        bottom: 0
+                                        top: 2500
+                                    }
+
+                                    TextField {
+                                        id: taResistanceInput
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 32
+                                        placeholderText: "0 - 2500"
+                                        validator: taIntVal
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        text: MOTIONInterface.taGainValue.toString()
+
+                                        onAccepted: {
+                                            // Clamp and normalize
+                                            let v = parseInt(text)
+                                            if (isNaN(v)) {
+                                                text = ""
+                                            } else {
+                                                if (v < 0) v = 0
+                                                if (v > 2500) v = 2500
+                                                text = v.toString()
+                                                let ok = MOTIONInterface.setTAGain(v)
+                                                if (!ok) {
+                                                  
+                                                }
+                                            }
+                                        }
+
+                                        property string taGainError: ""
+                                        Timer {
+                                            id: taGainErrorTimer
+                                            interval: 2500
+                                            running: false
+                                            repeat: false
+                                            onTriggered: taResistanceInput.taGainError = ""
+                                        }
+                                        Connections {
+                                            target: MOTIONInterface
+                                            function onTaGainValueChanged() {
+                                                taResistanceInput.text = MOTIONInterface.taGainValue.toString()
+                                            }
+                                            function onTaGainSetFailed(msg) {
+                                                taResistanceInput.text = MOTIONInterface.taGainValue.toString()
+                                                taResistanceInput.taGainError = msg
+                                                taGainErrorTimer.restart()
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            anchors.top: taResistanceInput.bottom
+                                            anchors.left: taResistanceInput.left
+                                            width: taResistanceInput.width
+                                            height: taResistanceInput.taGainError ? 20 : 0
+                                            color: "transparent"
+                                            visible: taResistanceInput.taGainError.length > 0
+                                            Text {
+                                                anchors.fill: parent
+                                                text: taResistanceInput.taGainError
+                                                color: "red"
+                                                font.pixelSize: 12
+                                                verticalAlignment: Text.AlignVCenter
+                                                horizontalAlignment: Text.AlignLeft
+                                            }
                                         }
                                     }
                                 }
