@@ -1914,7 +1914,28 @@ Rectangle {
                             font.pixelSize: 16
                             color: "#BDC3C7"
                             horizontalAlignment: Text.AlignRight
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                            wrapMode: Text.NoWrap
+                            maximumLineCount: 1
+                            clip: true
+
+                            // Keep this from expanding the status panel off-screen
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: statusPanel.width * 2 / 3
                             Layout.alignment: Qt.AlignRight
+
+                            MouseArea {
+                                id: maStatusText
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.NoButton
+                                cursorShape: Qt.IBeamCursor
+
+                                ToolTip.text: statusText.text
+                                ToolTip.visible: containsMouse
+                                ToolTip.delay: 300
+                            }
                         }
 
                         RowLayout {
