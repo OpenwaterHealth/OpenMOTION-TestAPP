@@ -155,6 +155,8 @@ class MOTIONConnector(QObject):
 
     consoleDeviceInfoReceived = pyqtSignal(str, str, str)  
     sensorDeviceInfoReceived = pyqtSignal(str, str)
+    # Target-aware variant for pages that need both left/right info simultaneously
+    sensorDeviceInfoReceivedEx = pyqtSignal(str, str, str)
     temperatureSensorUpdated = pyqtSignal(float)  # (imu_temp)
     accelerometerSensorUpdated = pyqtSignal(int, int, int) # (imu_accel)
     gyroscopeSensorUpdated = pyqtSignal(int, int, int)  # (imu_accel)
@@ -179,6 +181,7 @@ class MOTIONConnector(QObject):
     fanSpeedsReceived = pyqtSignal(int)  # Emit both integers
     
     histogramReady = pyqtSignal(list)  # Emit 1024 bins to QML
+    latestVersionInfoReceived = pyqtSignal('QVariant')  # emits dict with latest/releases
     updateCapStatus = pyqtSignal(str) 
 
     tcmChanged = pyqtSignal()
@@ -929,6 +932,7 @@ class MOTIONConnector(QObject):
                     device_id = base58.b58encode(bytes.fromhex(hw_id)).decode()
                     # Emit signal for async UI update
                     self.sensorDeviceInfoReceived.emit(fw_version, device_id)
+                    self.sensorDeviceInfoReceivedEx.emit(target, fw_version, device_id)
                     logger.info(f"Sensor Device Info - Firmware: {fw_version}, Device ID: {device_id}")
                 finally:
                     mutex.unlock()
@@ -952,6 +956,20 @@ class MOTIONConnector(QObject):
             logger.info(f"Console Device Info - Firmware: {fw_version}, Device ID: {device_id}, Board ID: {board_id}")
         except Exception as e:
             logger.error(f"Error querying device info: {e}")
+        finally:
+            self._console_mutex.unlock()
+
+    @pyqtSlot()
+    def queryConsoleLatestVersionInfo(self):
+        """Fetch latest firmware/release info from console module and emit to QML."""
+        self._console_mutex.lock()
+        try:
+            info = motion_interface.console_module.get_latest_version_info()
+            logger.info(f"Latest version info: {info}")
+            # Emit whatever structure the console module returns (QVariant-compatible)
+            self.latestVersionInfoReceived.emit(info)
+        except Exception as e:
+            logger.error(f"Error querying latest version info: {e}")
         finally:
             self._console_mutex.unlock()
 
