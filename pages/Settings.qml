@@ -22,22 +22,64 @@ Rectangle {
     property var consoleReleasesModel: []
     property int consoleLatestIndex: 0
 
+    // Left sensor latest firmware info
+    property string leftLatestFirmware: "N/A"
+    property string leftLatestFirmwareDate: ""
+    property var leftReleasesModel: []
+    property int leftLatestIndex: 0
+
+    // Right sensor latest firmware info
+    property string rightLatestFirmware: "N/A"
+    property string rightLatestFirmwareDate: ""
+    property var rightReleasesModel: []
+    property int rightLatestIndex: 0
+
     property string leftSensorFirmwareVersion: "N/A"
     property string leftSensorDeviceId: "N/A"
     property string rightSensorFirmwareVersion: "N/A"
     property string rightSensorDeviceId: "N/A"
 
+    // Console firmware update UI state
+    property string consoleFwToken: ""
+    property string consoleFwSelectedTag: ""
+    property string consoleFwFilename: ""
+    property string consoleFwStageText: ""
+    property int consoleFwPercent: -1
+    property string consoleFwMessage: ""
+
+    // Modal dialog styling (firmware update)
+    property int modalMaxWidth: 520
+    property int modalMinWidth: 420
+    property int modalPadding: 18
+    property color modalOverlayColor: "#B0000000"   // darker than default to avoid washed-out background
+    property color modalBackgroundColor: "#1E1E20"
+    property color modalBorderColor: "#3E4E6F"
+    property int modalBorderWidth: 2
+    property int modalRadius: 12
+
+    function modalWidthFor(parentItem) {
+        var w = modalMinWidth
+        if (parentItem && parentItem.width)
+            w = Math.min(modalMaxWidth, Math.max(modalMinWidth, parentItem.width * 0.85))
+        return Math.round(w)
+    }
+
     function refreshConsoleInfo() {
-        if (MOTIONInterface.consoleConnected)
+        if (MOTIONInterface.consoleConnected) {
             MOTIONInterface.queryConsoleInfo()
             MOTIONInterface.queryConsoleLatestVersionInfo()
+        }
     }
 
     function refreshSensorInfo(target) {
-        if (target === "SENSOR_LEFT" && MOTIONInterface.leftSensorConnected)
+        if (target === "SENSOR_LEFT" && MOTIONInterface.leftSensorConnected) {
             MOTIONInterface.querySensorInfo(target)
-        if (target === "SENSOR_RIGHT" && MOTIONInterface.rightSensorConnected)
+            MOTIONInterface.querySensorLatestVersionInfo(target)
+        }
+        if (target === "SENSOR_RIGHT" && MOTIONInterface.rightSensorConnected) {
             MOTIONInterface.querySensorInfo(target)
+            MOTIONInterface.querySensorLatestVersionInfo(target)
+        }
     }
 
     Connections {
@@ -114,6 +156,47 @@ Rectangle {
             }
         }
 
+        function onLatestSensorVersionInfoReceived(target, info) {
+            if (!info) return
+            try {
+                var names = []
+                for (var k in info.releases) {
+                    names.push(k)
+                }
+                names.sort(function(a,b){
+                    var da = new Date(info.releases[a].published_at).getTime()
+                    var db = new Date(info.releases[b].published_at).getTime()
+                    return db - da
+                })
+
+                if (target === "SENSOR_LEFT") {
+                    if (info.latest && info.latest.tag_name) {
+                        leftLatestFirmware = info.latest.tag_name
+                        leftLatestFirmwareDate = info.latest.published_at || ""
+                    } else {
+                        leftLatestFirmware = "N/A"
+                        leftLatestFirmwareDate = ""
+                    }
+                    leftReleasesModel = names
+                    var idxL = leftReleasesModel.indexOf(leftLatestFirmware)
+                    leftLatestIndex = idxL >= 0 ? idxL : 0
+                } else if (target === "SENSOR_RIGHT") {
+                    if (info.latest && info.latest.tag_name) {
+                        rightLatestFirmware = info.latest.tag_name
+                        rightLatestFirmwareDate = info.latest.published_at || ""
+                    } else {
+                        rightLatestFirmware = "N/A"
+                        rightLatestFirmwareDate = ""
+                    }
+                    rightReleasesModel = names
+                    var idxR = rightReleasesModel.indexOf(rightLatestFirmware)
+                    rightLatestIndex = idxR >= 0 ? idxR : 0
+                }
+            } catch (e) {
+                console.log('Error parsing sensor latest version info', e)
+            }
+        }
+
         // Newer signal (preferred): includes target so Settings can show both L/R.
         function onSensorDeviceInfoReceivedEx(target, fwVersion, devId) {
             if (target === "SENSOR_LEFT") {
@@ -123,6 +206,43 @@ Rectangle {
                 rightSensorFirmwareVersion = fwVersion
                 rightSensorDeviceId = devId
             }
+        }
+
+        function onConsoleFirmwareUpdateProgress(stage, percent, message) {
+            if (stage === "download")
+                consoleFwStageText = "Downloading firmware"
+            else if (stage === "flash")
+                consoleFwStageText = "Updating firmware"
+            else
+                consoleFwStageText = "Working"
+
+            consoleFwPercent = percent
+            consoleFwMessage = message
+            if (!fwProgressDialog.opened)
+                fwProgressDialog.open()
+        }
+
+        function onConsoleFirmwareDownloadReady(token, tag, filename) {
+            consoleFwToken = token
+            consoleFwSelectedTag = tag
+            consoleFwFilename = filename
+            fwProgressDialog.close()
+            fwConfirmDialog.open()
+        }
+
+        function onConsoleFirmwareUpdateFinished(success, message) {
+            fwProgressDialog.close()
+            consoleFwToken = ""
+            fwResultDialog.title = success ? "Firmware Update Complete" : "Firmware Update Failed"
+            fwResultDialog.message = message
+            fwResultDialog.open()
+        }
+
+        function onConsoleFirmwareUpdateError(message) {
+            fwProgressDialog.close()
+            fwErrorDialog.message = message
+            fwErrorDialog.open()
+            consoleFwToken = ""
         }
     }
 
@@ -142,6 +262,427 @@ Rectangle {
         // Populate immediately if user navigates here while already connected
         if (MOTIONInterface.consoleConnected || MOTIONInterface.leftSensorConnected || MOTIONInterface.rightSensorConnected)
             settingsInfoTimer.start()
+    }
+
+    Dialog {
+        id: fwErrorDialog
+        parent: contentArea
+        modal: true
+        title: "Firmware Update"
+        standardButtons: Dialog.NoButton
+        property string message: ""
+        closePolicy: Popup.NoAutoClose
+        footer: null
+
+        width: modalWidthFor(parent)
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        padding: modalPadding
+
+        Overlay.modal: Rectangle { color: modalOverlayColor }
+
+        header: Item {
+            implicitHeight: 46
+
+            Rectangle {
+                id: fwErrorHeaderBg
+                anchors.fill: parent
+                anchors.margins: modalBorderWidth
+                color: "#3A3F4B"
+                radius: modalRadius
+            }
+
+            // Square off the bottom edge so only the top corners are rounded
+            Rectangle {
+                anchors.left: fwErrorHeaderBg.left
+                anchors.right: fwErrorHeaderBg.right
+                anchors.bottom: fwErrorHeaderBg.bottom
+                height: modalRadius
+                color: fwErrorHeaderBg.color
+            }
+
+            Text {
+                text: fwErrorDialog.title
+                anchors.left: parent.left
+                anchors.leftMargin: modalPadding
+                anchors.verticalCenter: parent.verticalCenter
+                color: "white"
+                font.pixelSize: 18
+                font.weight: Font.Medium
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+
+        background: Rectangle {
+            color: modalBackgroundColor
+            radius: modalRadius
+            border.color: modalBorderColor
+            border.width: modalBorderWidth
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+            width: fwErrorDialog.width - fwErrorDialog.leftPadding - fwErrorDialog.rightPadding
+
+            Text {
+                text: fwErrorDialog.message
+                color: "white"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "OK"
+                    Layout.preferredWidth: 110
+                    Layout.preferredHeight: 40
+                    hoverEnabled: true
+
+                    onClicked: fwErrorDialog.close()
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                        border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                        radius: 6
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: fwResultDialog
+        parent: contentArea
+        modal: true
+        title: "Firmware Update"
+        standardButtons: Dialog.NoButton
+        property string message: ""
+        closePolicy: Popup.NoAutoClose
+        footer: null
+
+        width: modalWidthFor(parent)
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        padding: modalPadding
+
+        Overlay.modal: Rectangle { color: modalOverlayColor }
+
+        header: Item {
+            implicitHeight: 46
+
+            Rectangle {
+                id: fwResultHeaderBg
+                anchors.fill: parent
+                anchors.margins: modalBorderWidth
+                color: "#3A3F4B"
+                radius: modalRadius
+            }
+
+            Rectangle {
+                anchors.left: fwResultHeaderBg.left
+                anchors.right: fwResultHeaderBg.right
+                anchors.bottom: fwResultHeaderBg.bottom
+                height: modalRadius
+                color: fwResultHeaderBg.color
+            }
+
+            Text {
+                text: fwResultDialog.title
+                anchors.left: parent.left
+                anchors.leftMargin: modalPadding
+                anchors.verticalCenter: parent.verticalCenter
+                color: "white"
+                font.pixelSize: 18
+                font.weight: Font.Medium
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+
+        background: Rectangle {
+            color: modalBackgroundColor
+            radius: modalRadius
+            border.color: modalBorderColor
+            border.width: modalBorderWidth
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+            width: fwResultDialog.width - fwResultDialog.leftPadding - fwResultDialog.rightPadding
+
+            Text {
+                text: fwResultDialog.message
+                color: "white"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "OK"
+                    Layout.preferredWidth: 110
+                    Layout.preferredHeight: 40
+                    hoverEnabled: true
+
+                    onClicked: fwResultDialog.close()
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                        border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                        radius: 6
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: fwConfirmDialog
+        parent: contentArea
+        modal: true
+        title: "Confirm Firmware Update"
+        standardButtons: Dialog.NoButton
+        closePolicy: Popup.NoAutoClose
+        footer: null
+
+        width: modalWidthFor(parent)
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        padding: modalPadding
+
+        Overlay.modal: Rectangle { color: modalOverlayColor }
+
+        header: Item {
+            implicitHeight: 46
+
+            Rectangle {
+                id: fwConfirmHeaderBg
+                anchors.fill: parent
+                anchors.margins: modalBorderWidth
+                color: "#3A3F4B"
+                radius: modalRadius
+            }
+
+            Rectangle {
+                anchors.left: fwConfirmHeaderBg.left
+                anchors.right: fwConfirmHeaderBg.right
+                anchors.bottom: fwConfirmHeaderBg.bottom
+                height: modalRadius
+                color: fwConfirmHeaderBg.color
+            }
+
+            Text {
+                text: fwConfirmDialog.title
+                anchors.left: parent.left
+                anchors.leftMargin: modalPadding
+                anchors.verticalCenter: parent.verticalCenter
+                color: "white"
+                font.pixelSize: 18
+                font.weight: Font.Medium
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+
+        background: Rectangle {
+            color: modalBackgroundColor
+            radius: modalRadius
+            border.color: modalBorderColor
+            border.width: modalBorderWidth
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 10
+            width: fwConfirmDialog.width - fwConfirmDialog.leftPadding - fwConfirmDialog.rightPadding
+
+            Text {
+                text: "Update console firmware to " + consoleFwSelectedTag + "?"
+                color: "white"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: "File: " + consoleFwFilename + "\nThe console will reboot into DFU mode and be re-flashed."
+                color: "#BDC3C7"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "Cancel"
+                    Layout.preferredWidth: 110
+                    Layout.preferredHeight: 40
+                    hoverEnabled: true
+
+                    onClicked: {
+                        fwConfirmDialog.close()
+                        MOTIONInterface.cancelConsoleFirmwareUpdate(consoleFwToken)
+                        consoleFwToken = ""
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                        border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                        radius: 6
+                    }
+                }
+
+                Button {
+                    text: "OK"
+                    Layout.preferredWidth: 110
+                    Layout.preferredHeight: 40
+                    hoverEnabled: true
+                    enabled: consoleFwToken !== ""
+
+                    onClicked: {
+                        fwConfirmDialog.close()
+                        fwProgressDialog.open()
+                        MOTIONInterface.startConsoleFirmwareUpdate(consoleFwToken)
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#BDC3C7" : "#7F8C8D"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        color: parent.hovered ? "#4A90E2" : "#3A3F4B"
+                        border.color: parent.hovered ? "#FFFFFF" : "#BDC3C7"
+                        radius: 6
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: fwProgressDialog
+        parent: contentArea
+        modal: true
+        title: "Firmware Update"
+        standardButtons: Dialog.NoButton
+        closePolicy: Popup.NoAutoClose
+        footer: null
+
+        width: modalWidthFor(parent)
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        padding: modalPadding
+
+        Overlay.modal: Rectangle { color: modalOverlayColor }
+
+        header: Item {
+            implicitHeight: 46
+
+            Rectangle {
+                id: fwProgressHeaderBg
+                anchors.fill: parent
+                anchors.margins: modalBorderWidth
+                color: "#3A3F4B"
+                radius: modalRadius
+            }
+
+            Rectangle {
+                anchors.left: fwProgressHeaderBg.left
+                anchors.right: fwProgressHeaderBg.right
+                anchors.bottom: fwProgressHeaderBg.bottom
+                height: modalRadius
+                color: fwProgressHeaderBg.color
+            }
+
+            Text {
+                text: fwProgressDialog.title
+                anchors.left: parent.left
+                anchors.leftMargin: modalPadding
+                anchors.verticalCenter: parent.verticalCenter
+                color: "white"
+                font.pixelSize: 18
+                font.weight: Font.Medium
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+
+        background: Rectangle {
+            color: modalBackgroundColor
+            radius: modalRadius
+            border.color: modalBorderColor
+            border.width: modalBorderWidth
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+            width: fwProgressDialog.width - fwProgressDialog.leftPadding - fwProgressDialog.rightPadding
+
+            Text {
+                text: consoleFwStageText
+                color: "white"
+                font.pixelSize: 16
+                Layout.fillWidth: true
+            }
+
+            ProgressBar {
+                Layout.fillWidth: true
+                from: 0
+                to: 1
+                indeterminate: consoleFwPercent < 0
+                value: consoleFwPercent < 0 ? 0 : (consoleFwPercent / 100.0)
+            }
+
+            Text {
+                text: consoleFwMessage
+                color: "#BDC3C7"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+        }
     }
 
     ColumnLayout {
@@ -340,6 +881,8 @@ Rectangle {
                                     && consoleFirmwareVersion !== "N/A"
                                     && consoleDeviceId !== "N/A"
                                     && consoleBoardRevId !== "N/A"
+                                    && consoleReleasesModel.length > 0
+                                    && !MOTIONInterface.consoleFirmwareUpdateBusy
 
                                 Text {
                                     text: "Update Firmware"
@@ -352,7 +895,16 @@ Rectangle {
                                 MouseArea {
                                     anchors.fill: parent
                                     enabled: parent.enabled
-                                    onClicked: MOTIONInterface.softResetSensor("CONSOLE")
+                                    onClicked: {
+                                        var tag = consoleLatestCombo.currentText
+                                        if (!tag || tag === "")
+                                            tag = consoleLatestFirmware
+                                        consoleFwPercent = -1
+                                        consoleFwMessage = ""
+                                        consoleFwStageText = "Starting…"
+                                        MOTIONInterface.beginConsoleFirmwareDownload(tag)
+                                        fwProgressDialog.open()
+                                    }
                                     onEntered: if (parent.enabled) parent.color = "#C0392B"
                                     onExited: if (parent.enabled) parent.color = "#E74C3C"
                                 }
@@ -437,6 +989,23 @@ Rectangle {
 
                                 Text { text: "Firmware:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
                                 Text { text: leftSensorFirmwareVersion; color: "#2ECC71"; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
+
+                                Text { text: "Latest Release:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
+                                Text { text: leftLatestFirmware; color: "#3498DB"; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
+
+                                Text { text: "Published:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
+                                Text { text: leftLatestFirmwareDate; color: "#3498DB"; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
+
+                                Text { text: "Select Release:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
+                                ComboBox {
+                                    id: leftLatestCombo
+                                    model: leftReleasesModel
+                                    currentIndex: leftLatestIndex
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 32
+                                    enabled: MOTIONInterface.leftSensorConnected && leftReleasesModel.length > 0
+                                    onCurrentIndexChanged: leftLatestIndex = currentIndex
+                                }
                             }
 
                             Item { Layout.fillHeight: true }
@@ -546,6 +1115,23 @@ Rectangle {
 
                                 Text { text: "Firmware:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
                                 Text { text: rightSensorFirmwareVersion; color: "#2ECC71"; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
+
+                                Text { text: "Latest Release:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
+                                Text { text: rightLatestFirmware; color: "#3498DB"; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
+
+                                Text { text: "Published:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
+                                Text { text: rightLatestFirmwareDate; color: "#3498DB"; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
+
+                                Text { text: "Select Release:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
+                                ComboBox {
+                                    id: rightLatestCombo
+                                    model: rightReleasesModel
+                                    currentIndex: rightLatestIndex
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 32
+                                    enabled: MOTIONInterface.rightSensorConnected && rightReleasesModel.length > 0
+                                    onCurrentIndexChanged: rightLatestIndex = currentIndex
+                                }
                             }
 
                             Item { Layout.fillHeight: true }
