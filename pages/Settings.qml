@@ -46,6 +46,8 @@ Rectangle {
     property string consoleFwStageText: ""
     property int consoleFwPercent: -1
     property string consoleFwMessage: ""
+    // Current firmware update target (CONSOLE, SENSOR_LEFT, SENSOR_RIGHT)
+    property string fwUpdateTarget: "CONSOLE"
 
     // Modal dialog styling (firmware update)
     property int modalMaxWidth: 520
@@ -208,7 +210,8 @@ Rectangle {
             }
         }
 
-        function onConsoleFirmwareUpdateProgress(stage, percent, message) {
+        function onConsoleFirmwareUpdateProgress(target, stage, percent, message) {
+            fwUpdateTarget = target
             if (stage === "download")
                 consoleFwStageText = "Downloading firmware"
             else if (stage === "flash")
@@ -222,7 +225,8 @@ Rectangle {
                 fwProgressDialog.open()
         }
 
-        function onConsoleFirmwareDownloadReady(token, tag, filename) {
+        function onConsoleFirmwareDownloadReady(token, tag, filename, target) {
+            fwUpdateTarget = target
             consoleFwToken = token
             consoleFwSelectedTag = tag
             consoleFwFilename = filename
@@ -230,15 +234,18 @@ Rectangle {
             fwConfirmDialog.open()
         }
 
-        function onConsoleFirmwareUpdateFinished(success, message) {
+        function onConsoleFirmwareUpdateFinished(target, success, message) {
+            fwUpdateTarget = target
             fwProgressDialog.close()
             consoleFwToken = ""
             fwResultDialog.title = success ? "Firmware Update Complete" : "Firmware Update Failed"
-            fwResultDialog.message = message
+            var prefix = (target === "CONSOLE") ? "Console: " : (target === "SENSOR_LEFT") ? "Left sensor: " : "Right sensor: "
+            fwResultDialog.message = prefix + message
             fwResultDialog.open()
         }
 
-        function onConsoleFirmwareUpdateError(message) {
+        function onConsoleFirmwareUpdateError(target, message) {
+            fwUpdateTarget = target
             fwProgressDialog.close()
             fwErrorDialog.message = message
             fwErrorDialog.open()
@@ -525,7 +532,10 @@ Rectangle {
             width: fwConfirmDialog.width - fwConfirmDialog.leftPadding - fwConfirmDialog.rightPadding
 
             Text {
-                text: "Update console firmware to " + consoleFwSelectedTag + "?"
+                text: {
+                    var label = (fwUpdateTarget === "CONSOLE") ? "console" : (fwUpdateTarget === "SENSOR_LEFT") ? "left sensor" : "right sensor"
+                    return "Update " + label + " firmware to " + consoleFwSelectedTag + "?"
+                }
                 color: "white"
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -1030,7 +1040,16 @@ Rectangle {
                                 MouseArea {
                                     anchors.fill: parent
                                     enabled: parent.enabled
-                                    onClicked: MOTIONInterface.softResetSensor("SENSOR_LEFT")
+                                    onClicked: {
+                                        var tag = leftLatestCombo.currentText
+                                        if (!tag || tag === "")
+                                            tag = leftLatestFirmware
+                                        consoleFwPercent = -1
+                                        consoleFwMessage = ""
+                                        consoleFwStageText = "Starting…"
+                                        MOTIONInterface.beginDeviceFirmwareDownload("SENSOR_LEFT", tag)
+                                        fwProgressDialog.open()
+                                    }
                                     onEntered: if (parent.enabled) parent.color = "#C0392B"
                                     onExited: if (parent.enabled) parent.color = "#E74C3C"
                                 }
@@ -1156,7 +1175,16 @@ Rectangle {
                                 MouseArea {
                                     anchors.fill: parent
                                     enabled: parent.enabled
-                                    onClicked: MOTIONInterface.softResetSensor("SENSOR_RIGHT")
+                                    onClicked: {
+                                        var tag = rightLatestCombo.currentText
+                                        if (!tag || tag === "")
+                                            tag = rightLatestFirmware
+                                        consoleFwPercent = -1
+                                        consoleFwMessage = ""
+                                        consoleFwStageText = "Starting…"
+                                        MOTIONInterface.beginDeviceFirmwareDownload("SENSOR_RIGHT", tag)
+                                        fwProgressDialog.open()
+                                    }
                                     onEntered: if (parent.enabled) parent.color = "#C0392B"
                                     onExited: if (parent.enabled) parent.color = "#E74C3C"
                                 }

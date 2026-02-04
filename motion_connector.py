@@ -54,6 +54,7 @@ RUNNING = 4
 # Firmware source (GitHub releases)
 _CONSOLE_FW_REPO_OWNER = "OpenwaterHealth"
 _CONSOLE_FW_REPO_NAME = "motion-console-fw"
+_SENSOR_FW_REPO_NAME = "motion-sensor-fw"
 
 
 def _app_root_dir() -> Path:
@@ -122,13 +123,14 @@ def _candidate_console_fw_tags(tag: str) -> list[str]:
 class _ConsoleFirmwareDownloadThread(QThread):
     progress = pyqtSignal(int, str)  # percent (0-100, -1 indeterminate), message
     failed = pyqtSignal(str)
-    ready = pyqtSignal(str, str, str)  # token, tag, filename
+    ready = pyqtSignal(str, str, str, str)  # token, tag, filename, target
 
-    def __init__(self, connector: 'MOTIONConnector', tag: str, filename: str):
+    def __init__(self, connector: 'MOTIONConnector', tag: str, filename: str, target: str = "CONSOLE"):
         super().__init__()
         self._connector = connector
         self._tag = tag
         self._filename = filename
+        self._target = target
 
     def run(self):
         token: str | None = None
@@ -145,11 +147,12 @@ class _ConsoleFirmwareDownloadThread(QThread):
 
             token = uuid.uuid4().hex
 
-            # Track token -> (dir, file, cleanup?) where cleanup False for downloads/
+            # Track token -> (dir, file, cleanup?, target) where cleanup False for downloads/
             # (bin_path filled in once download completes)
-            self._connector._fw_temp_files[token] = (str(dl_dir), str((dl_dir / self._filename).resolve()), False)
+            self._connector._fw_temp_files[token] = (str(dl_dir), str((dl_dir / self._filename).resolve()), False, self._target)
 
-            gh = GitHubReleases(_CONSOLE_FW_REPO_OWNER, _CONSOLE_FW_REPO_NAME, timeout=30)
+            repo_name = _CONSOLE_FW_REPO_NAME if self._target == "CONSOLE" else _SENSOR_FW_REPO_NAME
+            gh = GitHubReleases(_CONSOLE_FW_REPO_OWNER, repo_name, timeout=30)
             last_exc: Exception | None = None
             downloaded_path: Path | None = None
 
@@ -181,10 +184,10 @@ class _ConsoleFirmwareDownloadThread(QThread):
                 return
 
             local_path = str(Path(downloaded_path).resolve())
-            self._connector._fw_temp_files[token] = (str(dl_dir), local_path, False)
+            self._connector._fw_temp_files[token] = (str(dl_dir), local_path, False, self._target)
             self.progress.emit(-1, f"Downloaded asset to: {local_path}")
             self.progress.emit(100, "Download complete")
-            self.ready.emit(token, self._tag, self._filename)
+            self.ready.emit(token, self._tag, self._filename, self._target)
         except Exception as exc:
             if token is not None:
                 self._connector._cleanup_fw_token(token)
@@ -216,6 +219,97 @@ class _ConsoleFirmwareFlashThread(QThread):
 
             if not ok:
                 self.failed.emit("Console refused DFU mode request.")
+                return
+
+            # Give the bootloader time to re-enumerate
+            time.sleep(5.0)
+
+            dfu = DFUProgrammer(vidpid="0483:df11")
+            self.progress.emit(-1, "Waiting for DFU device…")
+            if not dfu.wait_for_dfu_device(timeout_s=30.0):
+                self.failed.emit("DFU device did not appear (timeout).")
+                return
+
+            def on_progress(p):
+                phase = "Working"
+                try:
+                    if p.phase == "erase":
+                        phase = "Erasing"
+                    elif p.phase == "download":
+                        phase = "Downloading"
+                except Exception:
+                    pass
+
+                pct = -1
+                try:
+                    if p.percent is not None:
+                        pct = int(p.percent)
+                except Exception:
+                    pct = -1
+                self.progress.emit(pct, f"{phase}…")
+
+            self.progress.emit(0, "Flashing…")
+            result = dfu.flash_bin(
+                Path(self._bin_path),
+                address=DFUProgrammer.DEFAULT_ADDRESS,
+                alt=0,
+                verbose=0,
+                normalize_dfu_suffix=True,
+                progress=on_progress,
+                line_callback=None,
+                echo_output=False,
+                echo_progress_lines=False,
+            )
+
+            if not getattr(result, "success", False):
+                code = getattr(result, "returncode", "?")
+                self.failed.emit(f"Flash failed (dfu-util exit code {code}).")
+                return
+
+            self.progress.emit(100, "Flash complete")
+            self.finished_ok.emit()
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+
+class _DeviceFirmwareFlashThread(QThread):
+    progress = pyqtSignal(int, str)  # percent (0-100, -1 indeterminate), message
+    failed = pyqtSignal(str)
+    finished_ok = pyqtSignal()
+
+    def __init__(self, connector: 'MOTIONConnector', bin_path: str, target: str):
+        super().__init__()
+        self._connector = connector
+        self._bin_path = bin_path
+        self._target = target
+
+    def run(self):
+        if DFUProgrammer is None:
+            self.failed.emit("DFUProgrammer is unavailable (omotion SDK not found in environment).")
+            return
+
+        try:
+            self.progress.emit(-1, "Requesting DFU mode…")
+
+            # Request DFU mode on the correct module with appropriate mutex
+            if self._target == "CONSOLE":
+                self._connector._console_mutex.lock()
+                try:
+                    ok = motion_interface.console_module.enter_dfu()
+                finally:
+                    self._connector._console_mutex.unlock()
+            else:
+                # SENSOR_LEFT or SENSOR_RIGHT
+                sensor_mutex = self._connector._get_sensor_mutex(self._target)
+                sensor_tag = "left" if self._target == "SENSOR_LEFT" else "right"
+                sensor_mutex.lock()
+                try:
+                    ok = motion_interface.sensors[sensor_tag].enter_dfu()
+                finally:
+                    sensor_mutex.unlock()
+
+            if not ok:
+                self.failed.emit("Device refused DFU mode request.")
                 return
 
             # Give the bootloader time to re-enumerate
@@ -414,12 +508,16 @@ class MOTIONConnector(QObject):
     latestSensorVersionInfoReceived = pyqtSignal(str, 'QVariant')  # (target, info)
     updateCapStatus = pyqtSignal(str) 
 
-    # Console firmware update signals (download -> confirm -> DFU flash)
+    # Firmware update signals (download -> confirm -> DFU flash)
     consoleFirmwareUpdateBusyChanged = pyqtSignal()
-    consoleFirmwareUpdateProgress = pyqtSignal(str, int, str)  # stage, percent, message
-    consoleFirmwareDownloadReady = pyqtSignal(str, str, str)  # token, tag, filename
-    consoleFirmwareUpdateFinished = pyqtSignal(bool, str)  # success, message
-    consoleFirmwareUpdateError = pyqtSignal(str)
+    # Emits: target, stage, percent, message
+    consoleFirmwareUpdateProgress = pyqtSignal(str, str, int, str)
+    # Emits: token, tag, filename, target
+    consoleFirmwareDownloadReady = pyqtSignal(str, str, str, str)
+    # Emits: target, success, message
+    consoleFirmwareUpdateFinished = pyqtSignal(str, bool, str)
+    # Emits: target, message
+    consoleFirmwareUpdateError = pyqtSignal(str, str)
 
     tcmChanged = pyqtSignal()
     tclChanged = pyqtSignal()
@@ -487,8 +585,8 @@ class MOTIONConnector(QObject):
 
         # Console firmware update state
         self._console_fw_busy = False
-        # token -> (dir_path, bin_path, cleanup)
-        self._fw_temp_files: dict[str, tuple[str, str, bool]] = {}
+        # token -> (dir_path, bin_path, cleanup, target)
+        self._fw_temp_files: dict[str, tuple[str, str, bool, str]] = {}
         self._fw_download_thread: _ConsoleFirmwareDownloadThread | None = None
         self._fw_flash_thread: _ConsoleFirmwareFlashThread | None = None
         
@@ -510,7 +608,7 @@ class MOTIONConnector(QObject):
 
     def _cleanup_fw_token(self, token: str) -> None:
         try:
-            dir_path, bin_path, do_cleanup = self._fw_temp_files.pop(token)
+            dir_path, bin_path, do_cleanup, _ = self._fw_temp_files.pop(token)
         except Exception:
             return
         if not do_cleanup:
@@ -530,30 +628,57 @@ class MOTIONConnector(QObject):
     def beginConsoleFirmwareDownload(self, tag: str) -> None:
         """Download motion-console-fw.bin for the selected release tag into a temp location."""
         logger.info(f"beginConsoleFirmwareDownload {tag}")
+        target = "CONSOLE"
         if not tag or tag == "N/A":
-            self.consoleFirmwareUpdateError.emit("No release tag selected.")
+            self.consoleFirmwareUpdateError.emit(target, "No release tag selected.")
             return
         if self.consoleFirmwareUpdateBusy:
-            self.consoleFirmwareUpdateError.emit("A firmware update is already in progress.")
+            self.consoleFirmwareUpdateError.emit(target, "A firmware update is already in progress.")
             return
 
         self._set_console_fw_busy(True)
         filename = "motion-console-fw.bin"
 
-        self._fw_download_thread = _ConsoleFirmwareDownloadThread(self, tag, filename)
+        self._fw_download_thread = _ConsoleFirmwareDownloadThread(self, tag, filename, target)
         self._fw_download_thread.progress.connect(
-            lambda pct, msg: self.consoleFirmwareUpdateProgress.emit("download", int(pct), str(msg))
+            lambda pct, msg: self.consoleFirmwareUpdateProgress.emit(target, "download", int(pct), str(msg))
         )
         self._fw_download_thread.ready.connect(self._on_console_fw_download_ready)
-        self._fw_download_thread.failed.connect(self._on_console_fw_failed)
+        self._fw_download_thread.failed.connect(lambda msg: self._on_console_fw_failed(msg, target))
         self._fw_download_thread.finished.connect(lambda: setattr(self, "_fw_download_thread", None))
         self._fw_download_thread.start()
 
-    def _on_console_fw_download_ready(self, token: str, tag: str, filename: str) -> None:
-        self.consoleFirmwareDownloadReady.emit(token, tag, filename)
+    @pyqtSlot(str, str)
+    def beginDeviceFirmwareDownload(self, target: str, tag: str) -> None:
+        """Generic: download firmware binary for a device target (CONSOLE, SENSOR_LEFT, SENSOR_RIGHT)."""
+        logger.info(f"beginDeviceFirmwareDownload target={target} tag={tag}")
+        if target not in ("CONSOLE", "SENSOR_LEFT", "SENSOR_RIGHT"):
+            self.consoleFirmwareUpdateError.emit(target, "Invalid update target.")
+            return
+        if not tag or tag == "N/A":
+            self.consoleFirmwareUpdateError.emit(target, "No release tag selected.")
+            return
+        if self.consoleFirmwareUpdateBusy:
+            self.consoleFirmwareUpdateError.emit(target, "A firmware update is already in progress.")
+            return
 
-    def _on_console_fw_failed(self, message: str) -> None:
-        self.consoleFirmwareUpdateError.emit(message)
+        self._set_console_fw_busy(True)
+        filename = "motion-console-fw.bin" if target == "CONSOLE" else "motion-sensor-fw.bin"
+
+        self._fw_download_thread = _ConsoleFirmwareDownloadThread(self, tag, filename, target)
+        self._fw_download_thread.progress.connect(
+            lambda pct, msg: self.consoleFirmwareUpdateProgress.emit(target, "download", int(pct), str(msg))
+        )
+        self._fw_download_thread.ready.connect(self._on_console_fw_download_ready)
+        self._fw_download_thread.failed.connect(lambda msg: self._on_console_fw_failed(msg, target))
+        self._fw_download_thread.finished.connect(lambda: setattr(self, "_fw_download_thread", None))
+        self._fw_download_thread.start()
+
+    def _on_console_fw_download_ready(self, token: str, tag: str, filename: str, target: str) -> None:
+        self.consoleFirmwareDownloadReady.emit(token, tag, filename, target)
+
+    def _on_console_fw_failed(self, message: str, target: str = "CONSOLE") -> None:
+        self.consoleFirmwareUpdateError.emit(target, message)
         self._set_console_fw_busy(False)
 
     @pyqtSlot(str)
@@ -566,32 +691,30 @@ class MOTIONConnector(QObject):
     def startConsoleFirmwareUpdate(self, token: str) -> None:
         """Flash the previously-downloaded firmware using DFU."""
         if not token or token not in self._fw_temp_files:
-            self.consoleFirmwareUpdateError.emit("Firmware download token is missing/invalid.")
+            self.consoleFirmwareUpdateError.emit("CONSOLE", "Firmware download token is missing/invalid.")
             self._set_console_fw_busy(False)
             return
         if self._fw_flash_thread is not None:
-            self.consoleFirmwareUpdateError.emit("Firmware flashing is already in progress.")
+            self.consoleFirmwareUpdateError.emit("CONSOLE", "Firmware flashing is already in progress.")
             return
-
-        _, bin_path, _ = self._fw_temp_files[token]
+        _, bin_path, _, target = self._fw_temp_files[token]
         if not os.path.exists(bin_path):
-            self.consoleFirmwareUpdateError.emit("Downloaded firmware file is missing.")
+            self.consoleFirmwareUpdateError.emit(target, "Downloaded firmware file is missing.")
             self._cleanup_fw_token(token)
             self._set_console_fw_busy(False)
             return
-
-        self._fw_flash_thread = _ConsoleFirmwareFlashThread(self, bin_path)
+        self._fw_flash_thread = _DeviceFirmwareFlashThread(self, bin_path, target)
         self._fw_flash_thread.progress.connect(
-            lambda pct, msg: self.consoleFirmwareUpdateProgress.emit("flash", int(pct), str(msg))
+            lambda pct, msg: self.consoleFirmwareUpdateProgress.emit(target, "flash", int(pct), str(msg))
         )
-        self._fw_flash_thread.finished_ok.connect(lambda: self._on_console_fw_finished(token, True, "Console firmware updated successfully."))
-        self._fw_flash_thread.failed.connect(lambda msg: self._on_console_fw_finished(token, False, str(msg)))
+        self._fw_flash_thread.finished_ok.connect(lambda: self._on_console_fw_finished(token, True, "Firmware updated successfully.", target))
+        self._fw_flash_thread.failed.connect(lambda msg: self._on_console_fw_finished(token, False, str(msg), target))
         self._fw_flash_thread.finished.connect(lambda: setattr(self, "_fw_flash_thread", None))
         self._fw_flash_thread.start()
 
-    def _on_console_fw_finished(self, token: str, success: bool, message: str) -> None:
+    def _on_console_fw_finished(self, token: str, success: bool, message: str, target: str = "CONSOLE") -> None:
         self._cleanup_fw_token(token)
-        self.consoleFirmwareUpdateFinished.emit(bool(success), str(message))
+        self.consoleFirmwareUpdateFinished.emit(target, bool(success), str(message))
         self._set_console_fw_busy(False)
 
     def _configure_logging(self, log_level):
