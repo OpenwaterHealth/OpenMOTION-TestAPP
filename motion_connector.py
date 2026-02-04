@@ -1898,20 +1898,23 @@ class MOTIONConnector(QObject):
 
     @pyqtSlot()
     def queryTAGainValue(self):
+        """
         try:
             value = motion_interface.console_module.get_ta_gain_resistor()
             self.set_ta_gain_value(value)
         except Exception as e:
             logger.error(f"Error querying TA gain resistor: {e}")
             self.set_ta_gain_value(0)
-            
+        """
+        self.set_ta_gain_value(0)
+        
     @pyqtSlot(int, result=bool)
     def setTAGain(self, res: int) -> bool:
         """Set TA gain resistance (0-2500) via console module.
 
         Calls the underlying SDK method `set_ta_gain_resistor` and
         returns True on success.
-        """
+        
         self._console_mutex.lock()
         try:
             # Delegate to console module
@@ -1936,6 +1939,8 @@ class MOTIONConnector(QObject):
             return False
         finally:
             self._console_mutex.unlock()
+        """
+        return False
     
     @pyqtSlot("QVariantList")
     def saveHistogramToCSV(self, data):
