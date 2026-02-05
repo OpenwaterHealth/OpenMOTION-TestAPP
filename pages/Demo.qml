@@ -1311,10 +1311,10 @@ Rectangle {
                                             font.pixelSize: 12
                                             text: MOTIONInterface.tecDAC.toFixed(3)
 
-                                            // UI-level guard: only allow 0.0–2.5
+                                            // UI-level guard: only allow -5.00–5.00 volts
                                             validator: DoubleValidator {
-                                                bottom: 0.0
-                                                top: 2.5
+                                                bottom: -5.0
+                                                top: 5.0
                                                 decimals: 6
                                                 notation: DoubleValidator.StandardNotation
                                             }
@@ -1341,8 +1341,8 @@ Rectangle {
                                             enabled: MOTIONInterface.consoleConnected
                                             onTriggered: {
                                                 const val = parseFloat(tecSetpoint.text)
-                                                if (isNaN(val) || val < 0 || val > 2.5) {
-                                                    console.error("Invalid TEC setpoint; must be 0.0000–2.5000 V")
+                                                if (isNaN(val) || val < -5.0 || val > 5.0) {
+                                                    console.error("Invalid TEC setpoint; must be -5.0000–5.0000 V")
                                                     return
                                                 }
                                     
