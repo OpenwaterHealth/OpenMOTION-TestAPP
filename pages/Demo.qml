@@ -19,6 +19,7 @@ Rectangle {
     property int startOffset: 0
     property var fn: null
     property int rawValue: 0 
+    property bool powerConfigLoaded: false
     
     readonly property int dataSize: {
         if (fn && fn.data_size) {
@@ -244,6 +245,26 @@ Rectangle {
         } else {
             for (let i = 0; i < cameraModeModel.count; i++) {
                 filteredPatternModel.append(cameraModeModel.get(i))
+            }
+        }
+    }
+
+    // Ensure laser power config is loaded once when console connects.
+
+    Connections {
+        target: MOTIONInterface
+        onConsoleConnectedChanged: {
+            if (MOTIONInterface.consoleConnected) {
+                if (!powerConfigLoaded) {
+                    try {
+                        MOTIONInterface.setLaserPowerFromConfig();
+                        powerConfigLoaded = true;
+                    } catch (e) {
+                        console.error("setLaserPowerFromConfig failed:", e);
+                    }
+                }
+            } else {
+                powerConfigLoaded = false;
             }
         }
     }
@@ -2130,10 +2151,21 @@ Rectangle {
     // Run refresh logic immediately on page load if Sensor is already connected
     Component.onCompleted: {
         if (MOTIONInterface.leftSensorConnected) {
-        }   
+        }
         if (MOTIONInterface.consoleConnected) {
+            // start monitoring timer
             consoleUpdateTimer.start()
-        }    
+
+            // load laser power config once per connect
+            if (!powerConfigLoaded) {
+                try {
+                    MOTIONInterface.setLaserPowerFromConfig();
+                    powerConfigLoaded = true;
+                } catch (e) {
+                    console.error("setLaserPowerFromConfig failed:", e);
+                }
+            }
+        }
         updatePatternOptions()
     }
 

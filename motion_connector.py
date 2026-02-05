@@ -674,6 +674,44 @@ class MOTIONConnector(QObject):
         self._fw_download_thread.finished.connect(lambda: setattr(self, "_fw_download_thread", None))
         self._fw_download_thread.start()
 
+    @pyqtSlot(str, str)
+    def beginDeviceFirmwareFromLocal(self, target: str, local_path: str) -> None:
+        """Register a local firmware file for the specified target and emit download-ready.
+
+        The QML side will receive the same ready signal and show the confirm dialog.
+        """
+        logger.info(f"beginDeviceFirmwareFromLocal target={target} path={local_path}")
+        if target not in ("CONSOLE", "SENSOR_LEFT", "SENSOR_RIGHT"):
+            self.consoleFirmwareUpdateError.emit(target, "Invalid update target.")
+            return
+        try:
+            p = Path(local_path)
+            if not p.exists():
+                self.consoleFirmwareUpdateError.emit(target, "Selected file does not exist.")
+                return
+            fname = p.name
+            # Validate filename
+            if target == "CONSOLE":
+                if fname != "motion-console-fw.bin":
+                    self.consoleFirmwareUpdateError.emit(target, "Filename must be motion-console-fw.bin")
+                    return
+            else:
+                if fname != "motion-sensor-fw.bin":
+                    self.consoleFirmwareUpdateError.emit(target, "Filename must be motion-sensor-fw.bin")
+                    return
+
+            token = uuid.uuid4().hex
+            # store (dir_path, bin_path, do_cleanup=False, target)
+            self._fw_temp_files[token] = (str(p.parent), str(p.resolve()), False, target)
+            # Use tag 'local' to indicate uploaded file
+            tag = "local"
+            self._set_console_fw_busy(True)
+            # Emit ready so QML shows the confirm dialog
+            self.consoleFirmwareDownloadReady.emit(token, tag, fname, target)
+        except Exception as e:
+            logger.error(f"beginDeviceFirmwareFromLocal error: {e}")
+            self.consoleFirmwareUpdateError.emit(target, str(e))
+
     def _on_console_fw_download_ready(self, token: str, tag: str, filename: str, target: str) -> None:
         self.consoleFirmwareDownloadReady.emit(token, tag, filename, target)
 

@@ -1,6 +1,7 @@
 import QtQuick 6.0
 import QtQuick.Controls 6.0
 import QtQuick.Layouts 6.0
+import QtQuick.Dialogs 6.2
 import OpenMotion 1.0
 
 Rectangle {
@@ -48,6 +49,8 @@ Rectangle {
     property string consoleFwMessage: ""
     // Current firmware update target (CONSOLE, SENSOR_LEFT, SENSOR_RIGHT)
     property string fwUpdateTarget: "CONSOLE"
+    // Target used when opening the upload dialog
+    property string fwUploadTarget: "CONSOLE"
 
     // Modal dialog styling (firmware update)
     property int modalMaxWidth: 520
@@ -369,6 +372,49 @@ Rectangle {
                     }
                 }
             }
+        }
+    }
+
+    FileDialog {
+        id: fwUploadDialog
+        title: "Select firmware file"
+        nameFilters: ["Firmware binaries (*.bin)"]
+        onAccepted: {
+            var file = ""
+            // Try several possible properties depending on Qt version
+            if (typeof selectedFiles !== 'undefined' && selectedFiles && selectedFiles.length > 0) file = selectedFiles[0]
+            else if (typeof fileUrls !== 'undefined' && fileUrls && fileUrls.length > 0) file = fileUrls[0]
+            else if (typeof fileUrl !== 'undefined' && fileUrl) file = fileUrl
+            else if (typeof file !== 'undefined' && file) file = file
+            if (!file) return
+
+            // If it's a file:// URL, strip the scheme
+            if (file.indexOf("file://") === 0) {
+                // Remove file:// or file:/// prefix
+                file = file.replace(/^file:\/\//, "")
+                // On Windows paths may start with /C:/, remove leading slash
+                if (file.length > 0 && file[0] === '/' && file[2] === ':') file = file.substring(1)
+            }
+
+            // Normalize filename
+            var idx = file.lastIndexOf("/")
+            if (idx < 0) idx = file.lastIndexOf("\\\\")
+            var fname = idx >= 0 ? file.substring(idx + 1) : file
+
+            if (fwUploadTarget === "CONSOLE" && fname !== "motion-console-fw.bin") {
+                fwErrorDialog.message = "Filename must be motion-console-fw.bin"
+                fwErrorDialog.open()
+                return
+            }
+            if ((fwUploadTarget === "SENSOR_LEFT" || fwUploadTarget === "SENSOR_RIGHT") && fname !== "motion-sensor-fw.bin") {
+                fwErrorDialog.message = "Filename must be motion-sensor-fw.bin"
+                fwErrorDialog.open()
+                return
+            }
+
+            // Pass the local path to the connector (QML provides native path in selectedFiles/fileUrls)
+            MOTIONInterface.beginDeviceFirmwareFromLocal(fwUploadTarget, file)
+            fwProgressDialog.open()
         }
     }
 
@@ -871,7 +917,7 @@ Rectangle {
                                 Text { text: "Select Release:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
                                 ComboBox {
                                     id: consoleLatestCombo
-                                    model: consoleReleasesModel
+                                    model: consoleReleasesModel.concat(["Upload File..."])
                                     currentIndex: consoleLatestIndex
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 32
@@ -909,6 +955,11 @@ Rectangle {
                                         var tag = consoleLatestCombo.currentText
                                         if (!tag || tag === "")
                                             tag = consoleLatestFirmware
+                                        if (tag === "Upload File...") {
+                                            fwUploadTarget = "CONSOLE"
+                                            fwUploadDialog.open()
+                                            return
+                                        }
                                         consoleFwPercent = -1
                                         consoleFwMessage = ""
                                         consoleFwStageText = "Starting…"
@@ -1009,7 +1060,7 @@ Rectangle {
                                 Text { text: "Select Release:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
                                 ComboBox {
                                     id: leftLatestCombo
-                                    model: leftReleasesModel
+                                    model: leftReleasesModel.concat(["Upload File..."])
                                     currentIndex: leftLatestIndex
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 32
@@ -1044,6 +1095,11 @@ Rectangle {
                                         var tag = leftLatestCombo.currentText
                                         if (!tag || tag === "")
                                             tag = leftLatestFirmware
+                                        if (tag === "Upload File...") {
+                                            fwUploadTarget = "SENSOR_LEFT"
+                                            fwUploadDialog.open()
+                                            return
+                                        }
                                         consoleFwPercent = -1
                                         consoleFwMessage = ""
                                         consoleFwStageText = "Starting…"
@@ -1144,7 +1200,7 @@ Rectangle {
                                 Text { text: "Select Release:"; color: "#BDC3C7"; font.pixelSize: 14; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 120 }
                                 ComboBox {
                                     id: rightLatestCombo
-                                    model: rightReleasesModel
+                                    model: rightReleasesModel.concat(["Upload File..."])
                                     currentIndex: rightLatestIndex
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 32
@@ -1179,6 +1235,11 @@ Rectangle {
                                         var tag = rightLatestCombo.currentText
                                         if (!tag || tag === "")
                                             tag = rightLatestFirmware
+                                        if (tag === "Upload File...") {
+                                            fwUploadTarget = "SENSOR_RIGHT"
+                                            fwUploadDialog.open()
+                                            return
+                                        }
                                         consoleFwPercent = -1
                                         consoleFwMessage = ""
                                         consoleFwStageText = "Starting…"
