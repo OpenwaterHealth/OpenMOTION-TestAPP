@@ -253,7 +253,7 @@ Rectangle {
 
     Connections {
         target: MOTIONInterface
-        onConsoleConnectedChanged: {
+        function onConsoleConnectedChanged() {
             if (MOTIONInterface.consoleConnected) {
                 if (!powerConfigLoaded) {
                     try {
