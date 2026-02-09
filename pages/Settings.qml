@@ -388,8 +388,19 @@ Rectangle {
             else if (typeof file !== 'undefined' && file) file = file
             if (!file) return
 
+            // Ensure we have a string (selectedFiles/fileUrls may yield QUrl or other object)
+            if (file && typeof file !== 'string') {
+                if (typeof file.toLocalFile === 'function') {
+                    file = file.toLocalFile()
+                } else if (typeof file.toString === 'function') {
+                    file = file.toString()
+                } else {
+                    file = String(file)
+                }
+            }
+
             // If it's a file:// URL, strip the scheme
-            if (file.indexOf("file://") === 0) {
+            if (typeof file === 'string' && file.indexOf("file://") === 0) {
                 // Remove file:// or file:/// prefix
                 file = file.replace(/^file:\/\//, "")
                 // On Windows paths may start with /C:/, remove leading slash
@@ -413,8 +424,12 @@ Rectangle {
             }
 
             // Pass the local path to the connector (QML provides native path in selectedFiles/fileUrls)
+            // No download step for local files — beginDeviceFirmwareFromLocal emits
+            // consoleFirmwareDownloadReady synchronously, which opens fwConfirmDialog directly.
+            consoleFwPercent = -1
+            consoleFwMessage = ""
+            consoleFwStageText = ""
             MOTIONInterface.beginDeviceFirmwareFromLocal(fwUploadTarget, file)
-            fwProgressDialog.open()
         }
     }
 
