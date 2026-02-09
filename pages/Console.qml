@@ -1101,6 +1101,7 @@ Rectangle {
                                 anchors.top: parent.top
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.topMargin: 5
+                                visible: false
                             }
 
                             Column {
@@ -1110,6 +1111,7 @@ Rectangle {
                                 anchors.right: parent.right
                                 anchors.margins: 12
                                 spacing: 8
+                                visible: false
 
                                 RowLayout {
                                     spacing: 8
