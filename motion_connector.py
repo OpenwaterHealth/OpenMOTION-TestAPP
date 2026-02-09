@@ -3,6 +3,7 @@ from PyQt6.QtCore import (
     QVariant, QThread, QWaitCondition, QMutex, QMutexLocker,
     QRecursiveMutex,
 )
+from PyQt6.QtGui import QGuiApplication
 import sys
 import logging
 import base58
@@ -914,9 +915,12 @@ class MOTIONConnector(QObject):
         except Exception as e:
             sdk_ver = f"ERROR({e})"
 
-        # App version (from constant we defined at top)
+        # App version (from main application). Read from QGuiApplication property if available.
         try:
-            app_ver = "1.2.6" #TODO: need to read this from main
+            app = QGuiApplication.instance()
+            app_ver = app.property("appVersion") if app is not None else None
+            if app_ver is None:
+                app_ver = "unknown"
         except Exception as e:
             app_ver = f"ERROR({e})"
 

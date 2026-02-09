@@ -61,6 +61,9 @@ def main():
     connector = MOTIONConnector(log_level=log_level)
     qmlRegisterSingletonInstance("OpenMotion", 1, 0, "MOTIONInterface", connector)
     engine.rootContext().setContextProperty("appVersion", "1.2.19")
+    # Also expose app version on the QGuiApplication instance so Python
+    # modules (not just QML) can read it via QGuiApplication.instance().property()
+    app.setProperty("appVersion", "1.2.19")
 
     # Load the QML file
     engine.load(resource_path("main.qml"))
