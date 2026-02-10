@@ -97,8 +97,8 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openwater-dist
-          path: ${{ steps.meta.outputs.ARTIFACT }}
+          name: ${{ steps.meta.outputs.ARTIFACT }}
+          path: dist\
 
       # ── create release on tag push ──────────────────────────────
       - name: Create GitHub Release
