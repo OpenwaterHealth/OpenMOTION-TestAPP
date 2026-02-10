@@ -343,13 +343,13 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
         }
 
+        // Content Section (no outer box/border)
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: "#1E1E20"
-            radius: 10
-            border.color: "#3E4E6F"
-            border.width: 2
+            color: "transparent"
+            radius: 0
+            border.width: 0
 
             RowLayout {
                 anchors.fill: parent

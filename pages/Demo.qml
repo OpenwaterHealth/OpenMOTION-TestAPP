@@ -19,6 +19,7 @@ Rectangle {
     property int startOffset: 0
     property var fn: null
     property int rawValue: 0 
+    property bool powerConfigLoaded: false
     
     readonly property int dataSize: {
         if (fn && fn.data_size) {
@@ -244,6 +245,26 @@ Rectangle {
         } else {
             for (let i = 0; i < cameraModeModel.count; i++) {
                 filteredPatternModel.append(cameraModeModel.get(i))
+            }
+        }
+    }
+
+    // Ensure laser power config is loaded once when console connects.
+
+    Connections {
+        target: MOTIONInterface
+        function onConsoleConnectedChanged() {
+            if (MOTIONInterface.consoleConnected) {
+                if (!powerConfigLoaded) {
+                    try {
+                        MOTIONInterface.setLaserPowerFromConfig();
+                        powerConfigLoaded = true;
+                    } catch (e) {
+                        console.error("setLaserPowerFromConfig failed:", e);
+                    }
+                }
+            } else {
+                powerConfigLoaded = false;
             }
         }
     }
@@ -1290,10 +1311,10 @@ Rectangle {
                                             font.pixelSize: 12
                                             text: MOTIONInterface.tecDAC.toFixed(3)
 
-                                            // UI-level guard: only allow 0.0–2.5
+                                            // UI-level guard: only allow -5.00–5.00 volts
                                             validator: DoubleValidator {
-                                                bottom: 0.0
-                                                top: 2.5
+                                                bottom: -5.0
+                                                top: 5.0
                                                 decimals: 6
                                                 notation: DoubleValidator.StandardNotation
                                             }
@@ -1320,8 +1341,8 @@ Rectangle {
                                             enabled: MOTIONInterface.consoleConnected
                                             onTriggered: {
                                                 const val = parseFloat(tecSetpoint.text)
-                                                if (isNaN(val) || val < 0 || val > 2.5) {
-                                                    console.error("Invalid TEC setpoint; must be 0.0000–2.5000 V")
+                                                if (isNaN(val) || val < -5.0 || val > 5.0) {
+                                                    console.error("Invalid TEC setpoint; must be -5.0000–5.0000 V")
                                                     return
                                                 }
                                     
@@ -1914,7 +1935,28 @@ Rectangle {
                             font.pixelSize: 16
                             color: "#BDC3C7"
                             horizontalAlignment: Text.AlignRight
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                            wrapMode: Text.NoWrap
+                            maximumLineCount: 1
+                            clip: true
+
+                            // Keep this from expanding the status panel off-screen
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: statusPanel.width * 2 / 3
                             Layout.alignment: Qt.AlignRight
+
+                            MouseArea {
+                                id: maStatusText
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.NoButton
+                                cursorShape: Qt.IBeamCursor
+
+                                ToolTip.text: statusText.text
+                                ToolTip.visible: containsMouse
+                                ToolTip.delay: 300
+                            }
                         }
 
                         RowLayout {
@@ -2109,10 +2151,21 @@ Rectangle {
     // Run refresh logic immediately on page load if Sensor is already connected
     Component.onCompleted: {
         if (MOTIONInterface.leftSensorConnected) {
-        }   
+        }
         if (MOTIONInterface.consoleConnected) {
+            // start monitoring timer
             consoleUpdateTimer.start()
-        }    
+
+            // load laser power config once per connect
+            if (!powerConfigLoaded) {
+                try {
+                    MOTIONInterface.setLaserPowerFromConfig();
+                    powerConfigLoaded = true;
+                } catch (e) {
+                    console.error("setLaserPowerFromConfig failed:", e);
+                }
+            }
+        }
         updatePatternOptions()
     }
 
