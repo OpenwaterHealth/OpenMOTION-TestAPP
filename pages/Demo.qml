@@ -20,7 +20,19 @@ Rectangle {
     property var fn: null
     property int rawValue: 0 
     property bool powerConfigLoaded: false
+    property real pdcMin: NaN
+    property real pdcMax: NaN
     
+    // Track PDC min/max whenever the value changes
+    Connections {
+        target: MOTIONInterface
+        function onPdcChanged() {
+            var v = MOTIONInterface.pdc;
+            if (isNaN(page1.pdcMin) || v < page1.pdcMin) page1.pdcMin = v;
+            if (isNaN(page1.pdcMax) || v > page1.pdcMax) page1.pdcMax = v;
+        }
+    }
+
     readonly property int dataSize: {
         if (fn && fn.data_size) {
             const match = fn.data_size.match(/^(\d+)B$/);
@@ -1726,6 +1738,10 @@ Rectangle {
                                     radius: 4
                                 }
                                 onClicked: {
+                                    // Reset PDC min/max on new trigger start
+                                    page1.pdcMin = NaN;
+                                    page1.pdcMax = NaN;
+
                                     var json_trigger_data = {
                                         "TriggerFrequencyHz": parseInt(fsFrequency.text),
                                         "TriggerPulseWidthUsec": parseInt(fsPulseWidth.text),
@@ -1860,7 +1876,9 @@ Rectangle {
                             text: "PDC: " + MOTIONInterface.pdc.toFixed(3) + " mA"
                             font.pixelSize: 14
                             color: "#BDC3C7"
-                            ToolTip.text: "PDC (Power Draw Current) - Current power consumption"
+                            ToolTip.text: "PDC (Power Draw Current)\n" +
+                                          "Min: " + (isNaN(page1.pdcMin) ? "--" : page1.pdcMin.toFixed(3)) + " mA\n" +
+                                          "Max: " + (isNaN(page1.pdcMax) ? "--" : page1.pdcMax.toFixed(3)) + " mA"
                             ToolTip.visible: maPdc.containsMouse
                             ToolTip.delay: 500
                             
