@@ -854,6 +854,45 @@ class MOTIONConnector(QObject):
         motion_interface.signal_disconnect.connect(self.on_disconnected)
         motion_interface.signal_data_received.connect(self.on_data_received)
 
+    def _get_fpga_scale(self, label: str, name: str):
+        """Retrieve the scale factor for a given `label` and function `name` from models/FpgaModel.js.
+
+        Returns float scale on success or None on failure. Caches results on the instance.
+        """
+        key = (label, name)
+        if getattr(self, '_fpga_scale_cache', None) is None:
+            self._fpga_scale_cache = {}
+        if key in self._fpga_scale_cache:
+            return self._fpga_scale_cache[key]
+
+        try:
+            import re
+            model_path = os.path.join(os.path.dirname(__file__), 'models', 'FpgaModel.js')
+            with open(model_path, 'r', encoding='utf-8') as f:
+                txt = f.read()
+
+            # Find the label block first
+            label_re = re.compile(r'label\s*:\s*"' + re.escape(label) + r'"\s*,.*?functions\s*:\s*\[(.*?)\]', re.S)
+            m_label = label_re.search(txt)
+            if not m_label:
+                return None
+
+            functions_block = m_label.group(1)
+
+            # Find the function entry with the given name and extract scale
+            fn_re = re.compile(r'\{[^}]*name\s*:\s*"' + re.escape(name) + r'"[^}]*scale\s*:\s*([0-9]+(?:\.[0-9]+)?)', re.S)
+            m_fn = fn_re.search(functions_block)
+            if not m_fn:
+                return None
+
+            scale = float(m_fn.group(1))
+            self._fpga_scale_cache[key] = scale
+            return scale
+
+        except Exception as e:
+            logging.debug(f"Failed to read FPGA model scale for {label}/{name}: {e}")
+            return None
+
     def _get_sensor_mutex(self, sensor_tag: str) -> QRecursiveMutex:
         """Get the appropriate mutex for the given sensor."""
         if sensor_tag == "SENSOR_LEFT":
@@ -2545,12 +2584,31 @@ class ConsoleStatusThread(QThread):
                     tcl_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 4, i2cAddr, 0x10, 4)
                     pdc_raw = self.connector.i2cReadBytes("CONSOLE", muxIdx, 7, i2cAddr, 0x1C, 2)
 
-                    logging.debug(f"tcm_raw: {tcm_raw} tcl_raw: {tcl_raw} pdc_raw: {pdc_raw}")
+                    # Represent raw byte arrays as hex for easier reading
+                    try:
+                        if isinstance(tcl_raw, (bytes, bytearray, list)):
+                            tcl_hex = ' '.join(f"0x{int(b):02X}" for b in tcl_raw)
+                        else:
+                            tcl_hex = str(tcl_raw)
+
+                        if isinstance(pdc_raw, (bytes, bytearray, list)):
+                            pdc_hex = ' '.join(f"0x{int(b):02X}" for b in pdc_raw)
+                        else:
+                            pdc_hex = str(pdc_raw)
+                    except Exception:
+                        tcl_hex = str(tcl_raw)
+                        pdc_hex = str(pdc_raw)
+
+                    logging.debug(f"tcm_raw: {tcm_raw} tcl_raw: [{tcl_hex}] pdc_raw: [{pdc_hex}]")
 
                     if tcl_raw and pdc_raw:
                         tcm = int(tcm_raw)
                         tcl = int.from_bytes(tcl_raw, byteorder='little')
-                        pdc = int.from_bytes(pdc_raw, byteorder='little') * 1.9  # mA
+
+                        # Attempt to read the ADC DATA scale from models/FpgaModel.js
+                        scale = self.connector._get_fpga_scale('Safety OPT', 'ADC DATA')
+
+                        pdc = int.from_bytes(pdc_raw, byteorder='little') * float(scale)  # mA
 
                         if (
                             tcl != self.connector._tcl or
