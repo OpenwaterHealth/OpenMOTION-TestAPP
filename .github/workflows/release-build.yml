@@ -100,6 +100,34 @@ jobs:
           name: ${{ steps.meta.outputs.ARTIFACT }}
           path: dist\
 
+      # ── build release notes ───────────────────────────────────────
+      - name: Build release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        id: notes
+        shell: bash
+        run: |
+          : > notes.md
+
+          if [[ "${{ steps.meta.outputs.PRERELEASE }}" == "true" ]]; then
+            echo "⚠️ **PRE-RELEASE – NOT FOR PRODUCTION**" >> notes.md
+            echo "" >> notes.md
+          fi
+
+          # Commits since previous tag (bullet list)
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            echo "### Changes since ${PREV_TAG}" >> notes.md
+            echo "" >> notes.md
+            git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" >> notes.md
+            echo "" >> notes.md
+            echo "" >> notes.md
+            echo "**Full diff:** [\`${PREV_TAG}...${{ steps.meta.outputs.TAG }}\`](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ steps.meta.outputs.TAG }})" >> notes.md
+          else
+            echo "### Commits" >> notes.md
+            echo "" >> notes.md
+            git log --pretty=format:"- %s (%h)" -20 >> notes.md
+          fi
+
       # ── create release on tag push ──────────────────────────────
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -107,7 +135,7 @@ jobs:
         with:
           tag_name: ${{ steps.meta.outputs.TAG }}
           name: ${{ steps.meta.outputs.TAG }}
-          generate_release_notes: true
+          body_path: notes.md
           prerelease: ${{ steps.meta.outputs.PRERELEASE == 'true' }}
           files: ${{ steps.meta.outputs.ARTIFACT }}
         env:
