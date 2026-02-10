@@ -28,7 +28,7 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
-          python-version: "3.11"
+          python-version: "3.12"
           activate-environment: omotion
 
       - name: Install dependencies into omotion
