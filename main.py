@@ -10,9 +10,12 @@ from qasync import QEventLoop
 
 from motion_connector import MOTIONConnector
 from pathlib import Path
+from version import get_version
 
 # set PYTHONPATH=%cd%\..\OpenMOTION-PyLib;%PYTHONPATH%
 # python main.py
+
+APP_VERSION = get_version()
 
 logger = logging.getLogger(__name__) 
 
@@ -60,10 +63,10 @@ def main():
     log_level = logging.DEBUG if args.debug else logging.INFO
     connector = MOTIONConnector(log_level=log_level)
     qmlRegisterSingletonInstance("OpenMotion", 1, 0, "MOTIONInterface", connector)
-    engine.rootContext().setContextProperty("appVersion", "1.2.19")
+    engine.rootContext().setContextProperty("appVersion", APP_VERSION)
     # Also expose app version on the QGuiApplication instance so Python
     # modules (not just QML) can read it via QGuiApplication.instance().property()
-    app.setProperty("appVersion", "1.2.19")
+    app.setProperty("appVersion", APP_VERSION)
 
     # Load the QML file
     engine.load(resource_path("main.qml"))
