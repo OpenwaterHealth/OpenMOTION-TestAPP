@@ -1873,15 +1873,15 @@ Rectangle {
                             }
                         }
                         Text {
-                            text: "PDC: " + MOTIONInterface.pdc.toFixed(3) + " mA"
+                            text: "PDC: " + (isNaN(MOTIONInterface.pdc) ? "--" : Math.round(MOTIONInterface.pdc)) + " mA"
                             font.pixelSize: 14
                             color: "#BDC3C7"
                             ToolTip.text: "PDC (Power Draw Current)\n" +
-                                          "Min: " + (isNaN(page1.pdcMin) ? "--" : page1.pdcMin.toFixed(3)) + " mA\n" +
-                                          "Max: " + (isNaN(page1.pdcMax) ? "--" : page1.pdcMax.toFixed(3)) + " mA"
+                                          "Min: " + (isNaN(page1.pdcMin) ? "--" : (Math.round(page1.pdcMin) + " mA (" + ("0x" + Math.round(page1.pdcMin).toString(16).toUpperCase()) + ")")) + "\n" +
+                                          "Max: " + (isNaN(page1.pdcMax) ? "--" : (Math.round(page1.pdcMax) + " mA (" + ("0x" + Math.round(page1.pdcMax).toString(16).toUpperCase()) + ")"))
                             ToolTip.visible: maPdc.containsMouse
                             ToolTip.delay: 500
-                            
+
                             MouseArea {
                                 id: maPdc
                                 anchors.fill: parent
