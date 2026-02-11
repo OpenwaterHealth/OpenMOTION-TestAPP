@@ -7,7 +7,6 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
       - "pre-[0-9]+.[0-9]+.[0-9]+"
-
 permissions:
   contents: write
 
@@ -62,6 +61,20 @@ jobs:
           pip install -r requirements.txt
 
       # ── build ────────────────────────────────────────────────────
+      - name: Stamp version from git tag
+        shell: bash -el {0}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            # Strip leading 'v' only; keep 'pre-' for pre-release versions
+            VER="${TAG#v}"
+          else
+            VER=$(git describe --tags --dirty --always --long 2>/dev/null || echo "dev-${GITHUB_SHA::8}")
+          fi
+          echo "Stamping version: $VER"
+          # Update _FALLBACK_VERSION in version.py so the frozen exe uses it
+          sed -i "s/^_FALLBACK_VERSION = .*/_FALLBACK_VERSION = \"${VER}\"/" version.py
+
       - name: Build with PyInstaller
         shell: bash -el {0}
         run: |
@@ -76,10 +89,11 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
           else
-            TAG=$(git describe --tags --always 2>/dev/null || echo "dev-${GITHUB_SHA::8}")
+            TAG=$(git describe --tags --dirty --always 2>/dev/null || echo "dev-${GITHUB_SHA::8}")
           fi
           echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "ARTIFACT=OpenMOTION-TestApp-${TAG}.zip" >> "$GITHUB_OUTPUT"
+          echo "ARTIFACT_NAME=OpenMotion-TestApp-${TAG}" >> "$GITHUB_OUTPUT"
+          echo "ARTIFACT_ZIP=OpenMotion-TestApp-${TAG}.zip" >> "$GITHUB_OUTPUT"
 
           # pre-release flag
           if [[ "$TAG" == pre-* ]]; then
@@ -88,17 +102,19 @@ jobs:
             echo "PRERELEASE=false" >> "$GITHUB_OUTPUT"
           fi
 
+          echo "::notice ::Version tag resolved to: ${TAG}"
+
       - name: Zip build output
         shell: pwsh
         run: |
-          Compress-Archive -Path dist\* -DestinationPath "${{ steps.meta.outputs.ARTIFACT }}"
+          Compress-Archive -Path dist\* -DestinationPath "${{ steps.meta.outputs.ARTIFACT_ZIP }}"
 
       # ── always upload workflow artifact ──────────────────────────
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.meta.outputs.ARTIFACT }}
-          path: dist\
+          name: ${{ steps.meta.outputs.ARTIFACT_NAME }}
+          path: ${{ steps.meta.outputs.ARTIFACT_ZIP }}
 
       # ── build release notes ───────────────────────────────────────
       - name: Build release notes
@@ -137,6 +153,6 @@ jobs:
           name: ${{ steps.meta.outputs.TAG }}
           body_path: notes.md
           prerelease: ${{ steps.meta.outputs.PRERELEASE == 'true' }}
-          files: ${{ steps.meta.outputs.ARTIFACT }}
+          files: ${{ steps.meta.outputs.ARTIFACT_ZIP }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
