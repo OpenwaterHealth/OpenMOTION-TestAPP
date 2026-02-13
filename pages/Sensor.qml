@@ -203,11 +203,15 @@ Rectangle {
             }
         }
 
-        function onHistogramCaptureCompleted(cameraIndex, weightedMean, std_dev, is_normal) {
-            // Update camera status to show "Average: xxx" with classification indicator
-            let statusColor = is_normal ? "green" : "red"
+        function onHistogramCaptureCompleted(cameraIndex, weightedMean, std_dev, result) {
+            // result: "PASS" | "FAIL" | "LOW_LIGHT"
+            let statusColor = "green"
+            if (result === "FAIL") statusColor = "red"
+            else if (result === "LOW_LIGHT") statusColor = "grey"
             let statusText = "μ: " + weightedMean.toFixed(1) + " 𝜎: " + std_dev.toFixed(1)
-            if (!is_normal) {
+            if (result === "LOW_LIGHT") {
+                statusText += " Low Light"
+            } else if (result === "FAIL") {
                 statusText += " ⚠"
             }
             cameraStatusModel.set(cameraIndex, {

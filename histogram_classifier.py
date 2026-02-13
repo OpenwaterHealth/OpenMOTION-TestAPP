@@ -13,6 +13,7 @@ import numpy as np
 # Thresholds for classification
 kurtosis_threshold = 1
 skewness_threshold = 0.2
+LOW_LIGHT_MEAN_THRESHOLD = 75  # Light histogram with mean below this is "Low Light" (do not save)
 
 
 def find_peaks_simple(signal, height=None, distance=None, prominence=None):
@@ -83,6 +84,25 @@ def find_peaks_simple(signal, height=None, distance=None, prominence=None):
     
     properties = {'peak_heights': signal[peaks] if len(peaks) > 0 else np.array([])}
     return peaks, properties
+
+
+def histogram_weighted_mean(histogram_values):
+    """
+    Compute the weighted mean (first moment) of the histogram.
+    Uses bin index as value and histogram count as weight.
+
+    Args:
+        histogram_values (array): Histogram bin counts (length 1024)
+
+    Returns:
+        float: Weighted mean bin index, or 0.0 if empty.
+    """
+    histogram_values = np.asarray(histogram_values)
+    total = np.sum(histogram_values)
+    if total == 0:
+        return 0.0
+    bins = np.arange(len(histogram_values), dtype=float)
+    return float(np.sum(bins * histogram_values) / total)
 
 
 def calculate_skewness(histogram_values):
@@ -289,4 +309,32 @@ def check_non_normal(histogram_values):
     is_non_normal = len(reasons) > 0
     print(f"is_non_normal: {is_non_normal}, num_peaks: {num_peaks}, peak_positions: {peak_positions}, reasons: {reasons}, skewness: {skewness}, kurtosis: {kurtosis}")
     return is_non_normal, num_peaks, peak_positions, reasons, skewness, kurtosis
+
+
+def classify_histogram(histogram_values, is_light_histogram: bool):
+    """
+    Classify a histogram for pass/fail or low-light.
+
+    For light histograms (illuminated case): if weighted mean < LOW_LIGHT_MEAN_THRESHOLD,
+    returns "LOW_LIGHT" — caller should show "Low Light" in grey and not save.
+
+    Otherwise runs check_non_normal(); returns "PASS" if normal, "FAIL" if non-normal.
+
+    Args:
+        histogram_values (array): Histogram bin counts (e.g. length 1024)
+        is_light_histogram (bool): True if this is an illuminated (light) capture
+
+    Returns:
+        str: "PASS", "FAIL", or "LOW_LIGHT"
+    """
+    if not is_light_histogram:
+        is_non_normal, _, _, _, _, _ = check_non_normal(histogram_values)
+        return "FAIL" if is_non_normal else "PASS"
+
+    mean = histogram_weighted_mean(histogram_values)
+    if mean < LOW_LIGHT_MEAN_THRESHOLD:
+        return "LOW_LIGHT"
+
+    is_non_normal, _, _, _, _, _ = check_non_normal(histogram_values)
+    return "FAIL" if is_non_normal else "PASS"
 
