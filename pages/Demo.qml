@@ -1199,7 +1199,7 @@ Rectangle {
                                             anchors.margins: 8
                                             spacing: 2
 
-                                            Text { text: "Setpoint (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text { text: "Setpoint (°C)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
                                                 text: Number(MOTIONInterface.tecTemp || 0).toFixed(3)
@@ -1222,7 +1222,7 @@ Rectangle {
                                             anchors.margins: 8
                                             spacing: 2
 
-                                            Text { text: "Current (V)"; color: "#BDC3C7"; font.pixelSize: 11 }
+                                            Text { text: "Current (I)"; color: "#BDC3C7"; font.pixelSize: 11 }
                                             Text {
                                                 // Bind to your live value:
                                                 text: Number(MOTIONInterface.tecMonC || 0).toFixed(3)
@@ -1284,7 +1284,7 @@ Rectangle {
 
                                 // Left label (col 0)
                                 Text {
-                                    text: "TEC Temperature:"
+                                    text: "TEC Temperature:\nEVT2_25C ≈ +1.16V\nDVT1a_25C ≈ -0.07"
                                     color: "white"
                                     Layout.row: 1
                                     Layout.column: 0
@@ -1303,7 +1303,7 @@ Rectangle {
 
                                     // Small caption above the inputs (optional)
                                     Text {
-                                        text: "Setpoint (v)"
+                                        text: "DAC Setpoint (V)"
                                         color: "#BDC3C7"
                                         font.pixelSize: 12
                                     }
@@ -1323,10 +1323,10 @@ Rectangle {
                                             font.pixelSize: 12
                                             text: MOTIONInterface.tecDAC.toFixed(3)
 
-                                            // UI-level guard: only allow -5.00–5.00 volts
+                                            // UI-level guard: only allow -2.50–2.50 volts
                                             validator: DoubleValidator {
-                                                bottom: -5.0
-                                                top: 5.0
+                                                bottom: -2.5
+                                                top: 2.5
                                                 decimals: 6
                                                 notation: DoubleValidator.StandardNotation
                                             }
@@ -1353,8 +1353,8 @@ Rectangle {
                                             enabled: MOTIONInterface.consoleConnected
                                             onTriggered: {
                                                 const val = parseFloat(tecSetpoint.text)
-                                                if (isNaN(val) || val < -5.0 || val > 5.0) {
-                                                    console.error("Invalid TEC setpoint; must be -5.0000–5.0000 V")
+                                                if (isNaN(val) || val < -2.5 || val > 2.5) {
+                                                    console.error("Invalid TEC setpoint; must be -2.5000–2.5000 V")
                                                     return
                                                 }
                                     
