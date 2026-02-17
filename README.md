@@ -19,8 +19,8 @@ Python example UI for OPEN Motion used for Hardware Testing and Basic Usage
 
 2. **Clone the repository and Install Required Packages**:
    ```bash
-   git clone https://github.com/OpenwaterHealth/OpenMOTION-TestAPP.git
-   cd OpenMOTION-TestAPP
+   git clone https://github.com/OpenwaterHealth/openmotion-test-app.git
+   cd openmotion-test-app
    pip install -r requirements.txt
    ```
 
@@ -35,7 +35,7 @@ Python example UI for OPEN Motion used for Hardware Testing and Basic Usage
    requires OpenMOTION-Pylib to be installed or referenced prior to running main.py
 
    ```bash
-   cd OpenMOTION-TestAPP
+   cd optionmotion-test-app
    python main.py
    ```
 
