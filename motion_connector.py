@@ -19,7 +19,7 @@ from pathlib import Path
 
 from utils.resource_path import resource_path
 from motion_singleton import motion_interface  
-from histogram_classifier import check_non_normal
+from histogram_classifier import classify_histogram
 
 try:
     from omotion.DFUProgrammer import DFUProgrammer, DFUProgress
@@ -488,7 +488,7 @@ class MOTIONConnector(QObject):
     gyroscopeSensorUpdated = pyqtSignal(int, int, int)  # (imu_accel)
 
     cameraConfigUpdated = pyqtSignal(int, bool)  # camera_mask, passed=True/False
-    histogramCaptureCompleted = pyqtSignal(int, float, float, bool)  # (camera_index, weighted_mean, std_dev, is_normal)
+    histogramCaptureCompleted = pyqtSignal(int, float, float, str)  # (camera_index, weighted_mean, std_dev, result: "PASS"|"FAIL"|"LOW_LIGHT")
     cameraPowerStatusUpdated = pyqtSignal(list)  # (power_status_list)
     csvOutputDirectoryChanged = pyqtSignal(str)  # (directory_path)
 
@@ -1265,28 +1265,28 @@ class MOTIONConnector(QObject):
                     print(f"Weighted mean of histogram: {weighted_mean:.2f}")
                     print(f"Standard deviation of histogram: {std_dev:.2f}")
                     
-                    # Classify histogram if it's a light histogram (not dark)
-                    is_normal = True  # Default to normal for dark histograms or on error
+                    # Classify histogram (light: PASS/FAIL/LOW_LIGHT; dark: PASS only, not saved as "result")
+                    result = "PASS"  # Default for dark or on error
                     if not is_dark:
                         try:
                             histogram_bins = bins[:1024]
-                            # Check if histogram is valid
                             if histogram_bins and len(histogram_bins) == 1024:
-                                is_non_normal, num_peaks, peak_positions, reasons, skewness, kurtosis = check_non_normal(histogram_bins)
-                                is_normal = not is_non_normal
-                                if is_non_normal:
-                                    logger.info(f"Histogram classified as non-normal for camera {camera_index + 1}: {', '.join(reasons)}")
+                                result = classify_histogram(histogram_bins, is_light_histogram=True)
+                                if result == "LOW_LIGHT":
+                                    logger.warning(f"Light histogram mean {weighted_mean:.1f} < 75 for camera {camera_index + 1}: Low Light — not saving.")
+                                elif result == "FAIL":
+                                    logger.info(f"Histogram classified as non-normal for camera {camera_index + 1}")
                                 else:
                                     logger.debug(f"Histogram classified as normal for camera {camera_index + 1}")
                         except Exception as e:
                             logger.error(f"Error classifying histogram: {e}")
-                            is_normal = True  # Default to normal on error
-                    
-                    self._save_histogram_csv(bins, filename, temperature,camera_index)
-                    logger.info(f"Saved {capture_type} to {filename}")
-                    
+                            result = "PASS"
+
+                    if result != "LOW_LIGHT":
+                        self._save_histogram_csv(bins, filename, temperature, camera_index)
+                        logger.info(f"Saved {capture_type} to {filename}")
                     # Emit signal with weighted mean and classification result for async UI update
-                    self.histogramCaptureCompleted.emit(camera_index, weighted_mean, std_dev, is_normal)
+                    self.histogramCaptureCompleted.emit(camera_index, weighted_mean, std_dev, result)
                 else:
                     logger.error(f"Failed to get {capture_type} for camera {camera_index+1}")
                     
