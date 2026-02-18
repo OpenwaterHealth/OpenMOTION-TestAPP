@@ -1878,6 +1878,7 @@ Rectangle {
                             color: "#BDC3C7"
                             ToolTip.text: "PDC (Power Draw Current)\n" +
                                           "Min: " + (isNaN(page1.pdcMin) ? "--" : (Math.round(page1.pdcMin) + " mA (" + ("0x" + Math.round(page1.pdcMin).toString(16).toUpperCase()) + ")")) + "\n" +
+                                          "Cur: " + (isNaN(MOTIONInterface.pdc) ? "--" : (Math.round(MOTIONInterface.pdc) + " mA (" + ("0x" + Math.round(MOTIONInterface.pdc).toString(16).toUpperCase()) + ")")) + "\n" +
                                           "Max: " + (isNaN(page1.pdcMax) ? "--" : (Math.round(page1.pdcMax) + " mA (" + ("0x" + Math.round(page1.pdcMax).toString(16).toUpperCase()) + ")"))
                             ToolTip.visible: maPdc.containsMouse
                             ToolTip.delay: 500
